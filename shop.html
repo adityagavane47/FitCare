@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FITCARE - Store</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            touch-action: pan-y;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        /* Mobile Container - Main Wrapper */
+        .mobile-container {
+            width: 100%;
+            max-width: 428px;
+            height: 100vh;
+            max-height: 926px;
+            background-color: #000;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #333;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0, 255, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Side Navigation - Contained within mobile container */
+        .side-nav {
+            position: absolute;
+            top: 0;
+            left: -280px;
+            width: 280px;
+            height: 100%;
+            background: #000;
+            border-right: 1px solid #00ff00;
+            z-index: 1000;
+            transition: left 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
+            box-shadow: 5px 0 30px rgba(0, 255, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            border-radius: 24px 0 0 24px;
+            overflow: hidden;
+        }
+
+        .side-nav.open {
+            left: 0;
+        }
+
+        .nav-header {
+            padding: 20px 16px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-header h2 {
+            color: #00ff00;
+            font-size: 1.4em;
+            font-weight: 700;
+        }
+
+        .close-nav {
+            background: rgba(0, 255, 0, 0.1);
+            border: none;
+            color: #00ff00;
+            font-size: 1.3em;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .nav-profile {
+            padding: 20px 16px;
+            border-bottom: 1px solid #333;
+        }
+
+        .profile-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .profile-pic {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00ff00, #00cc00);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .profile-text h3 {
+            color: #fff;
+            font-size: 1.1em;
+            margin-bottom: 2px;
+        }
+
+        .profile-text p {
+            color: #888;
+            font-size: 0.85em;
+        }
+
+        .nav-menu {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .nav-item-side {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            color: #ddd;
+            text-decoration: none;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item-side.active {
+            background: rgba(0, 255, 0, 0.08);
+            color: #00ff00;
+            border-left-color: #00ff00;
+        }
+
+        .nav-item-side:active {
+            background: rgba(0, 255, 0, 0.15);
+            transform: scale(0.98);
+        }
+
+        .nav-icon-side {
+            font-size: 1.2em;
+            width: 24px;
+        }
+
+        .nav-label {
+            font-size: 0.95em;
+        }
+
+        .nav-footer {
+            padding: 20px 16px;
+            border-top: 1px solid #333;
+        }
+
+        .logout-btn {
+            width: 100%;
+            padding: 14px;
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            border-radius: 12px;
+            color: #ff4444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 0.95em;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .logout-btn:active {
+            background: rgba(255, 0, 0, 0.2);
+            transform: scale(0.98);
+        }
+
+        /* Overlay - Contained within mobile container */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s ease;
+            backdrop-filter: blur(3px);
+            border-radius: 24px;
+        }
+
+        .overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Status Bar - Fixed within container */
+        .status-bar {
+            padding: 12px 16px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85em;
+            color: #00ff00;
+            background: #000;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .menu-toggle {
+            background: rgba(0, 255, 0, 0.1);
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            color: #00ff00;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .menu-toggle:active {
+            background: rgba(0, 255, 0, 0.2);
+            transform: scale(0.95);
+        }
+
+        .time {
+            font-weight: 600;
+            font-size: 1em;
+        }
+
+        .status-icons {
+            display: flex;
+            gap: 8px;
+            font-size: 1em;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            padding: 16px;
+            background: #000;
+            flex-shrink: 0;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: #00ff00;
+            font-size: 1.5em;
+            cursor: pointer;
+            padding: 0;
+            transition: transform 0.2s;
+        }
+
+        .back-btn:active {
+            transform: scale(0.9);
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            margin: 0;
+        }
+
+        .header .fit {
+            color: #00ff00;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 0.9em;
+            margin-left: 38px;
+        }
+
+        /* Content */
+        .content {
+            padding: 0 16px 16px;
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Section Headers */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: #00ff00;
+        }
+
+        .section-header h2 {
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .section-icon {
+            font-size: 1.3em;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        /* Product Grid */
+        .products {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .products.single-column {
+            grid-template-columns: 1fr;
+        }
+
+        /* Product Cards */
+        .card {
+            background: linear-gradient(135deg, #0d0d0d, #1a1a1a);
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            border-radius: 12px;
+            padding: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .card:active {
+            transform: scale(0.97);
+            border-color: #00ff00;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
+        }
+
+        .card-image {
+            width: 100%;
+            height: 140px;
+            object-fit: cover;
+            border-radius: 8px;
+            background-color: #000;
+            margin-bottom: 10px;
+        }
+
+        .card h3 {
+            color: #00ff00;
+            font-size: 0.95em;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .buy-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #00ff00;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .buy-btn:active {
+            transform: scale(0.95);
+            background-color: #00cc00;
+        }
+
+        /* Special Featured Card */
+        .featured-card {
+            grid-column: span 2;
+            background: linear-gradient(135deg, rgba(0, 255, 0, 0.15), rgba(0, 255, 0, 0.05));
+            border: 2px solid #00ff00;
+            box-shadow: 0 0 25px rgba(0, 255, 0, 0.25);
+        }
+
+        .featured-card .card-image {
+            height: 180px;
+        }
+
+        .featured-badge {
+            display: inline-block;
+            background-color: #00ff00;
+            color: #000;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        /* Bottom Navigation - Fixed within container */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            max-width: 428px;
+            margin: 0 auto;
+            background: #0a0a0a;
+            border-top: 1px solid rgba(0, 255, 0, 0.2);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            z-index: 100;
+            flex-shrink: 0;
+            border-radius: 0 0 24px 24px;
+        }
+
+        .nav-link {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: #666;
+            font-size: 0.7em;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            min-width: 60px;
+        }
+
+        .nav-link.active {
+            color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .nav-link:active {
+            transform: scale(0.9);
+        }
+
+        .nav-icon {
+            font-size: 1.4em;
+            margin-bottom: 4px;
+        }
+
+        .nav-label {
+            font-size: 0.7em;
+        }
+
+        /* Swipe indicator */
+        .swipe-indicator {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            width: 4px;
+            height: 40px;
+            background: rgba(0, 255, 0, 0.5);
+            border-radius: 2px;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 1001;
+        }
+
+        .swipe-indicator.visible {
+            opacity: 1;
+        }
+
+        /* Safe area support */
+        .status-bar {
+            padding-top: calc(12px + env(safe-area-inset-top, 0px));
+        }
+
+        .bottom-nav {
+            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        }
+
+        /* Loading overlay */
+        #loadingOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            border-radius: 24px;
+        }
+
+        #loadingOverlay .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #333;
+            border-top-color: #00ff00;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        #loadingOverlay .loading-text {
+            color: #00ff00;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Hide scrollbar but keep functionality */
+        .nav-menu::-webkit-scrollbar,
+        .content::-webkit-scrollbar,
+        .main-content::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .nav-menu::-webkit-scrollbar-track,
+        .content::-webkit-scrollbar-track,
+        .main-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .nav-menu::-webkit-scrollbar-thumb,
+        .content::-webkit-scrollbar-thumb,
+        .main-content::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 3px;
+        }
+
+        /* Loading Animation for images */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .loading {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 428px) {
+            .mobile-container {
+                border-radius: 0;
+                border: none;
+                max-width: 100%;
+                max-height: 100%;
+            }
+            
+            .side-nav {
+                border-radius: 0 0 0 0;
+            }
+            
+            .overlay {
+                border-radius: 0;
+            }
+            
+            .bottom-nav {
+                border-radius: 0;
+            }
+        }
+
+        @media (max-height: 926px) {
+            .mobile-container {
+                max-height: 100vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Mobile Container -->
+    <div class="mobile-container" id="mobileContainer">
+        <!-- Side Navigation -->
+        <div class="side-nav" id="sideNav">
+            <div class="nav-header">
+                <h2>FITCARE</h2>
+                <button class="close-nav" id="closeNav">✕</button>
+            </div>
+
+            <div class="nav-profile">
+                <div class="profile-info">
+                    <div class="profile-pic" id="profileInitial">U</div>
+                    <div class="profile-text">
+                        <h3 id="sidebarUserName">User</h3>
+                        <p id="sidebarUserEmail">user@example.com</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar Navigation -->
+            <div class="nav-menu">
+                <a href="home.html" class="nav-item-side">
+                    <span class="nav-icon-side">🏠</span>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+                <a href="progress.html" class="nav-item-side">
+                    <span class="nav-icon-side">📊</span>
+                    <span class="nav-label">Analytics</span>
+                </a>
+                <a href="meals.html" class="nav-item-side">
+                    <span class="nav-icon-side">🍽️</span>
+                    <span class="nav-label">Meal Plans</span>
+                </a>
+                <a href="workouts.html" class="nav-item-side">
+                    <span class="nav-icon-side">💪</span>
+                    <span class="nav-label">Workouts</span>
+                </a>
+                <a href="weight.html" class="nav-item-side">
+                    <span class="nav-icon-side">🏋</span>
+                    <span class="nav-label">Gym Training</span>
+                </a>
+                <a href="goals.html" class="nav-item-side">
+                    <span class="nav-icon-side">🎯</span>
+                    <span class="nav-label">Goals</span>
+                </a>
+                <a href="progress.html" class="nav-item-side">
+                    <span class="nav-icon-side">📈</span>
+                    <span class="nav-label">Progress</span>
+                </a>
+                <a href="shop.html" class="nav-item-side active">
+                    <span class="nav-icon-side">🛒</span>
+                    <span class="nav-label">Store</span>
+                </a>
+               
+            </div>
+
+            <div class="nav-footer">
+                <button class="logout-btn" onclick="logout()">
+                    <span>🚪</span>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Overlay -->
+        <div class="overlay" id="overlay"></div>
+
+        <!-- Swipe Indicator -->
+        <div class="swipe-indicator" id="swipeIndicator"></div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay">
+            <div class="spinner"></div>
+            <div class="loading-text">Loading...</div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <button class="menu-toggle" id="menuToggle">☰</button>
+                <div class="time" id="currentTime">9:41</div>
+                <div class="status-icons">
+                    <span>📶</span>
+                    <span>🔋</span>
+                </div>
+            </div>
+
+            <!-- Header -->
+            <div class="header">
+                <div class="header-top">
+                    <button class="back-btn" onclick="window.location.href='home.html'">←</button>
+                    <h1><span class="fit">FIT</span>CARE Store</h1>
+                </div>
+                <p>Best Exercise & Fitness Equipment</p>
+            </div>
+
+            <!-- Content -->
+            <div class="content">
+                <!-- Sports Shoes Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <span class="section-icon">👟</span>
+                        <h2>Sports Shoes</h2>
+                    </div>
+                    <div class="products">
+                        <div class="card featured-card">
+                            <span class="featured-badge">⭐ TRENDING</span>
+                            <img src="https://hips.hearstapps.com/hmg-prod/images/run-nike-running-shoes-646cdd1a19c41.jpg" class="card-image" alt="Running Shoes">
+                            <h3>Running Shoes</h3>
+                            <button class="buy-btn" onclick="window.open('https://www.amazon.in/s?k=running+shoes', '_blank')">
+                                🛒 Buy on Amazon
+                            </button>
+                        </div>
+
+                        <div class="card">
+                            <img src="https://cdn.runrepeat.com/storage/gallery/buying_guide_primary/39/39-best-workout-shoes-001-15275038-main.jpg" class="card-image" alt="Gym Training Shoes">
+                            <h3>Gym Training Shoes</h3>
+                            <button class="buy-btn" onclick="window.open('https://www.amazon.in/s?k=gym+training+shoes', '_blank')">
+                                🛒 Buy Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gym Equipment Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <span class="section-icon">🏋️</span>
+                        <h2>Gym Equipment</h2>
+                    </div>
+                    <div class="products">
+                        <div class="card">
+                            <img src="https://cdn.mos.cms.futurecdn.net/vtjuW4xGnwnRGPuwQ346x5-1200-80.jpg" class="card-image" alt="Treadmill">
+                            <h3>Treadmill</h3>
+                            <button class="buy-btn" onclick="window.open('https://www.amazon.in/s?k=treadmill', '_blank')">
+                                🛒 Buy Now
+                            </button>
+                        </div>
+
+                        <div class="card">
+                            <img src="https://tse3.mm.bing.net/th/id/OIP.9FutyftjogBeHeu4NosrEQAAAA" class="card-image" alt="Workout Bench">
+                            <h3>Workout Bench</h3>
+                            <button class="buy-btn" onclick="window.open('https://www.amazon.in/s?k=workout+bench', '_blank')">
+                                🛒 Buy Now
+                            </button>
+                        </div>
+
+                        <div class="card">
+                            <img src="https://tse3.mm.bing.net/th/id/OIP.k00Qp0ivU5ccIxDOn3XHYQHaEZ" class="card-image" alt="Dumbbells">
+                            <h3>Dumbbells</h3>
+                            <button class="buy-btn" onclick="window.open('https://www.amazon.in/s?k=dumbbell', '_blank')">
+                                🛒 Buy Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Yoga Equipment Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <span class="section-icon">🧘</span>
+                        <h2>Yoga Equipment</h2>
+                    </div>
+                    <div class="products">
+                        <div class="card">
+                            <img src="https://tse3.mm.bing.net/th/id/OIP.fWW8dHPCgwkBxMsbsWApaQHaFr" class="card-image" alt="Yoga Mat">
+                            <h3>Yoga Mat</h3>
+                            <button class="buy-btn" onclick="window.open('https://www.amazon.in/s?k=yoga+mat', '_blank')">
+                                🛒 Buy Now
+                            </button>
+                        </div>
+
+                        <div class="card">
+                            <img src="https://th.bing.com/th/id/OIP.7Yk6Ss3RvllVwUrv_fRDSwHaEK" class="card-image" alt="Resistance Bands">
+                            <h3>Resistance Bands</h3>
+                            <button class="buy-btn" onclick="window.open('https://www.amazon.in/s?k=resistance+bands', '_blank')">
+                                🛒 Buy Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fitness Accessories Section -->
+                <div class="section">
+                    <div class="section-header">
+                        <span class="section-icon">💪</span>
+                        <h2>Fitness Accessories</h2>
+                    </div>
+                    <div class="products">
+                        <div class="card">
+                            <img src="https://th.bing.com/th/id/OIP.ALgtc7r2kfAF-9-Fpw5OfgHaE8" class="card-image" alt="Skipping Rope">
+                            <h3>Skipping Rope</h3>
+                            <button class="buy-btn" onclick="window.open('https://www.amazon.in/s?k=skipping+rope', '_blank')">
+                                🛒 Buy Now
+                            </button>
+                        </div>
+
+                        <div class="card">
+                            <img src="https://tse4.mm.bing.net/th/id/OIP.9piJU0eOkRUIy1tvLgbKnQHaHa" class="card-image" alt="Hand Gripper">
+                            <h3>Hand Gripper</h3>
+                            <button class="buy-btn" onclick="window.open('https://www.amazon.in/s?k=hand+gripper', '_blank')">
+                                🛒 Buy Now
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="home.html" class="nav-link">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-label">Home</span>
+            </a>
+            <a href="progress.html" class="nav-link">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Progress</span>
+            </a>
+            <a href="meals.html" class="nav-link">
+                <span class="nav-icon">🍽️</span>
+                <span class="nav-label">Meals</span>
+            </a>
+            <a href="shop.html" class="nav-link active">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">Store</span>
+            </a>
+            <a href="profile.html" class="nav-link">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Profile</span>
+            </a>
+        </nav>
+    </div>
+
+    <script>
+        // Enhanced mobile fitness store
+        let touchStartX = 0;
+        let touchEndX = 0;
+        let sidebarOpen = false;
+        let lastTouchTime = 0;
+        
+        // User data
+        let userData = {
+            name: "User",
+            email: "user@example.com"
+        };
+        
+        // Mobile swipe gesture handling
+        function handleTouchStart(e) {
+            touchStartX = e.changedTouches[0].clientX;
+            lastTouchTime = Date.now();
+            
+            if (touchStartX < 50 && !sidebarOpen) {
+                showSwipeIndicator();
+            }
+        }
+        
+        function handleTouchMove(e) {
+            if (touchStartX < 30 && !sidebarOpen) {
+                e.preventDefault();
+            }
+        }
+        
+        function handleTouchEnd(e) {
+            touchEndX = e.changedTouches[0].clientX;
+            const swipeDistance = touchEndX - touchStartX;
+            
+            hideSwipeIndicator();
+            
+            // Check for edge swipe to open sidebar (only from container edge)
+            if (touchStartX < 50 && swipeDistance > 80) {
+                toggleSidebar();
+                simulateHaptic();
+                return;
+            }
+            
+            // Check for swipe to close sidebar
+            if (sidebarOpen && touchStartX - touchEndX > 80) {
+                closeSidebar();
+                simulateHaptic();
+                return;
+            }
+            
+            // Prevent rapid double taps
+            const currentTime = Date.now();
+            if (currentTime - lastTouchTime < 300) {
+                return;
+            }
+        }
+        
+        function showSwipeIndicator() {
+            const indicator = document.getElementById('swipeIndicator');
+            indicator.style.transform = 'translateY(-50%) scale(1.2)';
+            indicator.classList.add('visible');
+        }
+        
+        function hideSwipeIndicator() {
+            const indicator = document.getElementById('swipeIndicator');
+            indicator.style.transform = 'translateY(-50%) scale(1)';
+            indicator.classList.remove('visible');
+        }
+        
+        // Sidebar functions
+        function toggleSidebar() {
+            const sideNav = document.getElementById('sideNav');
+            const overlay = document.getElementById('overlay');
+            const mainContent = document.querySelector('.main-content');
+            
+            if (!sidebarOpen) {
+                sideNav.classList.add('open');
+                overlay.classList.add('active');
+                mainContent.style.overflow = 'hidden';
+                document.addEventListener('touchstart', handleOverlayTouch, { passive: true });
+            } else {
+                sideNav.classList.remove('open');
+                overlay.classList.remove('active');
+                mainContent.style.overflow = '';
+                document.removeEventListener('touchstart', handleOverlayTouch);
+            }
+            
+            sidebarOpen = !sidebarOpen;
+            simulateHaptic();
+        }
+        
+        function closeSidebar() {
+            const sideNav = document.getElementById('sideNav');
+            const overlay = document.getElementById('overlay');
+            const mainContent = document.querySelector('.main-content');
+            
+            sideNav.classList.remove('open');
+            overlay.classList.remove('active');
+            mainContent.style.overflow = '';
+            sidebarOpen = false;
+            
+            document.removeEventListener('touchstart', handleOverlayTouch);
+            simulateHaptic();
+        }
+        
+        function handleOverlayTouch(e) {
+            if (sidebarOpen && !e.target.closest('.side-nav')) {
+                closeSidebar();
+            }
+        }
+        
+        // Enhanced user data loading
+        function loadUserData() {
+            showLoading('Loading your data...');
+            
+            setTimeout(() => {
+                // Try to get data from onboarding (fitcareUserData)
+                const storedData = localStorage.getItem('fitcareUserData');
+                
+                if (storedData) {
+                    try {
+                        const data = JSON.parse(storedData);
+                        
+                        // Update userData with stored onboarding data
+                        Object.assign(userData, {
+                            name: data.name || extractNameFromEmail(data.email),
+                            email: data.email || "user@example.com"
+                        });
+                        
+                        console.log('✅ User data loaded from onboarding:', userData);
+                        
+                    } catch (error) {
+                        console.error('❌ Error parsing user data:', error);
+                        generateSampleData();
+                    }
+                } else {
+                    console.log('ℹ️ No onboarding data found. Using sample data.');
+                    generateSampleData();
+                }
+                
+                // Update UI with loaded data
+                updateUIWithUserData();
+                hideLoading();
+                
+            }, 800);
+        }
+        
+        function generateSampleData() {
+            // Check if we have any user data
+            const storedData = localStorage.getItem('fitcareUserData');
+            
+            if (storedData) {
+                try {
+                    const data = JSON.parse(storedData);
+                    userData.name = data.name || "User";
+                    userData.email = data.email || "user@example.com";
+                } catch (error) {
+                    // If parsing fails, use defaults
+                    setDefaultSampleData();
+                }
+            } else {
+                setDefaultSampleData();
+            }
+        }
+        
+        function setDefaultSampleData() {
+            // Generate realistic sample data for demo
+            userData.name = "Alex Johnson";
+            userData.email = "alex@example.com";
+        }
+        
+        function extractNameFromEmail(email) {
+            if (!email) return "User";
+            const emailParts = email.split('@')[0];
+            return emailParts.charAt(0).toUpperCase() + emailParts.slice(1);
+        }
+        
+        function simulateHaptic() {
+            // Simulate haptic feedback for mobile
+            if (navigator.vibrate) {
+                navigator.vibrate(10);
+            }
+        }
+        
+        function showLoading(message) {
+            const loader = document.getElementById('loadingOverlay');
+            if (loader) {
+                const text = loader.querySelector('.loading-text');
+                if (text) text.textContent = message || 'Loading...';
+                loader.style.display = 'flex';
+            }
+        }
+        
+        function hideLoading() {
+            const loader = document.getElementById('loadingOverlay');
+            if (loader) {
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 300);
+            }
+        }
+        
+        function updateUIWithUserData() {
+            // Update all UI elements with user data
+            
+            // Sidebar updates
+            document.getElementById('sidebarUserName').textContent = userData.name;
+            document.getElementById('sidebarUserEmail').textContent = userData.email;
+            document.getElementById('profileInitial').textContent = userData.name.charAt(0).toUpperCase();
+        }
+        
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                showLoading('Logging out...');
+                
+                setTimeout(() => {
+                    localStorage.removeItem('fitcareUserData');
+                    hideLoading();
+                    alert('Successfully logged out!');
+                    window.location.href = 'login3.html';
+                }, 1000);
+            }
+        }
+        
+        function updateTime() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('currentTime').textContent = `${hours}:${minutes}`;
+        }
+        
+        // Highlight active nav item
+        function highlightActiveNav() {
+            const currentPage = window.location.pathname.split('/').pop();
+            const navLinks = document.querySelectorAll('.bottom-nav a');
+            
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === currentPage) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            });
+        }
+        
+        // Highlight active sidebar item
+        function highlightActiveSidebarItem() {
+            const currentPage = window.location.pathname.split('/').pop();
+            const sidebarLinks = document.querySelectorAll('.nav-item-side');
+            
+            sidebarLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === currentPage) {
+                    link.classList.add('active');
+                    // Remove active class from others
+                    sidebarLinks.forEach(otherLink => {
+                        if (otherLink !== link) {
+                            otherLink.classList.remove('active');
+                        }
+                    });
+                }
+            });
+        }
+        
+        // Initialize sidebar navigation with loading animation
+        function initSidebarNavigation() {
+            const sidebarLinks = document.querySelectorAll('.nav-item-side');
+            
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    // Close sidebar when navigating
+                    closeSidebar();
+                    
+                    // Show loading animation
+                    const href = this.getAttribute('href');
+                    if (href && !href.startsWith('#')) {
+                        e.preventDefault();
+                        showLoading(`Loading ${this.querySelector('.nav-label').textContent}...`);
+                        
+                        // Simulate loading delay for demo
+                        setTimeout(() => {
+                            window.location.href = href;
+                        }, 800);
+                    }
+                });
+            });
+        }
+        
+        function init() {
+            // Set up event listeners
+            const mobileContainer = document.getElementById('mobileContainer');
+            mobileContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
+            mobileContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
+            mobileContainer.addEventListener('touchend', handleTouchEnd, { passive: true });
+            
+            // Sidebar controls
+            document.getElementById('menuToggle').addEventListener('click', toggleSidebar);
+            document.getElementById('closeNav').addEventListener('click', closeSidebar);
+            document.getElementById('overlay').addEventListener('click', closeSidebar);
+            
+            // Initialize sidebar navigation
+            initSidebarNavigation();
+            
+            // Set up time
+            updateTime();
+            setInterval(updateTime, 60000); // Update every minute
+            
+            // Load user data
+            loadUserData();
+            
+            // Highlight active navigation items
+            highlightActiveNav();
+            highlightActiveSidebarItem();
+            
+            // Add loading state to images
+            const images = document.querySelectorAll('.card-image');
+            images.forEach(img => {
+                img.classList.add('loading');
+                img.addEventListener('load', function() {
+                    this.classList.remove('loading');
+                });
+            });
+            
+            // Bottom nav items
+            const bottomNavItems = document.querySelectorAll('.nav-link');
+            bottomNavItems.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    // Don't prevent default - let the href work
+                    simulateHaptic();
+                });
+            });
+        }
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', init);
+        
+        // Prevent zoom on double tap
+        document.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+        
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+    </script>
+</body>
+</html>

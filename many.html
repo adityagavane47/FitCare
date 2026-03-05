@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FITCARE - Trainer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            touch-action: pan-y;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        /* Mobile Container - Main Wrapper */
+        .mobile-container {
+            width: 100%;
+            max-width: 428px;
+            height: 100vh;
+            max-height: 926px;
+            background-color: #000;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #333;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0, 255, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Side Navigation - Contained within mobile container */
+        .side-nav {
+            position: absolute;
+            top: 0;
+            left: -280px;
+            width: 280px;
+            height: 100%;
+            background: #000;
+            border-right: 1px solid #00ff00;
+            z-index: 1000;
+            transition: left 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
+            box-shadow: 5px 0 30px rgba(0, 255, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            border-radius: 24px 0 0 24px;
+            overflow: hidden;
+        }
+
+        .side-nav.open {
+            left: 0;
+        }
+
+        .nav-header {
+            padding: 20px 16px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-header h2 {
+            color: #00ff00;
+            font-size: 1.4em;
+            font-weight: 700;
+        }
+
+        .close-nav {
+            background: rgba(0, 255, 0, 0.1);
+            border: none;
+            color: #00ff00;
+            font-size: 1.3em;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .nav-profile {
+            padding: 20px 16px;
+            border-bottom: 1px solid #333;
+        }
+
+        .profile-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .profile-pic {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00ff00, #00cc00);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .profile-text h3 {
+            color: #fff;
+            font-size: 1.1em;
+            margin-bottom: 2px;
+        }
+
+        .profile-text p {
+            color: #888;
+            font-size: 0.85em;
+        }
+
+        .nav-menu {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .nav-item-side {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            color: #ddd;
+            text-decoration: none;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item-side.active {
+            background: rgba(0, 255, 0, 0.08);
+            color: #00ff00;
+            border-left-color: #00ff00;
+        }
+
+        .nav-item-side:active {
+            background: rgba(0, 255, 0, 0.15);
+            transform: scale(0.98);
+        }
+
+        .nav-icon-side {
+            font-size: 1.2em;
+            width: 24px;
+        }
+
+        .nav-label {
+            font-size: 0.95em;
+        }
+
+        .nav-footer {
+            padding: 20px 16px;
+            border-top: 1px solid #333;
+        }
+
+        .logout-btn {
+            width: 100%;
+            padding: 14px;
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            border-radius: 12px;
+            color: #ff4444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 0.95em;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .logout-btn:active {
+            background: rgba(255, 0, 0, 0.2);
+            transform: scale(0.98);
+        }
+
+        /* Overlay - Contained within mobile container */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s ease;
+            backdrop-filter: blur(3px);
+            border-radius: 24px;
+        }
+
+        .overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Status Bar - Fixed within container */
+        .status-bar {
+            padding: 12px 16px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85em;
+            color: #00ff00;
+            background: #000;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .menu-toggle {
+            background: rgba(0, 255, 0, 0.1);
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            color: #00ff00;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .menu-toggle:active {
+            background: rgba(0, 255, 0, 0.2);
+            transform: scale(0.95);
+        }
+
+        .time {
+            font-weight: 600;
+            font-size: 1em;
+        }
+
+        .status-icons {
+            display: flex;
+            gap: 8px;
+            font-size: 1em;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 80px; /* Space for bottom navigation */
+        }
+
+        /* Fitness Trainer App Styles */
+        .app-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .app {
+            background: radial-gradient(circle at top, #0a0a0a, #000);
+            padding: 20px;
+            border-radius: 18px;
+            border: 1px solid #00ff5a;
+            box-shadow: 0 0 25px rgba(0,255,90,.35);
+        }
+
+        h1 {
+            text-align: center;
+            color: #00ff5a;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        h3, h4 {
+            color: #39ff14;
+            margin-top: 15px;
+            margin-bottom: 8px;
+        }
+
+        select, input, button {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
+            border: 1px solid #00ff5a;
+            background: #050505;
+            color: #fff;
+            font-size: 1em;
+        }
+
+        button {
+            background: linear-gradient(135deg, #00ff5a, #39ff14);
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button:active {
+            transform: scale(0.98);
+            background: linear-gradient(135deg, #00cc4a, #2acc00);
+        }
+
+        #timer {
+            font-size: 22px;
+            color: #00ff5a;
+            text-align: center;
+            margin: 15px 0;
+        }
+
+        .hide {
+            display: none !important;
+        }
+
+        button.small {
+            width: 32%;
+        }
+
+        .timer-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            gap: 8px;
+        }
+
+        button.small {
+            padding: 10px;
+            font-size: 0.9em;
+        }
+
+        #goalSuggestion {
+            color: #39ff14;
+            font-size: 0.9em;
+            margin-top: 5px;
+            margin-bottom: 15px;
+        }
+
+        #calories {
+            color: #00ff5a;
+            font-size: 1em;
+            margin: 10px 0;
+            font-weight: 600;
+        }
+
+        /* Bottom Navigation - Fixed within container */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #0a0a0a;
+            border-top: 1px solid rgba(0, 255, 0, 0.2);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            z-index: 100;
+            flex-shrink: 0;
+            border-radius: 0 0 24px 24px;
+        }
+
+        .nav-link {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: #666;
+            font-size: 0.7em;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            min-width: 60px;
+        }
+
+        .nav-link.active {
+            color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .nav-link:active {
+            transform: scale(0.9);
+        }
+
+        .nav-icon {
+            font-size: 1.4em;
+            margin-bottom: 4px;
+        }
+
+        /* Swipe indicator */
+        .swipe-indicator {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            width: 4px;
+            height: 40px;
+            background: rgba(0, 255, 0, 0.5);
+            border-radius: 2px;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 1001;
+        }
+
+        .swipe-indicator.visible {
+            opacity: 1;
+        }
+
+        /* Loading overlay */
+        #loadingOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            border-radius: 24px;
+        }
+
+        #loadingOverlay .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #333;
+            border-top-color: #00ff00;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        #loadingOverlay .loading-text {
+            color: #00ff00;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 428px) {
+            .mobile-container {
+                border-radius: 0;
+                border: none;
+                max-width: 100%;
+                max-height: 100%;
+            }
+            
+            .side-nav {
+                border-radius: 0 0 0 0;
+            }
+            
+            .overlay {
+                border-radius: 0;
+            }
+            
+            .bottom-nav {
+                border-radius: 0;
+            }
+        }
+
+        @media (max-height: 926px) {
+            .mobile-container {
+                max-height: 100vh;
+            }
+        }
+
+        /* Hide scrollbar but keep functionality */
+        .nav-menu::-webkit-scrollbar,
+        .app-content::-webkit-scrollbar,
+        .main-content::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .nav-menu::-webkit-scrollbar-track,
+        .app-content::-webkit-scrollbar-track,
+        .main-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .nav-menu::-webkit-scrollbar-thumb,
+        .app-content::-webkit-scrollbar-thumb,
+        .main-content::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Mobile Container -->
+    <div class="mobile-container" id="mobileContainer">
+        <!-- Side Navigation -->
+        <div class="side-nav" id="sideNav">
+            <div class="nav-header">
+                <h2>FITCARE</h2>
+                <button class="close-nav" id="closeNav">✕</button>
+            </div>
+
+            <div class="nav-profile">
+                <div class="profile-info">
+                    <div class="profile-pic" id="profileInitial">U</div>
+                    <div class="profile-text">
+                        <h3 id="sidebarUserName">User</h3>
+                        <p id="sidebarUserEmail">user@example.com</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar Navigation -->
+            <div class="nav-menu">
+                <a href="home.html" class="nav-item-side">
+                    <span class="nav-icon-side">🏠</span>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+                <a href="progress.html" class="nav-item-side">
+                    <span class="nav-icon-side">📊</span>
+                    <span class="nav-label">Analytics</span>
+                </a>
+                <a href="meals.html" class="nav-item-side">
+                    <span class="nav-icon-side">🍽️</span>
+                    <span class="nav-label">Meal Plans</span>
+                </a>
+                <a href="#" class="nav-item-side active">
+                    <span class="nav-icon-side">🏋️</span>
+                    <span class="nav-label">Trainer</span>
+                </a>
+                <a href="weight.html" class="nav-item-side">
+                    <span class="nav-icon-side">⚖️</span>
+                    <span class="nav-label">Gym Training</span>
+                </a>
+                <a href="goals.html" class="nav-item-side">
+                    <span class="nav-icon-side">🥦</span>
+                    <span class="nav-label">Log Food</span>
+                </a>
+                <a href="progress.html" class="nav-item-side">
+                    <span class="nav-icon-side">📈</span>
+                    <span class="nav-label">Progress</span>
+                </a>
+                <a href="shop.html" class="nav-item-side">
+                    <span class="nav-icon-side">🛒</span>
+                    <span class="nav-label">Store</span>
+                </a>
+                <a href="help.html" class="nav-item-side">
+                    <span class="nav-icon-side">ℹ️</span>
+                    <span class="nav-label">Help</span>
+                </a>
+            </div>
+
+            <div class="nav-footer">
+                <button class="logout-btn" onclick="logout()">
+                    <span>🚪</span>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Overlay -->
+        <div class="overlay" id="overlay"></div>
+
+        <!-- Swipe Indicator -->
+        <div class="swipe-indicator" id="swipeIndicator"></div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay">
+            <div class="spinner"></div>
+            <div class="loading-text">Loading...</div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <button class="menu-toggle" id="menuToggle">☰</button>
+                <div class="time" id="currentTime">9:41</div>
+                <div class="status-icons">
+                    <span>📶</span>
+                    <span>🔋</span>
+                </div>
+            </div>
+
+            <!-- App Content -->
+            <div class="app-content">
+                <div class="app">
+                    <h1>🏋 Fitness Care Trainer</h1>
+
+                    <h3>Fitness Goal</h3>
+                    <select id="goal">
+                        <option value="">Choose</option>
+                        <option value="fatloss">Weight Loss</option>
+                        <option value="muscle">Muscle Gain</option>
+                        <option value="general">General Fitness</option>
+                        <option value="strength">Strength</option>
+                    </select>
+                    <p id="goalSuggestion"></p>
+
+                    <h3>Fitness Level</h3>
+                    <select id="level">
+                        <option value="">Choose</option>
+                        <option>Beginner</option>
+                        <option>Intermediate</option>
+                        <option>Advanced</option>
+                    </select>
+
+                    <div id="equipmentBox" class="hide">
+                        <h3>Equipment</h3>
+                        <select id="equipment">
+                            <option value="">Choose</option>
+                            <option>Barbell</option>
+                            <option>Dumbbell</option>
+                            <option>Machine</option>
+                            <option>Cable</option>
+                            <option>Smith Machine</option>
+                            <option>Resistance Band</option>
+                            <option>Bodyweight</option>
+                        </select>
+                    </div>
+
+                    <div id="typeBox" class="hide">
+                        <h3>Exercise Type</h3>
+                        <select id="type">
+                            <option value="">Choose</option>
+                            <option value="chest">Chest</option>
+                            <option value="legs">Legs</option>
+                            <option value="biceps">Biceps</option>
+                            <option value="triceps">Triceps</option>
+                            <option value="shoulders">Shoulders</option>
+                            <option value="back">Back</option>
+                            <option value="abs">Abs</option>
+                            <option value="cardio">Cardio</option>
+                        </select>
+                    </div>
+
+                    <div id="exerciseBox" class="hide">
+                        <h3>Exercise</h3>
+                        <select id="exercise"></select>
+                    </div>
+
+                    <div id="countBox" class="hide">
+                        <h3>Reps</h3>
+                        <input type="number" id="reps">
+                        <p id="calories">Calories burned: 0</p>
+
+                        <!-- TIMER AND BUTTONS -->
+                        <div id="timerBox">
+                            <p id="timer">00:00</p>
+                            <div class="timer-buttons">
+                                <button class="small" id="startTimer">Start</button>
+                                <button class="small" id="stopTimer">Stop</button>
+                                <button class="small" id="resetTimer">Restart</button>
+                            </div>
+                        </div>
+
+                        <button id="submitBtn">Submit Set</button>
+                    </div>
+
+                    <h4>🔥 Daily Streak: <span id="streak">0</span></h4>
+
+                    <!-- BEEP SOUND -->
+                    <audio id="beep">
+                        <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" type="audio/ogg">
+                    </audio>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="home.html" class="nav-link">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-label">Home</span>
+            </a>
+            <a href="progress.html" class="nav-link">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Progress</span>
+            </a>
+            <a href="meals.html" class="nav-link">
+                <span class="nav-icon">🍽️</span>
+                <span class="nav-label">Meals</span>
+            </a>
+            <a href="#" class="nav-link active">
+                <span class="nav-icon">🏋️</span>
+                <span class="nav-label">Trainer</span>
+            </a>
+            <a href="profile.html" class="nav-link">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Profile</span>
+            </a>
+        </nav>
+    </div>
+
+    <script>
+        // Navigation Variables
+        let touchStartX = 0;
+        let touchEndX = 0;
+        let sidebarOpen = false;
+        let lastTouchTime = 0;
+
+        // Fitness Trainer Data
+        const exercisesData = {
+            chest: [
+                { name: "Barbell Bench Press", cal: 8, eq: "Barbell" },
+                { name: "Dumbbell Bench Press", cal: 7, eq: "Dumbbell" },
+                { name: "Chest Press Machine", cal: 7, eq: "Machine" },
+                { name: "Push Ups", cal: 6, eq: "Bodyweight" }
+            ],
+            legs: [
+                { name: "Barbell Squat", cal: 10, eq: "Barbell" },
+                { name: "Leg Press", cal: 8, eq: "Machine" },
+                { name: "Lunges", cal: 7, eq: "Bodyweight" },
+                { name: "Smith Machine Squat", cal: 9, eq: "Smith Machine" }
+            ],
+            biceps: [
+                { name: "Barbell Curl", cal: 6, eq: "Barbell" },
+                { name: "Dumbbell Curl", cal: 5, eq: "Dumbbell" },
+                { name: "Cable Curl", cal: 6, eq: "Cable" },
+                { name: "Band Curl", cal: 4, eq: "Resistance Band" }
+            ],
+            triceps: [
+                { name: "Triceps Pushdown", cal: 6, eq: "Cable" },
+                { name: "Overhead Extension", cal: 5, eq: "Dumbbell" },
+                { name: "Skull Crushers", cal: 7, eq: "Barbell" }
+            ],
+            shoulders: [
+                { name: "Shoulder Press", cal: 7, eq: "Dumbbell" },
+                { name: "Lateral Raises", cal: 5, eq: "Dumbbell" },
+                { name: "Front Raises", cal: 4, eq: "Dumbbell" }
+            ],
+            back: [
+                { name: "Lat Pulldown", cal: 7, eq: "Machine" },
+                { name: "Barbell Row", cal: 8, eq: "Barbell" },
+                { name: "Seated Cable Row", cal: 7, eq: "Cable" }
+            ],
+            abs: [
+                { name: "Crunches", cal: 4, eq: "Bodyweight" },
+                { name: "Leg Raises", cal: 5, eq: "Bodyweight" },
+                { name: "Plank", cal: 6, eq: "Bodyweight" }
+            ],
+            cardio: [
+                { name: "Jumping Jacks", cal: 6, eq: "Bodyweight" },
+                { name: "High Knees", cal: 7, eq: "Bodyweight" },
+                { name: "Mountain Climbers", cal: 8, eq: "Bodyweight" }
+            ]
+        };
+
+        // DOM Elements
+        const goal = document.getElementById("goal");
+        const goalSuggestion = document.getElementById("goalSuggestion");
+        const level = document.getElementById("level");
+        const equipment = document.getElementById("equipment");
+        const type = document.getElementById("type");
+        const exercise = document.getElementById("exercise");
+        const reps = document.getElementById("reps");
+        const calories = document.getElementById("calories");
+        const streak = document.getElementById("streak");
+
+        const startTimerBtn = document.getElementById("startTimer");
+        const stopTimerBtn = document.getElementById("stopTimer");
+        const resetTimerBtn = document.getElementById("resetTimer");
+        const submitBtn = document.getElementById("submitBtn");
+
+        const beep = document.getElementById("beep");
+
+        // Navigation Functions
+        function handleTouchStart(e) {
+            touchStartX = e.changedTouches[0].clientX;
+            lastTouchTime = Date.now();
+            
+            if (touchStartX < 50 && !sidebarOpen) {
+                showSwipeIndicator();
+            }
+        }
+        
+        function handleTouchMove(e) {
+            if (touchStartX < 30 && !sidebarOpen) {
+                e.preventDefault();
+            }
+        }
+        
+        function handleTouchEnd(e) {
+            touchEndX = e.changedTouches[0].clientX;
+            const swipeDistance = touchEndX - touchStartX;
+            
+            hideSwipeIndicator();
+            
+            // Check for edge swipe to open sidebar (only from container edge)
+            if (touchStartX < 50 && swipeDistance > 80) {
+                toggleSidebar();
+                simulateHaptic();
+                return;
+            }
+            
+            // Check for swipe to close sidebar
+            if (sidebarOpen && touchStartX - touchEndX > 80) {
+                closeSidebar();
+                simulateHaptic();
+                return;
+            }
+            
+            // Prevent rapid double taps
+            const currentTime = Date.now();
+            if (currentTime - lastTouchTime < 300) {
+                return;
+            }
+        }
+        
+        function showSwipeIndicator() {
+            const indicator = document.getElementById('swipeIndicator');
+            indicator.style.transform = 'translateY(-50%) scale(1.2)';
+            indicator.classList.add('visible');
+        }
+        
+        function hideSwipeIndicator() {
+            const indicator = document.getElementById('swipeIndicator');
+            indicator.style.transform = 'translateY(-50%) scale(1)';
+            indicator.classList.remove('visible');
+        }
+        
+        function toggleSidebar() {
+            const sideNav = document.getElementById('sideNav');
+            const overlay = document.getElementById('overlay');
+            const mainContent = document.querySelector('.main-content');
+            
+            if (!sidebarOpen) {
+                sideNav.classList.add('open');
+                overlay.classList.add('active');
+                mainContent.style.overflow = 'hidden';
+                document.addEventListener('touchstart', handleOverlayTouch, { passive: true });
+            } else {
+                sideNav.classList.remove('open');
+                overlay.classList.remove('active');
+                mainContent.style.overflow = '';
+                document.removeEventListener('touchstart', handleOverlayTouch);
+            }
+            
+            sidebarOpen = !sidebarOpen;
+            simulateHaptic();
+        }
+        
+        function closeSidebar() {
+            const sideNav = document.getElementById('sideNav');
+            const overlay = document.getElementById('overlay');
+            const mainContent = document.querySelector('.main-content');
+            
+            sideNav.classList.remove('open');
+            overlay.classList.remove('active');
+            mainContent.style.overflow = '';
+            sidebarOpen = false;
+            
+            document.removeEventListener('touchstart', handleOverlayTouch);
+            simulateHaptic();
+        }
+        
+        function handleOverlayTouch(e) {
+            if (sidebarOpen && !e.target.closest('.side-nav')) {
+                closeSidebar();
+            }
+        }
+        
+        function simulateHaptic() {
+            // Simulate haptic feedback for mobile
+            if (navigator.vibrate) {
+                navigator.vibrate(10);
+            }
+        }
+        
+        function showLoading(message) {
+            const loader = document.getElementById('loadingOverlay');
+            if (loader) {
+                const text = loader.querySelector('.loading-text');
+                if (text) text.textContent = message || 'Loading...';
+                loader.style.display = 'flex';
+            }
+        }
+        
+        function hideLoading() {
+            const loader = document.getElementById('loadingOverlay');
+            if (loader) {
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 300);
+            }
+        }
+        
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                showLoading('Logging out...');
+                
+                setTimeout(() => {
+                    localStorage.removeItem('fitcareUserData');
+                    hideLoading();
+                    alert('Successfully logged out!');
+                    window.location.href = 'index.html';
+                }, 1000);
+            }
+        }
+        
+        function updateTime() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('currentTime').textContent = `${hours}:${minutes}`;
+        }
+        
+        // Load user data
+        function loadUserData() {
+            const storedData = localStorage.getItem('fitcareUserData');
+            
+            if (storedData) {
+                try {
+                    const data = JSON.parse(storedData);
+                    document.getElementById('sidebarUserName').textContent = data.name || "User";
+                    document.getElementById('sidebarUserEmail').textContent = data.email || "user@example.com";
+                    document.getElementById('profileInitial').textContent = (data.name || "User").charAt(0).toUpperCase();
+                } catch (error) {
+                    console.error('Error parsing user data:', error);
+                }
+            }
+        }
+
+        // BEEP FUNCTION
+        function playBeep(times = 1) {
+            let count = 0;
+            const interval = setInterval(() => {
+                beep.currentTime = 0;
+                beep.play();
+                count++;
+                if (count >= times) clearInterval(interval);
+            }, 400);
+        }
+
+        goal.onchange = () => goalSuggestion.innerText = {
+            fatloss: "🔥 Cardio + Legs",
+            muscle: "💪 Heavy Strength",
+            general: "⚖ Balanced Training",
+            strength: "🏋 Low reps heavy"
+        }[goal.value] || "";
+
+        level.onchange = () => document.getElementById("equipmentBox").classList.remove("hide");
+
+        equipment.onchange = () => {
+            type.innerHTML = '<option value="">Choose</option>';
+
+            for (let muscle in exercisesData) {
+                const hasExercise = exercisesData[muscle].some(
+                    e => e.eq === equipment.value
+                );
+                if (hasExercise) {
+                    type.innerHTML += `<option value="${muscle}">${muscle.charAt(0).toUpperCase()+muscle.slice(1)}</option>`;
+                }
+            }
+
+            document.getElementById("typeBox").classList.remove("hide");
+        };
+
+        type.onchange = () => {
+            exercise.innerHTML = "";
+
+            exercisesData[type.value].forEach(e => {
+                if (e.eq === equipment.value) {
+                    exercise.innerHTML += `<option value="${e.cal}">${e.name}</option>`;
+                }
+            });
+
+            if (exercise.innerHTML !== "") {
+                document.getElementById("exerciseBox").classList.remove("hide");
+                document.getElementById("countBox").classList.remove("hide");
+            }
+        };
+
+        reps.oninput = () => calories.innerText = "Calories burned: " + (reps.value * exercise.value);
+
+        /* TIMER LOGIC */
+        let timerInterval, seconds = 0, currentSet = 1;
+        const totalSets = 2, restTime = 30;
+
+        function updateTimerText() {
+            timer.innerText = String(Math.floor(seconds / 60)).padStart(2, "0") + ":" + String(seconds % 60).padStart(2, "0");
+        }
+
+        function startSet() {
+            clearInterval(timerInterval);
+            playBeep(1);
+            timerInterval = setInterval(() => {
+                seconds++;
+                updateTimerText();
+            }, 1000);
+        }
+
+        function stopSet() {
+            clearInterval(timerInterval);
+            playBeep(1);
+        }
+
+        function resetSet() {
+            clearInterval(timerInterval);
+            seconds = 0;
+            updateTimerText();
+            playBeep(1);
+        }
+
+        function restTimer() {
+            clearInterval(timerInterval);
+            let r = restTime;
+            timer.innerText = "Rest: " + r + "s";
+            playBeep(1);
+            timerInterval = setInterval(() => {
+                r--;
+                timer.innerText = "Rest: " + r + "s";
+                if (r <= 0) {
+                    clearInterval(timerInterval);
+                    currentSet++;
+                    if (currentSet <= totalSets) {
+                        playBeep(2);
+                        startSet();
+                    } else {
+                        playBeep(3);
+                        timer.innerText = "Workout Done 🔥";
+                        alert("Workout Completed 🎉");
+                    }
+                }
+            }, 1000);
+        }
+
+        /* BUTTON EVENTS */
+        startTimerBtn.onclick = () => startSet();
+        stopTimerBtn.onclick = () => stopSet();
+        resetTimerBtn.onclick = () => resetSet();
+        submitBtn.onclick = () => restTimer();
+
+        /* STREAK */
+        streak.innerText = localStorage.streak || 0;
+
+        // Initialize the page
+        function init() {
+            // Set up event listeners for navigation
+            const mobileContainer = document.getElementById('mobileContainer');
+            mobileContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
+            mobileContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
+            mobileContainer.addEventListener('touchend', handleTouchEnd, { passive: true });
+            
+            // Sidebar controls
+            document.getElementById('menuToggle').addEventListener('click', toggleSidebar);
+            document.getElementById('closeNav').addEventListener('click', closeSidebar);
+            document.getElementById('overlay').addEventListener('click', closeSidebar);
+            
+            // Update time
+            updateTime();
+            setInterval(updateTime, 60000);
+            
+            // Load user data
+            loadUserData();
+            
+            // Bottom nav items
+            const bottomNavItems = document.querySelectorAll('.nav-link');
+            bottomNavItems.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    // Don't prevent default - let the href work
+                    simulateHaptic();
+                });
+            });
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', init);
+        
+        // Prevent zoom on double tap
+        document.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+        
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+    </script>
+</body>
+</html>

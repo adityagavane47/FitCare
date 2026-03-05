@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FITCARE - Home</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #121212; /* Charcoal background */
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .mobile-container {
+            max-width: 428px;
+            margin: 0 auto;
+            background-color: #121212;
+            min-height: 100vh;
+            position: relative;
+            padding-bottom: 80px;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            padding: 12px 20px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85em;
+            color: #39ff14; /* Neon green */
+        }
+
+        .time {
+            font-weight: 600;
+        }
+
+        .status-icons {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Header */
+        .header {
+            padding: 15px 20px;
+            background: linear-gradient(180deg, #121212 0%, #1a1a1a 100%);
+            border-bottom: 1px solid #39ff14;
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 5px;
+            text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
+        }
+
+        .header .fit {
+            color: #39ff14;
+        }
+
+        .header p {
+            color: #cccccc;
+            font-size: 0.95em;
+        }
+
+        /* Content */
+        .content {
+            padding: 0 20px 20px;
+        }
+
+        /* Quote Section */
+        .quote-section {
+            background: rgba(57, 255, 20, 0.1);
+            border: 1px solid #39ff14;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 20px rgba(57, 255, 20, 0.2);
+            backdrop-filter: blur(10px);
+        }
+
+        .quote-section p {
+            font-size: 1em;
+            font-style: italic;
+            color: #39ff14;
+            text-align: center;
+            line-height: 1.5;
+            text-shadow: 0 0 5px rgba(57, 255, 20, 0.5);
+        }
+
+        /* Cards */
+        .card {
+            background-color: #1e1e1e;
+            border: 1px solid rgba(57, 255, 20, 0.4);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #39ff14;
+        }
+
+        .icon {
+            font-size: 1.3em;
+            filter: drop-shadow(0 0 3px rgba(57, 255, 20, 0.7));
+        }
+
+        /* BMI Section */
+        .bmi-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bmi-left {
+            flex: 1;
+        }
+
+        .bmi-value {
+            font-size: 3em;
+            font-weight: bold;
+            color: #39ff14;
+            text-shadow: 0 0 15px rgba(57, 255, 20, 0.8);
+        }
+
+        .bmi-category {
+            color: #39ff14;
+            font-size: 1em;
+            margin-top: 5px;
+            text-shadow: 0 0 5px rgba(57, 255, 20, 0.5);
+        }
+
+        .bmi-reference {
+            font-size: 0.75em;
+            color: #999;
+            line-height: 1.6;
+            text-align: right;
+        }
+
+        /* Progress Items */
+        .progress-item {
+            margin-bottom: 20px;
+        }
+
+        .progress-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+
+        .progress-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        .progress-value {
+            color: #39ff14;
+            font-weight: 600;
+            font-size: 0.9em;
+            text-shadow: 0 0 3px rgba(57, 255, 20, 0.5);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 10px;
+            background-color: #2a2a2a;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(57, 255, 20, 0.2);
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #39ff14, #00cc00);
+            border-radius: 10px;
+            transition: width 1s ease-out;
+            box-shadow: 0 0 10px rgba(57, 255, 20, 0.8);
+        }
+
+        /* Exercise Section */
+        .exercise-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .exercise-card {
+            background: linear-gradient(135deg, #1e1e1e, #2a2a2a);
+            border: 1px solid rgba(57, 255, 20, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .exercise-card:hover {
+            border-color: #39ff14;
+            box-shadow: 0 0 15px rgba(57, 255, 20, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .exercise-card:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 20px rgba(57, 255, 20, 0.6);
+        }
+
+        .exercise-card h3 {
+            color: #39ff14;
+            margin-bottom: 8px;
+            font-size: 0.95em;
+            text-shadow: 0 0 3px rgba(57, 255, 20, 0.5);
+        }
+
+        .exercise-card p {
+            color: #cccccc;
+            font-size: 0.8em;
+            margin: 3px 0;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #39ff14, #00cc00);
+            color: #121212;
+            box-shadow: 0 4px 15px rgba(57, 255, 20, 0.5);
+            font-weight: 800;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 6px 20px rgba(57, 255, 20, 0.7);
+        }
+
+        .btn-secondary {
+            background-color: #1e1e1e;
+            color: #39ff14;
+            border: 2px solid #39ff14;
+            box-shadow: 0 4px 15px rgba(57, 255, 20, 0.3);
+        }
+
+        .btn-secondary:hover {
+            background-color: rgba(57, 255, 20, 0.1);
+            box-shadow: 0 6px 20px rgba(57, 255, 20, 0.4);
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: 428px;
+            width: 100%;
+            background-color: #1e1e1e;
+            border-top: 1px solid rgba(57, 255, 20, 0.4);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0 20px;
+            z-index: 100;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            color: #777;
+            font-size: 0.75em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            padding: 5px 10px;
+            border-radius: 8px;
+        }
+
+        .nav-item.active {
+            color: #39ff14;
+            background: rgba(57, 255, 20, 0.1);
+            text-shadow: 0 0 5px rgba(57, 255, 20, 0.5);
+        }
+
+        .nav-item .nav-icon {
+            font-size: 1.8em;
+            filter: drop-shadow(0 0 2px rgba(57, 255, 20, 0.5));
+        }
+
+        .nav-item:active {
+            transform: scale(0.9);
+        }
+
+        .nav-item:hover {
+            background: rgba(57, 255, 20, 0.05);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 0px;
+        }
+
+        /* Glow effects */
+        .glow {
+            animation: glow 2s infinite alternate;
+        }
+
+        @keyframes glow {
+            from {
+                box-shadow: 0 0 5px rgba(57, 255, 20, 0.5);
+            }
+            to {
+                box-shadow: 0 0 20px rgba(57, 255, 20, 0.8);
+            }
+        }
+
+        /* Selection color */
+        ::selection {
+            background-color: rgba(57, 255, 20, 0.3);
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="mobile-container">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="time" id="currentTime">9:41</div>
+            <div class="status-icons">
+                <span>📶</span>
+                <span>🔋</span>
+            </div>
+        </div>
+
+        <!-- Header -->
+        <div class="header">
+            <h1><span class="fit">FIT</span>CARE</h1>
+            <p>Welcome back, <span id="userName">User</span>!</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <!-- Motivational Quote -->
+            <div class="quote-section">
+                <p id="motivationalQuote"></p>
+            </div>
+
+            <!-- BMI Section -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">📊</span>
+                    <span>Body Mass Index</span>
+                </div>
+                <div class="bmi-container">
+                    <div class="bmi-left">
+                        <div class="bmi-value" id="bmiValue">--</div>
+                        <div class="bmi-category" id="bmiCategory">Calculating...</div>
+                    </div>
+                    <div class="bmi-reference">
+                        <div>Underweight &lt; 18.5</div>
+                        <div>Normal 18.5 - 24.9</div>
+                        <div>Overweight 25 - 29.9</div>
+                        <div>Obese ≥ 30</div>
+                    </div>
+                </div>
+            </div>
+
+           
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">🎯</span>
+                    <span>Daily Targets</span>
+                </div>
+
+                
+                <div class="progress-item">
+                    <div class="progress-header">
+                        <div class="progress-label">
+                            <span>🔥</span>
+                            <span>Calories</span>
+                        </div>
+                        <div class="progress-value">
+                            <span id="caloriesConsumed">1450</span> / <span id="caloriesTarget">2000</span>
+                        </div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="caloriesProgress"></div>
+                    </div>
+                </div>
+
+                
+                <div class="progress-item">
+                    <div class="progress-header">
+                        <div class="progress-label">
+                            <span>💧</span>
+                            <span>Water</span>
+                        </div>
+                        <div class="progress-value">
+                            <span id="waterConsumed">5</span> / <span id="waterTarget">8</span>
+                        </div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="waterProgress"></div>
+                    </div>
+                </div>
+
+               
+                <div class="progress-item">
+                    <div class="progress-header">
+                        <div class="progress-label">
+                            <span>💪</span>
+                            <span>Protein</span>
+                        </div>
+                        <div class="progress-value">
+                            <span id="proteinConsumed">65</span> / <span id="proteinTarget">120</span>g
+                        </div>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="proteinProgress"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Exercise Recommendations -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">🏋️</span>
+                    <span>Exercises for <span id="goalType">Your Goal</span></span>
+                </div>
+                <div class="exercise-grid" id="exerciseGrid"></div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="window.location.href='logfood.html'">Log Food</button>
+                <button class="btn btn-secondary" onclick="viewDietPlan()">Diet Plan</button>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav">
+            <div class="nav-item active">
+                <span class="nav-icon">🏠</span>
+                <span>Home</span>
+            </div>
+            <div class="nav-item">
+                <span class="nav-icon">📊</span>
+                <span>Stats</span>
+            </div>
+            <div class="nav-item">
+                <span class="nav-icon">🍽️</span>
+                <span>Meals</span>
+            </div>
+            <div class="nav-item">
+                <span class="nav-icon">👤</span>
+                <span>Profile</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample user data (will be overridden by actual data)
+        let userData = {
+            name: "User",
+            caloriesConsumed: 1450,
+            caloriesTarget: 2000,
+            waterIntake: 5,
+            waterTarget: 8,
+            proteinConsumed: 65,
+            proteinTarget: 120,
+            bmi: 0,
+            bmiCategory: "Calculating...",
+            goal: "lose",
+            height: 0,
+            weight: 0
+        };
+
+        const motivationalQuotes = [
+            "Your body can stand almost anything. It's your mind you have to convince.",
+            "The only bad workout is the one that didn't happen.",
+            "Progress, not perfection. Every step counts.",
+            "Sweat is fat crying. Keep going!",
+            "You don't have to be extreme, just consistent.",
+            "The difference between try and triumph is a little umph.",
+            "Your health is an investment, not an expense.",
+            "Small daily improvements lead to stunning results.",
+            "Don't stop when you're tired, stop when you're done.",
+            "The body achieves what the mind believes."
+        ];
+
+        const exercisesForWeightLoss = [
+            { name: "Running", duration: "30 min", calories: "300 cal" },
+            { name: "Jump Rope", duration: "15 min", calories: "200 cal" },
+            { name: "HIIT Workout", duration: "20 min", calories: "250 cal" },
+            { name: "Cycling", duration: "45 min", calories: "400 cal" }
+        ];
+
+        const exercisesForWeightGain = [
+            { name: "Bench Press", sets: "4x8", focus: "Chest" },
+            { name: "Squats", sets: "4x10", focus: "Legs" },
+            { name: "Deadlifts", sets: "3x8", focus: "Back" },
+            { name: "Shoulder Press", sets: "3x10", focus: "Shoulders" }
+        ];
+
+        const exercisesForMaintain = [
+            { name: "Yoga", duration: "30 min", benefits: "Flexibility" },
+            { name: "Swimming", duration: "30 min", benefits: "Full Body" },
+            { name: "Walking", duration: "45 min", benefits: "Low Impact" },
+            { name: "Pilates", duration: "30 min", benefits: "Core Strength" }
+        ];
+
+        // Calculate BMI from height and weight
+        function calculateBMI(heightCm, weightKg) {
+            const heightM = heightCm / 100; // Convert cm to meters
+            const bmi = weightKg / (heightM * heightM);
+            return bmi.toFixed(1);
+        }
+
+        // Get BMI category
+        function getBMICategory(bmi) {
+            if (bmi < 18.5) return "Underweight";
+            if (bmi < 25) return "Normal Weight";
+            if (bmi < 30) return "Overweight";
+            return "Obese";
+        }
+
+        // Load user data from localStorage
+        function loadUserData() {
+            const storedData = localStorage.getItem('fitcareUserData');
+            
+            if (storedData) {
+                const data = JSON.parse(storedData);
+                
+                // Update userData with stored values
+                userData.height = data.height;
+                userData.weight = data.weight;
+                userData.goal = data.goal;
+                
+                // Extract user name from email
+                if (data.email) {
+                    const emailName = data.email.split('@')[0];
+                    userData.name = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+                }
+                
+                // Calculate BMI
+                userData.bmi = calculateBMI(data.height, data.weight);
+                userData.bmiCategory = getBMICategory(parseFloat(userData.bmi));
+                
+                // Determine goal type
+                if (data.goal.toLowerCase().includes('lose')) {
+                    userData.goal = 'lose';
+                } else if (data.goal.toLowerCase().includes('gain')) {
+                    userData.goal = 'gain';
+                } else {
+                    userData.goal = 'maintain';
+                }
+            }
+        }
+
+        function init() {
+            // Load user data first
+            loadUserData();
+            
+            // Set current time
+            updateTime();
+            setInterval(updateTime, 1000);
+
+            // Set random motivational quote
+            const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+            document.getElementById('motivationalQuote').textContent = '"' + randomQuote + '"';
+
+            // Update user data
+            document.getElementById('userName').textContent = userData.name;
+            document.getElementById('bmiValue').textContent = userData.bmi || '--';
+            document.getElementById('bmiCategory').textContent = userData.bmiCategory;
+
+            // Update progress bars
+            updateProgress('calories', userData.caloriesConsumed, userData.caloriesTarget);
+            updateProgress('water', userData.waterIntake, userData.waterTarget);
+            updateProgress('protein', userData.proteinConsumed, userData.proteinTarget);
+
+            // Load exercises
+            loadExercises();
+
+            // Add subtle hover effects to cards
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                card.addEventListener('mouseenter', () => {
+                    card.style.transform = 'translateY(-2px)';
+                    card.style.boxShadow = '0 8px 25px rgba(57, 255, 20, 0.15)';
+                });
+                card.addEventListener('mouseleave', () => {
+                    card.style.transform = 'translateY(0)';
+                    card.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+                });
+            });
+        }
+
+        function updateTime() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('currentTime').textContent = hours + ':' + minutes;
+        }
+
+        function updateProgress(type, consumed, target) {
+            const percentage = Math.min((consumed / target) * 100, 100);
+            document.getElementById(type + 'Progress').style.width = percentage + '%';
+        }
+
+        function loadExercises() {
+            let exercises, goalText;
+            
+            if (userData.goal === "lose") {
+                exercises = exercisesForWeightLoss;
+                goalText = "Weight Loss";
+            } else if (userData.goal === "gain") {
+                exercises = exercisesForWeightGain;
+                goalText = "Weight Gain";
+            } else {
+                exercises = exercisesForMaintain;
+                goalText = "Maintenance";
+            }
+            
+            document.getElementById('goalType').textContent = goalText;
+
+            const exerciseGrid = document.getElementById('exerciseGrid');
+            exerciseGrid.innerHTML = '';
+
+            for (var i = 0; i < exercises.length; i++) {
+                var exercise = exercises[i];
+                var card = document.createElement('div');
+                card.className = 'exercise-card';
+                
+                var details = '';
+                if (exercise.duration) {
+                    if (exercise.calories) {
+                        details = '<p>Duration: ' + exercise.duration + '</p><p>Burns: ' + exercise.calories + '</p>';
+                    } else if (exercise.benefits) {
+                        details = '<p>Duration: ' + exercise.duration + '</p><p>Focus: ' + exercise.benefits + '</p>';
+                    }
+                } else if (exercise.sets) {
+                    details = '<p>Sets: ' + exercise.sets + '</p><p>Focus: ' + exercise.focus + '</p>';
+                }
+
+                card.innerHTML = '<h3>' + exercise.name + '</h3>' + details;
+                exerciseGrid.appendChild(card);
+            }
+        }
+
+        function viewDietPlan() {
+            alert('Opening diet plan...');
+        }
+
+        // Bottom nav interaction
+        var navItems = document.querySelectorAll('.nav-item');
+        for (var i = 0; i < navItems.length; i++) {
+            navItems[i].addEventListener('click', function() {
+                var allNavs = document.querySelectorAll('.nav-item');
+                for (var j = 0; j < allNavs.length; j++) {
+                    allNavs[j].classList.remove('active');
+                }
+                this.classList.add('active');
+            });
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

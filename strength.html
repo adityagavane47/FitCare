@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FITCARE - Strength Training</title>
+
+<style>
+body {
+    background:#0b0f0c;
+    font-family:Arial,sans-serif;
+    color:#fff;
+    padding:20px;
+}
+
+/* Back Button Styles */
+.back-button {
+    display: inline-block;
+    background: #00ff7f;
+    color: #000;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 15px;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.back-button:hover {
+    background: #00cc66;
+    transform: translateY(-1px);
+}
+
+.back-button:active {
+    transform: translateY(0);
+}
+
+h1 { 
+    text-align:center; 
+    color:#00ff7f; 
+    margin-top: 10px;
+    margin-bottom: 15px; 
+}
+
+.container { 
+    max-width:420px; 
+    margin:auto; 
+}
+
+.summary {
+    background:#111;
+    border:1px solid #00ff7f;
+    border-radius:14px;
+    padding:15px;
+    text-align:center;
+    margin-bottom:15px;
+}
+.summary-value { 
+    font-size:28px; 
+    color:#00ff7f; 
+}
+
+.filter {
+    margin-bottom:15px;
+}
+select {
+    width:100%;
+    padding:10px;
+    border-radius:10px;
+    border:none;
+    background:#111;
+    color:#00ff7f;
+    font-weight: bold;
+}
+
+.card {
+    background:#111;
+    border:1px solid #00ff7f;
+    border-radius:14px;
+    padding:15px;
+    margin-bottom:18px;
+    box-shadow: 0 0 10px rgba(0,255,127,0.15);
+}
+
+.title { 
+    color:#00ff7f; 
+    font-size:18px; 
+    margin-bottom: 5px;
+}
+.details { 
+    font-size:13px; 
+    opacity:0.8; 
+    margin-bottom: 10px;
+}
+
+.timer {
+    text-align:center;
+    font-size:26px;
+    margin:10px 0;
+    color: #00ff7f;
+}
+
+.progress-bar {
+    height:8px;
+    background:#222;
+    border-radius:10px;
+    overflow:hidden;
+    margin-top: 10px;
+}
+.progress {
+    height:100%;
+    background:#00ff7f;
+    width:100%;
+    transition: width 0.5s linear;
+}
+
+.sets {
+    text-align:center;
+    margin-top:12px;
+    font-size:14px;
+    color: #888;
+}
+
+.buttons {
+    display:flex;
+    gap:10px;
+    margin-top:15px;
+}
+button {
+    flex:1;
+    padding:10px;
+    border:none;
+    border-radius:8px;
+    background:#00ff7f;
+    font-weight:bold;
+    cursor:pointer;
+    transition: all 0.2s ease;
+}
+button:hover {
+    background: #00cc66;
+    transform: translateY(-1px);
+}
+button:active {
+    transform: translateY(0);
+}
+button:disabled { 
+    background:#555; 
+    cursor: not-allowed;
+}
+button:disabled:hover {
+    background: #555;
+    transform: none;
+}
+
+/* Exercise completion animation */
+@keyframes completePulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+.completed {
+    animation: completePulse 0.5s ease-in-out;
+    border-color: #00cc66;
+    box-shadow: 0 0 15px rgba(0,255,127,0.3);
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <!-- Back Button -->
+    <a href="catg.html" class="back-button">← Back to Categories</a>
+
+    <h1>💪 Strength Training</h1>
+
+    <div class="summary">
+        🔥 Calories Burnt<br>
+        <div class="summary-value" id="totalCalories">0</div>
+    </div>
+
+    <div class="filter">
+        <select id="muscleFilter">
+            <option value="all">All Muscle Groups</option>
+            <option value="legs">Legs</option>
+            <option value="chest">Chest</option>
+            <option value="core">Core</option>
+            <option value="full">Full Body</option>
+        </select>
+    </div>
+
+    <!-- EXERCISES -->
+
+    <div class="card exercise" data-group="legs" data-sets="3" data-reps="12" data-rest="30" data-calories="120">
+        <div class="title">🏋️ Squats</div>
+        <div class="details">3 sets × 12 reps • Legs • 120 calories</div>
+        <div class="timer">Set 1</div>
+        <div class="progress-bar"><div class="progress"></div></div>
+        <div class="sets">Rest: <span class="rest">30</span>s</div>
+        <div class="buttons">
+            <button class="start">Start Set</button>
+            <button class="reset">Reset</button>
+        </div>
+    </div>
+
+    <div class="card exercise" data-group="chest" data-sets="3" data-reps="10" data-rest="30" data-calories="100">
+        <div class="title">🤲 Push Ups</div>
+        <div class="details">3 sets × 10 reps • Chest • 100 calories</div>
+        <div class="timer">Set 1</div>
+        <div class="progress-bar"><div class="progress"></div></div>
+        <div class="sets">Rest: <span class="rest">30</span>s</div>
+        <div class="buttons">
+            <button class="start">Start Set</button>
+            <button class="reset">Reset</button>
+        </div>
+    </div>
+
+    <div class="card exercise" data-group="core" data-sets="3" data-reps="30" data-rest="20" data-calories="60">
+        <div class="title">🧱 Plank</div>
+        <div class="details">3 sets × 30 seconds • Core • 60 calories</div>
+        <div class="timer">Set 1</div>
+        <div class="progress-bar"><div class="progress"></div></div>
+        <div class="sets">Rest: <span class="rest">20</span>s</div>
+        <div class="buttons">
+            <button class="start">Start Set</button>
+            <button class="reset">Reset</button>
+        </div>
+    </div>
+
+    <div class="card exercise" data-group="full" data-sets="3" data-reps="12" data-rest="30" data-calories="90">
+        <div class="title">🚶 Lunges</div>
+        <div class="details">3 sets × 12 reps • Full Body • 90 calories</div>
+        <div class="timer">Set 1</div>
+        <div class="progress-bar"><div class="progress"></div></div>
+        <div class="sets">Rest: <span class="rest">30</span>s</div>
+        <div class="buttons">
+            <button class="start">Start Set</button>
+            <button class="reset">Reset</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+let totalCalories = +localStorage.getItem("totalCalories") || 0;
+document.getElementById("totalCalories").textContent = totalCalories;
+
+/* FILTER */
+document.getElementById("muscleFilter").onchange = e => {
+    document.querySelectorAll(".exercise").forEach(card=>{
+        card.style.display =
+            e.target.value==="all" || card.dataset.group===e.target.value
+            ? "block" : "none";
+    });
+};
+
+document.querySelectorAll(".exercise").forEach(card=>{
+    let sets = +card.dataset.sets;
+    let currentSet = 1;
+    let restTime = +card.dataset.rest;
+    let calories = +card.dataset.calories;
+    let restInterval;
+    let isCompleted = false;
+
+    const timer = card.querySelector(".timer");
+    const rest = card.querySelector(".rest");
+    const progress = card.querySelector(".progress");
+    const start = card.querySelector(".start");
+    const reset = card.querySelector(".reset");
+    const exerciseCard = card;
+
+    function startRest() {
+        let r = restTime;
+        rest.textContent = r;
+        restInterval = setInterval(()=>{
+            r--;
+            rest.textContent = r;
+            if(r<=0){
+                clearInterval(restInterval);
+                currentSet++;
+                if(currentSet > sets){
+                    finishWorkout();
+                } else {
+                    timer.textContent = "Set " + currentSet;
+                    progress.style.width = "100%";
+                    // Start next set automatically
+                    setTimeout(startRest, 1000);
+                }
+            }
+        },1000);
+    }
+
+    function finishWorkout(){
+        totalCalories += calories;
+        document.getElementById("totalCalories").textContent = totalCalories;
+
+        // Save to localStorage
+        localStorage.setItem("totalCalories", totalCalories);
+        localStorage.setItem("completedExercises",
+            (+localStorage.getItem("completedExercises")||0)+1);
+        localStorage.setItem("totalWorkoutTime",
+            (+localStorage.getItem("totalWorkoutTime")||0)+5);
+        localStorage.setItem("lastWorkoutType","Strength Training");
+        localStorage.setItem("lastWorkoutCalories", calories);
+        localStorage.setItem("lastWorkoutTime", 5);
+
+        function finishWorkout(){
+    const exerciseName = card.querySelector('.title').textContent;
+    const durationMinutes = Math.ceil((sets * 2) + (restTime * sets / 60)); // Estimate total time
+    
+    totalCalories += calories;
+    document.getElementById("totalCalories").textContent = totalCalories;
+    
+    // Save exercise log
+    const today = new Date().toISOString().split('T')[0];
+    let exerciseLogs = JSON.parse(localStorage.getItem('fitcareExerciseLogs') || '{}');
+    if (!exerciseLogs[today]) {
+        exerciseLogs[today] = [];
+    }
+    
+    exerciseLogs[today].push({
+        name: exerciseName,
+        type: 'strength',
+        duration: durationMinutes,
+        calories: calories,
+        sets: sets,
+        reps: card.dataset.reps,
+        date: today,
+        timestamp: new Date().toISOString()
+    });
+    
+    localStorage.setItem('fitcareExerciseLogs', JSON.stringify(exerciseLogs));
+    
+    // Update total time
+    const totalTime = +localStorage.getItem('totalExerciseTime') || 0;
+    localStorage.setItem('totalExerciseTime', totalTime + durationMinutes);
+    
+    // Other localStorage updates...
+    localStorage.setItem("totalCalories", totalCalories);
+    localStorage.setItem("completedExercises",
+        (+localStorage.getItem("completedExercises")||0)+1);
+    localStorage.setItem("totalWorkoutTime",
+        (+localStorage.getItem("totalWorkoutTime")||0)+durationMinutes);
+    localStorage.setItem("lastWorkoutType","Strength Training");
+    localStorage.setItem("lastWorkoutCalories", calories);
+    localStorage.setItem("lastWorkoutTime", durationMinutes);
+    
+    // Visual feedback...
+}
+
+        // Visual feedback
+        exerciseCard.classList.add('completed');
+        timer.textContent = "Completed! ✅";
+        timer.style.color = "#00cc66";
+        isCompleted = true;
+        
+        // Show completion message
+        setTimeout(() => {
+            const exerciseName = card.querySelector('.title').textContent;
+            alert(`${exerciseName} completed! 💪\nCalories burnt: ${calories}`);
+        }, 300);
+    }
+
+    start.onclick = ()=>{
+        if (isCompleted) return;
+        
+        start.disabled = true;
+        progress.style.width = "0%";
+        progress.style.transition = "width " + restTime + "s linear";
+        
+        // Simulate workout time (3 seconds per set)
+        setTimeout(() => {
+            startRest();
+        }, 3000);
+    };
+
+    reset.onclick = ()=>{
+        clearInterval(restInterval);
+        currentSet = 1;
+        rest.textContent = restTime;
+        progress.style.width = "100%";
+        progress.style.transition = "width 0.3s ease";
+        timer.textContent = "Set 1";
+        timer.style.color = "#00ff7f";
+        start.disabled = false;
+        isCompleted = false;
+        exerciseCard.classList.remove('completed');
+    };
+});
+
+// Function to show exercise time summary
+function showExerciseTimeSummary() {
+    // Get all exercise logs
+    const allLogs = JSON.parse(localStorage.getItem('fitcareExerciseLogs') || '{}');
+    
+    // Calculate total exercise time
+    let totalTime = 0;
+    let totalExercises = 0;
+    
+    Object.values(allLogs).forEach(dailyLogs => {
+        dailyLogs.forEach(exercise => {
+            totalTime += exercise.duration || 0;
+            totalExercises++;
+        });
+    });
+    
+    // You can display this in a summary card
+    console.log(`Total Exercise Time: ${totalTime} minutes`);
+    console.log(`Total Exercises: ${totalExercises}`);
+    
+    return {
+        totalTime: totalTime,
+        totalExercises: totalExercises
+    };
+}
+
+// Call this function in your initProgressTracker function
+function initProgressTracker() {
+    // ... existing code ...
+    
+    // Show exercise summary
+    const summary = showExerciseTimeSummary();
+    console.log('Exercise Summary:', summary);
+    
+    // ... rest of the code ...
+}
+
+function updateWeeklyChart() {
+    const weeklyChart = document.getElementById('weeklyChart');
+    weeklyChart.innerHTML = '';
+    
+    // Get exercise logs for the last 7 days
+    const allLogs = JSON.parse(localStorage.getItem('fitcareExerciseLogs') || '{}');
+    
+    // Get last 7 days
+    const days = [];
+    const dayData = [];
+    
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+        
+        // Get exercise logs for this day
+        const dailyLogs = allLogs[dateStr] || [];
+        const totalCalories = dailyLogs.reduce((sum, exercise) => sum + (exercise.calories || 0), 0);
+        
+        days.push(date);
+        dayData.push({
+            day: dayName,
+            caloriesBurned: totalCalories,
+            exerciseCount: dailyLogs.length
+        });
+    }
+    
+    // Find max calories burned for scaling
+    const maxCalories = Math.max(...dayData.map(d => d.caloriesBurned), 100); // Minimum 100 for scaling
+    
+    dayData.forEach((data, index) => {
+        const percentage = maxCalories > 0 ? (data.caloriesBurned / maxCalories) * 100 : 0;
+        
+        const chartDay = document.createElement('div');
+        chartDay.className = 'chart-day';
+        chartDay.title = `${data.day}: ${data.caloriesBurned} calories (${data.exerciseCount} exercises)`;
+        
+        chartDay.innerHTML = `
+            <div class="chart-bar">
+                <div class="chart-fill" style="height: ${percentage}%"></div>
+            </div>
+            <div class="day-label">${data.day}</div>
+        `;
+        
+        weeklyChart.appendChild(chartDay);
+    });
+}
+</script>
+
+</body>
+</html>

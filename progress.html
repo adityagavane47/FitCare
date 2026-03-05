@@ -1,0 +1,1906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FITCARE - Progress Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            touch-action: pan-y;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        /* Mobile Container - Main Wrapper */
+        .mobile-container {
+            width: 100%;
+            max-width: 428px;
+            height: 100vh;
+            max-height: 926px;
+            background-color: #000;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #333;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0, 255, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Side Navigation - Contained within mobile container */
+        .side-nav {
+            position: absolute;
+            top: 0;
+            left: -280px;
+            width: 280px;
+            height: 100%;
+            background: #000;
+            border-right: 1px solid #00ff00;
+            z-index: 1000;
+            transition: left 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
+            box-shadow: 5px 0 30px rgba(0, 255, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            border-radius: 24px 0 0 24px;
+            overflow: hidden;
+        }
+
+        .side-nav.open {
+            left: 0;
+        }
+
+        .nav-header {
+            padding: 20px 16px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-header h2 {
+            color: #00ff00;
+            font-size: 1.4em;
+            font-weight: 700;
+        }
+
+        .close-nav {
+            background: rgba(0, 255, 0, 0.1);
+            border: none;
+            color: #00ff00;
+            font-size: 1.3em;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .nav-profile {
+            padding: 20px 16px;
+            border-bottom: 1px solid #333;
+        }
+
+        .profile-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .profile-pic {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00ff00, #00cc00);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .profile-text h3 {
+            color: #fff;
+            font-size: 1.1em;
+            margin-bottom: 2px;
+        }
+
+        .profile-text p {
+            color: #888;
+            font-size: 0.85em;
+        }
+
+        .nav-menu {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .nav-item-side {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            color: #ddd;
+            text-decoration: none;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item-side.active {
+            background: rgba(0, 255, 0, 0.08);
+            color: #00ff00;
+            border-left-color: #00ff00;
+        }
+
+        .nav-item-side:active {
+            background: rgba(0, 255, 0, 0.15);
+            transform: scale(0.98);
+        }
+
+        .nav-icon-side {
+            font-size: 1.2em;
+            width: 24px;
+        }
+
+        .nav-label {
+            font-size: 0.95em;
+        }
+
+        .nav-footer {
+            padding: 20px 16px;
+            border-top: 1px solid #333;
+        }
+
+        .logout-btn {
+            width: 100%;
+            padding: 14px;
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            border-radius: 12px;
+            color: #ff4444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 0.95em;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .logout-btn:active {
+            background: rgba(255, 0, 0, 0.2);
+            transform: scale(0.98);
+        }
+
+        /* Overlay - Contained within mobile container */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s ease;
+            backdrop-filter: blur(3px);
+            border-radius: 24px;
+        }
+
+        .overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Status Bar - Fixed within container */
+        .status-bar {
+            padding: 12px 16px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85em;
+            color: #00ff00;
+            background: #000;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .menu-toggle {
+            background: rgba(0, 255, 0, 0.1);
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            color: #00ff00;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .menu-toggle:active {
+            background: rgba(0, 255, 0, 0.2);
+            transform: scale(0.95);
+        }
+
+        .time {
+            font-weight: 600;
+            font-size: 1em;
+        }
+
+        .status-icons {
+            display: flex;
+            gap: 8px;
+            font-size: 1em;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            padding: 16px;
+            background: #000;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 4px;
+        }
+
+        .header .fit {
+            color: #00ff00;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 0.9em;
+        }
+
+        /* Content */
+        .content {
+            padding: 0 16px 16px;
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Date Selector */
+        .date-selector {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 12px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .date-btn {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+
+        .date-btn:active {
+            background: rgba(0, 255, 0, 0.2);
+            transform: scale(0.95);
+        }
+
+        .current-date {
+            font-weight: 600;
+            color: #00ff00;
+            font-size: 1.1em;
+        }
+
+        /* Cards */
+        .card {
+            background: #0a0a0a;
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #00ff00;
+        }
+
+        .icon {
+            font-size: 1.2em;
+        }
+
+        /* Calorie Balance */
+        .calorie-balance {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .calorie-item {
+            background: rgba(0, 255, 0, 0.05);
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .calorie-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #00ff00;
+            margin-bottom: 4px;
+        }
+
+        .calorie-label {
+            font-size: 0.85em;
+            color: #aaa;
+        }
+
+        .balance-display {
+            text-align: center;
+            padding: 16px;
+            background: linear-gradient(135deg, rgba(0, 255, 0, 0.1), rgba(0, 255, 0, 0.05));
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .balance-label {
+            font-size: 0.9em;
+            color: #aaa;
+            margin-bottom: 8px;
+        }
+
+        .balance-value {
+            font-size: 2.2em;
+            font-weight: 800;
+            color: #00ff00;
+        }
+
+        .balance-positive {
+            color: #00ff00;
+        }
+
+        .balance-negative {
+            color: #ff4444;
+        }
+
+        /* Exercise Log */
+        .exercise-log {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .exercise-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: rgba(13, 13, 13, 0.8);
+            border: 1px solid rgba(0, 255, 0, 0.1);
+            border-radius: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .exercise-item:active {
+            background: rgba(0, 255, 0, 0.05);
+            border-color: #00ff00;
+        }
+
+        .exercise-icon {
+            font-size: 1.5em;
+            width: 40px;
+            text-align: center;
+        }
+
+        .exercise-info {
+            flex: 1;
+        }
+
+        .exercise-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #fff;
+        }
+
+        .exercise-details {
+            display: flex;
+            gap: 12px;
+            font-size: 0.8em;
+            color: #aaa;
+        }
+
+        .exercise-calories {
+            color: #00ff00;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        /* Progress Chart */
+        .chart-container {
+            margin-top: 16px;
+            padding: 16px;
+            background: rgba(0, 255, 0, 0.03);
+            border-radius: 12px;
+        }
+
+        .chart-days {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 12px;
+        }
+
+        .chart-day {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .chart-bar {
+            width: 20px;
+            height: 100px;
+            background: rgba(0, 255, 0, 0.1);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chart-fill {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background: linear-gradient(to top, #00ff00, #00cc00);
+            border-radius: 4px;
+            transition: height 0.5s ease;
+        }
+
+        .day-label {
+            font-size: 0.7em;
+            color: #888;
+        }
+
+        /* Statistics Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .stat-item {
+            background: rgba(0, 255, 0, 0.05);
+            border: 1px solid rgba(0, 255, 0, 0.1);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #00ff00;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 0.8em;
+            color: #aaa;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+
+        .empty-icon {
+            font-size: 3em;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        /* Bottom Navigation - Fixed within container */
+        .bottom-nav {
+            background: #0a0a0a;
+            border-top: 1px solid rgba(0, 255, 0, 0.2);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            z-index: 100;
+            flex-shrink: 0;
+            border-radius: 0 0 24px 24px;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: #666;
+            font-size: 0.7em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 60px;
+            padding: 8px 4px;
+            border-radius: 8px;
+            min-height: 60px;
+            justify-content: center;
+        }
+
+        .nav-item.active {
+            color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .nav-item .nav-icon {
+            font-size: 1.4em;
+        }
+
+        .nav-item:active {
+            transform: scale(0.9);
+        }
+
+        /* Hide scrollbar but keep functionality */
+        .nav-menu::-webkit-scrollbar,
+        .content::-webkit-scrollbar,
+        .main-content::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .nav-menu::-webkit-scrollbar-track,
+        .content::-webkit-scrollbar-track,
+        .main-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .nav-menu::-webkit-scrollbar-thumb,
+        .content::-webkit-scrollbar-thumb,
+        .main-content::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 3px;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 428px) {
+            .mobile-container {
+                border-radius: 0;
+                border: none;
+                max-width: 100%;
+                max-height: 100%;
+            }
+            
+            .side-nav {
+                border-radius: 0 0 0 0;
+            }
+            
+            .overlay {
+                border-radius: 0;
+            }
+            
+            .bottom-nav {
+                border-radius: 0;
+            }
+        }
+
+        @media (max-height: 926px) {
+            .mobile-container {
+                max-height: 100vh;
+            }
+        }
+
+        /* Swipe indicator */
+        .swipe-indicator {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            width: 4px;
+            height: 40px;
+            background: rgba(0, 255, 0, 0.5);
+            border-radius: 2px;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 1001;
+        }
+
+        .swipe-indicator.visible {
+            opacity: 1;
+        }
+
+        /* Safe area support */
+        .status-bar {
+            padding-top: calc(12px + env(safe-area-inset-top, 0px));
+        }
+
+        .bottom-nav {
+            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        }
+
+        /* Loading overlay */
+        #loadingOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            border-radius: 24px;
+        }
+
+        #loadingOverlay .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #333;
+            border-top-color: #00ff00;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        #loadingOverlay .loading-text {
+            color: #00ff00;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Animation for new entries */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide-in {
+            animation: slideIn 0.3s ease forwards;
+        }
+
+        /* Food Log Styles */
+.food-log {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.food-log-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: rgba(13, 13, 13, 0.8);
+    border: 1px solid rgba(0, 255, 0, 0.1);
+    border-radius: 10px;
+}
+
+.food-name {
+    font-weight: 500;
+    color: #fff;
+}
+
+.food-calories {
+    color: #00ff00;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+    </style>
+</head>
+<body>
+    <!-- Mobile Container -->
+    <div class="mobile-container" id="mobileContainer">
+        <!-- Side Navigation -->
+        <div class="side-nav" id="sideNav">
+            <div class="nav-header">
+                <h2>FITCARE</h2>
+                <button class="close-nav" id="closeNav">✕</button>
+            </div>
+
+            <div class="nav-profile">
+                <div class="profile-info">
+                    <div class="profile-pic" id="profileInitial">U</div>
+                    <div class="profile-text">
+                        <h3 id="sidebarUserName">User</h3>
+                        <p id="sidebarUserEmail">user@example.com</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="nav-menu">
+                <a href="home.html" class="nav-item-side">
+                    <span class="nav-icon-side">🏠</span>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+                <a href="progress.html" class="nav-item-side">
+                    <span class="nav-icon-side">📊</span>
+                    <span class="nav-label">Analytics</span>
+                </a>
+                <a href="meals.html" class="nav-item-side">
+                    <span class="nav-icon-side">🍽️</span>
+                    <span class="nav-label">Meal Plans</span>
+                </a>
+                <a href="catg.html" class="nav-item-side">
+                    <span class="nav-icon-side">💪</span>
+                    <span class="nav-label">Workouts</span>
+                </a>
+                <a href="weight.html" class="nav-item-side">
+                    <span class="nav-icon-side">🏋</span>
+                    <span class="nav-label">Gym Training</span>
+                </a>
+                <a href="goals.html" class="nav-item-side">
+                    <span class="nav-icon-side">🥦</span>
+                    <span class="nav-label">Log Food</span>
+                </a>
+                <a href="#" class="nav-item-side active">
+                    <span class="nav-icon-side">📈</span>
+                    <span class="nav-label">Progress</span>
+                </a>
+                <a href="shop.html" class="nav-item-side">
+                    <span class="nav-icon-side">⚙️</span>
+                    <span class="nav-label">Store</span>
+                </a>
+               
+            </div>
+
+            <div class="nav-footer">
+                <button class="logout-btn" onclick="logout()">
+                    <span>🚪</span>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Overlay -->
+        <div class="overlay" id="overlay"></div>
+
+        <!-- Swipe Indicator -->
+        <div class="swipe-indicator" id="swipeIndicator"></div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay">
+            <div class="spinner"></div>
+            <div class="loading-text">Loading...</div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <button class="menu-toggle" id="menuToggle">☰</button>
+                <div class="time" id="currentTime">9:41</div>
+                <div class="status-icons">
+                    <span>📶</span>
+                    <span>🔋</span>
+                </div>
+            </div>
+
+            <!-- Header -->
+            <div class="header">
+                <h1><span class="fit">PROGRESS</span> TRACKER</h1>
+                <p>Track your daily calories & exercise</p>
+            </div>
+
+            <!-- Content -->
+            <div class="content">
+                <!-- Date Selector -->
+                <div class="date-selector">
+                    <button class="date-btn" onclick="changeDate(-1)">←</button>
+                    <div class="current-date" id="currentDate">Today</div>
+                    <button class="date-btn" onclick="changeDate(1)">→</button>
+                </div>
+
+                <!-- Daily Calorie Balance -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon">🔥</span>
+                        <span>Daily Calorie Balance</span>
+                    </div>
+                    
+                    <div class="calorie-balance">
+                        <div class="calorie-item">
+                            <div class="calorie-value" id="caloriesGained">0</div>
+                            <div class="calorie-label">Calories Gained</div>
+                        </div>
+                        <div class="calorie-item">
+                            <div class="calorie-value" id="caloriesBurned">0</div>
+                            <div class="calorie-label">Calories Burned</div>
+                        </div>
+                    </div>
+
+                    <div class="balance-display">
+                        <div class="balance-label">NET BALANCE</div>
+                        <div class="balance-value" id="calorieBalance">0</div>
+                    </div>
+                </div>
+
+                <!-- Exercise Log -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon">💪</span>
+                        <span>Exercise Log</span>
+                    </div>
+                    
+                    <div class="exercise-log" id="exerciseLog">
+                        <!-- Exercises will be dynamically added here -->
+                    </div>
+                    
+                    <div class="empty-state" id="emptyExerciseState" style="display: none;">
+                        <div class="empty-icon">🏃</div>
+                        <p>No exercises logged today</p>
+                        <p style="font-size: 0.9em; color: #666; margin-top: 8px;">Add your first exercise!</p>
+                    </div>
+                </div>
+
+                <!-- Weekly Progress Chart -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon">📈</span>
+                        <span>Weekly Progress</span>
+                    </div>
+                    
+                    <div class="chart-container">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                            <span style="font-size: 0.9em; color: #00ff00;">🔥 Calories Burned</span>
+                            <div style="flex: 1; height: 4px; background: linear-gradient(90deg, #00ff00, #00cc00); border-radius: 2px;"></div>
+                        </div>
+                        
+                        <div class="chart-days" id="weeklyChart">
+                            <!-- Chart bars will be dynamically added here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics Summary -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon">📊</span>
+                        <span>Today's Statistics</span>
+                    </div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalExerciseTime">0</div>
+                            <div class="stat-label">Exercise Time</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="totalActivities">0</div>
+                            <div class="stat-label">Activities</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="avgHeartRate">0</div>
+                            <div class="stat-label">Avg Heart Rate</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="stepsCount">0</div>
+                            <div class="stat-label">Steps</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="margin: 20px 0;">
+                    <button class="btn" onclick="logNewExercise()" style="
+                        width: 100%;
+                        padding: 16px;
+                        background: #00ff00;
+                        color: #000;
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 1em;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                    ">
+                        + Log New Exercise
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <div class="bottom-nav">
+            <div class="nav-item" onclick="navigateTo('home')">
+                <span class="nav-icon">🏠</span>
+                <span>Home</span>
+            </div>
+            <div class="nav-item" onclick="navigateTo('stats')">
+                <span class="nav-icon">📊</span>
+                <span>Progess</span>
+            </div>
+            <div class="nav-item" onclick="navigateTo('meals')">
+                <span class="nav-icon">🍽️</span>
+                <span>Meals</span>
+            </div>
+            <div class="nav-item active" onclick="navigateTo('profile')">
+                <span class="nav-icon">📈</span>
+                <span>Profile</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Progress Tracker Data
+        let currentDate = new Date();
+        let progressData = {
+            exercises: [],
+            dailyCalories: {
+                gained: 0,
+                burned: 0,
+                net: 0
+            },
+            weeklyStats: []
+        };
+        
+        // Sample exercise types
+        const exerciseTypes = [
+            { name: "Running", icon: "🏃", caloriesPerMin: 12, icon: "🏃" },
+            { name: "Cycling", icon: "🚴", caloriesPerMin: 10, icon: "🚴" },
+            { name: "Swimming", icon: "🏊", caloriesPerMin: 13, icon: "🏊" },
+            { name: "Weight Training", icon: "🏋️", caloriesPerMin: 8, icon: "🏋️" },
+            { name: "Yoga", icon: "🧘", caloriesPerMin: 5, icon: "🧘" },
+            { name: "HIIT", icon: "⚡", caloriesPerMin: 15, icon: "⚡" },
+            { name: "Walking", icon: "🚶", caloriesPerMin: 7, icon: "🚶" },
+            { name: "Jump Rope", icon: "🔄", caloriesPerMin: 14, icon: "🔄" }
+        ];
+        
+        // Sample weekly data
+        const sampleWeeklyData = [
+            { day: "Mon", caloriesBurned: 450, caloriesGained: 1800 },
+            { day: "Tue", caloriesBurned: 520, caloriesGained: 1750 },
+            { day: "Wed", caloriesBurned: 380, caloriesGained: 1900 },
+            { day: "Thu", caloriesBurned: 600, caloriesGained: 1650 },
+            { day: "Fri", caloriesBurned: 480, caloriesGained: 1850 },
+            { day: "Sat", caloriesBurned: 550, caloriesGained: 1700 },
+            { day: "Sun", caloriesBurned: 420, caloriesGained: 1800 }
+        ];
+        
+        // Sample exercises for today
+        const sampleExercises = [
+            { type: "Running", duration: 30, calories: 360, time: "Morning" },
+            { type: "Weight Training", duration: 45, calories: 360, time: "Evening" },
+            { type: "Walking", duration: 20, calories: 140, time: "Afternoon" }
+        ];
+        
+        // Sidebar and navigation functions (same as your original)
+        let touchStartX = 0;
+        let touchEndX = 0;
+        let sidebarOpen = false;
+        
+        function handleTouchStart(e) {
+            touchStartX = e.changedTouches[0].clientX;
+            
+            if (touchStartX < 50 && !sidebarOpen) {
+                showSwipeIndicator();
+            }
+        }
+        
+        function handleTouchMove(e) {
+            if (touchStartX < 30 && !sidebarOpen) {
+                e.preventDefault();
+            }
+        }
+        
+        function handleTouchEnd(e) {
+            touchEndX = e.changedTouches[0].clientX;
+            const swipeDistance = touchEndX - touchStartX;
+            
+            hideSwipeIndicator();
+            
+            if (touchStartX < 50 && swipeDistance > 80) {
+                toggleSidebar();
+                simulateHaptic();
+                return;
+            }
+            
+            if (sidebarOpen && touchStartX - touchEndX > 80) {
+                closeSidebar();
+                simulateHaptic();
+                return;
+            }
+        }
+        
+        function showSwipeIndicator() {
+            const indicator = document.getElementById('swipeIndicator');
+            indicator.style.transform = 'translateY(-50%) scale(1.2)';
+            indicator.classList.add('visible');
+        }
+        
+        function hideSwipeIndicator() {
+            const indicator = document.getElementById('swipeIndicator');
+            indicator.style.transform = 'translateY(-50%) scale(1)';
+            indicator.classList.remove('visible');
+        }
+        
+        function toggleSidebar() {
+            const sideNav = document.getElementById('sideNav');
+            const overlay = document.getElementById('overlay');
+            const mainContent = document.querySelector('.main-content');
+            
+            if (!sidebarOpen) {
+                sideNav.classList.add('open');
+                overlay.classList.add('active');
+                mainContent.style.overflow = 'hidden';
+                document.addEventListener('touchstart', handleOverlayTouch, { passive: true });
+            } else {
+                sideNav.classList.remove('open');
+                overlay.classList.remove('active');
+                mainContent.style.overflow = '';
+                document.removeEventListener('touchstart', handleOverlayTouch);
+            }
+            
+            sidebarOpen = !sidebarOpen;
+            simulateHaptic();
+        }
+        
+        function closeSidebar() {
+            const sideNav = document.getElementById('sideNav');
+            const overlay = document.getElementById('overlay');
+            const mainContent = document.querySelector('.main-content');
+            
+            sideNav.classList.remove('open');
+            overlay.classList.remove('active');
+            mainContent.style.overflow = '';
+            sidebarOpen = false;
+            
+            document.removeEventListener('touchstart', handleOverlayTouch);
+            simulateHaptic();
+        }
+        
+        function handleOverlayTouch(e) {
+            if (sidebarOpen && !e.target.closest('.side-nav')) {
+                closeSidebar();
+            }
+        }
+        
+        function simulateHaptic() {
+            if (navigator.vibrate) {
+                navigator.vibrate(10);
+            }
+        }
+        
+        function showLoading(message) {
+            const loader = document.getElementById('loadingOverlay');
+            if (loader) {
+                const text = loader.querySelector('.loading-text');
+                if (text) text.textContent = message || 'Loading...';
+                loader.style.display = 'flex';
+            }
+        }
+        
+        function hideLoading() {
+            const loader = document.getElementById('loadingOverlay');
+            if (loader) {
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 300);
+            }
+        }
+        
+        // Progress Tracker Functions
+        function formatDate(date) {
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            if (date.toDateString() === today.toDateString()) {
+                return "Today";
+            } else if (date.toDateString() === yesterday.toDateString()) {
+                return "Yesterday";
+            } else {
+                return date.toLocaleDateString('en-US', { 
+                    weekday: 'short',
+                    month: 'short', 
+                    day: 'numeric' 
+                });
+            }
+        }
+        
+        function changeDate(days) {
+            currentDate.setDate(currentDate.getDate() + days);
+            updateDateDisplay();
+            loadProgressDataForDate();
+        }
+        
+        function updateDateDisplay() {
+            document.getElementById('currentDate').textContent = formatDate(currentDate);
+        }
+        
+      function loadProgressDataForDate() {
+    showLoading('Loading progress data...');
+    
+    setTimeout(() => {
+        const isToday = new Date().toDateString() === currentDate.toDateString();
+        const dateStr = currentDate.toISOString().split('T')[0];
+        
+        // Get food logs for the selected date
+        const foodLogs = getFoodLogsForDate(currentDate);
+        
+        // Calculate total calories from food logs
+        let totalCaloriesFromFood = 0;
+        if (foodLogs && foodLogs.length > 0) {
+            totalCaloriesFromFood = foodLogs.reduce((total, food) => {
+                return total + (food.calories || 0);
+            }, 0);
+        }
+        
+        // Also try to get from dailyCalories storage
+        const storedDailyCalories = getDailyCaloriesForDate(currentDate);
+        if (storedDailyCalories > 0 && storedDailyCalories !== totalCaloriesFromFood) {
+            console.log(`Calories mismatch: stored=${storedDailyCalories}, calculated=${totalCaloriesFromFood}`);
+            // Use the larger value
+            totalCaloriesFromFood = Math.max(storedDailyCalories, totalCaloriesFromFood);
+        }
+        
+        console.log(`Date: ${dateStr}, Food calories: ${totalCaloriesFromFood}, Food items: ${foodLogs.length}`);
+        
+        if (isToday) {
+            // Use sample data for "today"
+            progressData.exercises = [...sampleExercises];
+            progressData.dailyCalories = {
+                gained: totalCaloriesFromFood > 0 ? totalCaloriesFromFood : 1850,
+                burned: 860,
+                net: (totalCaloriesFromFood > 0 ? totalCaloriesFromFood : 1850) - 860
+            };
+        } else {
+            // Generate random data for other days
+            const randomExercisesCount = Math.floor(Math.random() * 4);
+            const exercises = [];
+            let totalBurned = 0;
+            
+            for (let i = 0; i < randomExercisesCount; i++) {
+                const exerciseType = exerciseTypes[Math.floor(Math.random() * exerciseTypes.length)];
+                const duration = 10 + Math.floor(Math.random() * 50);
+                const calories = Math.floor(duration * exerciseType.caloriesPerMin);
+                totalBurned += calories;
+                
+                exercises.push({
+                    type: exerciseType.name,
+                    duration: duration,
+                    calories: calories,
+                    time: ["Morning", "Afternoon", "Evening"][i % 3]
+                });
+            }
+            
+            // Use actual food calories for gained, or generate random if none
+            const gained = totalCaloriesFromFood > 0 ? totalCaloriesFromFood : (1500 + Math.floor(Math.random() * 1000));
+            
+            progressData.exercises = exercises;
+            progressData.dailyCalories = {
+                gained: gained,
+                burned: totalBurned,
+                net: gained - totalBurned
+            };
+        }
+        
+        // Store food logs in progress data
+        progressData.foodLogs = foodLogs;
+        
+        updateProgressUI();
+        hideLoading();
+    }, 600);
+}
+
+        
+      function updateProgressUI() {
+    // Update calorie displays
+    document.getElementById('caloriesGained').textContent = progressData.dailyCalories.gained;
+    document.getElementById('caloriesBurned').textContent = progressData.dailyCalories.burned;
+    
+    const netBalance = progressData.dailyCalories.net;
+    const balanceElement = document.getElementById('calorieBalance');
+    balanceElement.textContent = Math.abs(netBalance);
+    
+    if (netBalance > 0) {
+        balanceElement.className = 'balance-value balance-positive';
+        balanceElement.textContent = `+${netBalance}`;
+    } else if (netBalance < 0) {
+        balanceElement.className = 'balance-value balance-negative';
+        balanceElement.textContent = `${netBalance}`;
+    } else {
+        balanceElement.className = 'balance-value';
+        balanceElement.textContent = '0';
+    }
+    
+    // Update exercise log
+    const exerciseLog = document.getElementById('exerciseLog');
+    const emptyState = document.getElementById('emptyExerciseState');
+    
+    exerciseLog.innerHTML = '';
+    
+    if (progressData.exercises.length === 0) {
+        emptyState.style.display = 'block';
+        exerciseLog.style.display = 'none';
+    } else {
+        emptyState.style.display = 'none';
+        exerciseLog.style.display = 'flex';
+        
+        progressData.exercises.forEach((exercise, index) => {
+            const exerciseItem = document.createElement('div');
+            exerciseItem.className = 'exercise-item slide-in';
+            exerciseItem.style.animationDelay = `${index * 0.1}s`;
+            
+            const exerciseType = exerciseTypes.find(e => e.name === exercise.type) || exerciseTypes[0];
+            
+            exerciseItem.innerHTML = `
+                <div class="exercise-icon">${exerciseType.icon}</div>
+                <div class="exercise-info">
+                    <div class="exercise-name">${exercise.type}</div>
+                    <div class="exercise-details">
+                        <span>⏱️ ${exercise.duration} min</span>
+                        <span>🕒 ${exercise.time}</span>
+                    </div>
+                </div>
+                <div class="exercise-calories">🔥 ${exercise.calories}</div>
+            `;
+            
+            exerciseLog.appendChild(exerciseItem);
+        });
+    }
+    
+    // Update statistics
+    const totalExerciseTime = progressData.exercises.reduce((sum, ex) => sum + ex.duration, 0);
+    const totalActivities = progressData.exercises.length;
+    
+    document.getElementById('totalExerciseTime').textContent = totalExerciseTime + ' min';
+    document.getElementById('totalActivities').textContent = totalActivities;
+    
+    // Generate realistic stats
+    const avgHeartRate = 120 + Math.floor(Math.random() * 30);
+    const stepsCount = 2500 + Math.floor(Math.random() * 7500);
+    
+    document.getElementById('avgHeartRate').textContent = avgHeartRate;
+    document.getElementById('stepsCount').textContent = stepsCount.toLocaleString();
+    
+    // Update weekly chart
+    updateWeeklyChart();
+    
+    // Add food log display if food was logged
+    updateFoodLogDisplay();
+}
+function updateFoodLogDisplay() {
+    // Remove existing food log container if it exists
+    const existingContainer = document.querySelector('.food-log-container');
+    if (existingContainer) {
+        existingContainer.remove();
+    }
+    
+    // Check if we have food logs for the current date
+    if (progressData.foodLogs && progressData.foodLogs.length > 0) {
+        // Create food log section
+        const foodLogHTML = `
+            <div class="card food-log-container">
+                <div class="card-title">
+                    <span class="icon">🍽️</span>
+                    <span>Food Log - ${formatDate(currentDate)}</span>
+                </div>
+                <div class="food-log">
+                    ${progressData.foodLogs.map(food => `
+                        <div class="food-log-item slide-in">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="color: #00ff00; font-size: 1.2em;">🍽️</span>
+                                <div>
+                                    <div class="food-name">${food.name} (x${food.quantity})</div>
+                                    <div style="font-size: 0.8em; color: #888; margin-top: 2px;">
+                                        ${food.meal ? food.meal.charAt(0).toUpperCase() + food.meal.slice(1) : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <div style="text-align: right;">
+                                    <div class="food-calories">🔥 ${food.calories} cal</div>
+                                    <div style="font-size: 0.7em; color: #666; margin-top: 2px;">
+                                        ${food.protein}g protein | ${food.carbs}g carbs
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        
+        // Insert after the exercise log card
+        const exerciseCard = document.querySelector('.card:nth-child(2)');
+        if (exerciseCard) {
+            exerciseCard.insertAdjacentHTML('afterend', foodLogHTML);
+        }
+    }
+}
+        
+        function updateWeeklyChart() {
+            const weeklyChart = document.getElementById('weeklyChart');
+            weeklyChart.innerHTML = '';
+            
+            // Get last 7 days
+            const days = [];
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                days.push(date);
+            }
+            
+            // Find max calories burned for scaling
+            const maxCalories = Math.max(...sampleWeeklyData.map(d => d.caloriesBurned));
+            
+            days.forEach((day, index) => {
+                const dayData = sampleWeeklyData[index] || { day: day.toLocaleDateString('en-US', { weekday: 'short' }), caloriesBurned: 0 };
+                const percentage = (dayData.caloriesBurned / maxCalories) * 100;
+                
+                const chartDay = document.createElement('div');
+                chartDay.className = 'chart-day';
+                
+                chartDay.innerHTML = `
+                    <div class="chart-bar">
+                        <div class="chart-fill" style="height: ${percentage}%"></div>
+                    </div>
+                    <div class="day-label">${dayData.day}</div>
+                `;
+                
+                weeklyChart.appendChild(chartDay);
+            });
+        }
+        
+        function logNewExercise() {
+            simulateHaptic();
+            
+            const randomExercise = exerciseTypes[Math.floor(Math.random() * exerciseTypes.length)];
+            const duration = 15 + Math.floor(Math.random() * 45);
+            const calories = Math.floor(duration * randomExercise.caloriesPerMin);
+            
+            const newExercise = {
+                type: randomExercise.name,
+                duration: duration,
+                calories: calories,
+                time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+            };
+            
+            progressData.exercises.push(newExercise);
+            progressData.dailyCalories.burned += calories;
+            progressData.dailyCalories.net = progressData.dailyCalories.gained - progressData.dailyCalories.burned;
+            
+            updateProgressUI();
+            
+            // Show success feedback
+            const originalText = document.querySelector('.btn').textContent;
+            document.querySelector('.btn').textContent = '✓ Exercise Logged!';
+            document.querySelector('.btn').style.background = '#00cc00';
+            
+            setTimeout(() => {
+                document.querySelector('.btn').textContent = originalText;
+                document.querySelector('.btn').style.background = '#00ff00';
+            }, 1500);
+        }
+        
+        function navigateTo(page) {
+            simulateHaptic();
+            
+            const navItems = document.querySelectorAll('.nav-item');
+            navItems.forEach(item => item.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            
+            showLoading(`Loading ${page}...`);
+            
+            setTimeout(() => {
+                hideLoading();
+                // In a real app, this would navigate to the actual page
+                if (page === 'home') {
+                    window.location.href = 'home.html';
+                } else if (page === 'stats') {
+                    window.location.href = 'progress.html';
+                } else if (page === 'meals') {
+                    window.location.href = 'meals.html';
+                } else if (page === 'profile') {
+                    window.location.href = 'profile.html';
+                }
+            }, 800);
+        }
+        
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                showLoading('Logging out...');
+                
+                setTimeout(() => {
+                    hideLoading();
+                    alert('Successfully logged out!');
+                    window.location.href = 'login3.html';
+                }, 1000);
+            }
+        }
+        
+        function updateTime() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('currentTime').textContent = `${hours}:${minutes}`;
+        }
+        
+        // Initialize the progress tracker
+        function initProgressTracker() {
+            // Set up event listeners
+            const mobileContainer = document.getElementById('mobileContainer');
+            mobileContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
+            mobileContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
+            mobileContainer.addEventListener('touchend', handleTouchEnd, { passive: true });
+            
+            // Sidebar controls
+            document.getElementById('menuToggle').addEventListener('click', toggleSidebar);
+            document.getElementById('closeNav').addEventListener('click', closeSidebar);
+            document.getElementById('overlay').addEventListener('click', closeSidebar);
+            
+            // Update time
+            updateTime();
+            setInterval(updateTime, 60000);
+            
+            // Initialize date and load data
+            updateDateDisplay();
+            loadProgressDataForDate();
+            
+            // Add pull to refresh
+            let startY = 0;
+            let isScrolling = false;
+            
+            const contentArea = document.querySelector('.content');
+            contentArea.addEventListener('touchstart', (e) => {
+                startY = e.touches[0].clientY;
+                isScrolling = contentArea.scrollTop === 0;
+            });
+            
+            contentArea.addEventListener('touchend', (e) => {
+                const endY = e.changedTouches[0].clientY;
+                if (isScrolling && startY - endY > 100) {
+                    showLoading('Refreshing data...');
+                    setTimeout(() => {
+                        loadProgressDataForDate();
+                    }, 1000);
+                }
+            });
+            
+            // Load user data
+            loadUserData();
+        }
+        
+        function loadUserData() {
+            const storedData = localStorage.getItem('fitcareUserData');
+            
+            if (storedData) {
+                try {
+                    const data = JSON.parse(storedData);
+                    document.getElementById('sidebarUserName').textContent = data.name || "User";
+                    document.getElementById('sidebarUserEmail').textContent = data.email || "user@example.com";
+                    document.getElementById('profileInitial').textContent = (data.name || "User").charAt(0).toUpperCase();
+                } catch (error) {
+                    console.error('Error parsing user data:', error);
+                }
+            }
+        }
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initProgressTracker);
+        
+        // Prevent zoom on double tap
+        document.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+        
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+
+        // Add this function to get food logs for a specific date
+function getFoodLogsForDate(date) {
+    const allLogs = JSON.parse(localStorage.getItem('fitcareFoodLogs') || '{}');
+    const dateStr = date.toISOString().split('T')[0];
+    return allLogs[dateStr] || [];
+}
+
+function getDailyCaloriesForDate(date) {
+    try {
+        const dailyCalories = JSON.parse(localStorage.getItem('fitcareDailyCalories') || '{}');
+        const dateStr = date.toISOString().split('T')[0];
+        const calories = dailyCalories[dateStr] || 0;
+        console.log(`Getting daily calories for ${dateStr}:`, calories);
+        return calories;
+    } catch (error) {
+        console.error('Error getting daily calories:', error);
+        return 0;
+    }
+}
+
+// Update the loadProgressDataForDate function to include food data
+function loadProgressDataForDate() {
+    showLoading('Loading progress data...');
+    
+    setTimeout(() => {
+        const isToday = new Date().toDateString() === currentDate.toDateString();
+        const dateStr = currentDate.toISOString().split('T')[0];
+        
+        // Get food logs for the selected date
+        const foodLogs = getFoodLogsForDate(currentDate);
+        const totalCaloriesFromFood = getDailyCaloriesForDate(currentDate);
+        
+        // Update progress data with food information
+        progressData.dailyCalories = {
+            gained: totalCaloriesFromFood,
+            burned: progressData.dailyCalories.burned,
+            net: totalCaloriesFromFood - progressData.dailyCalories.burned
+        };
+        
+        // Store food logs in progress data
+        progressData.foodLogs = foodLogs;
+        
+        updateProgressUI();
+        hideLoading();
+    }, 600);
+}
+
+// Add a function to display food logs in the progress tracker
+function updateFoodLogDisplay() {
+    const foodLogContainer = document.getElementById('foodLogContainer');
+    if (!foodLogContainer) {
+        // Create food log section if it doesn't exist
+        const progressCard = document.querySelector('.content .card:nth-child(2)');
+        const foodLogHTML = `
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">🍽️</span>
+                    <span>Food Log - ${formatDate(currentDate)}</span>
+                </div>
+                <div class="food-log" id="foodLogContainer">
+                    ${progressData.foodLogs && progressData.foodLogs.length > 0 ? 
+                        progressData.foodLogs.map(food => `
+                            <div class="food-log-item">
+                                <span class="food-name">${food.name} (x${food.quantity})</span>
+                                <span class="food-calories">🔥 ${food.calories} cal</span>
+                            </div>
+                        `).join('') : 
+                        '<div class="empty-state">No food logged for this day</div>'
+                    }
+                </div>
+            </div>
+        `;
+        
+        // Insert after the calorie balance card
+        const calorieCard = document.querySelector('.content .card:nth-child(2)');
+        calorieCard.insertAdjacentHTML('afterend', foodLogHTML);
+    } else {
+        // Update existing food log
+        if (progressData.foodLogs && progressData.foodLogs.length > 0) {
+            foodLogContainer.innerHTML = progressData.foodLogs.map(food => `
+                <div class="food-log-item">
+                    <span class="food-name">${food.name} (x${food.quantity})</span>
+                    <span class="food-calories">🔥 ${food.calories} cal</span>
+                </div>
+            `).join('');
+        } else {
+            foodLogContainer.innerHTML = '<div class="empty-state">No food logged for this day</div>';
+        }
+    }
+}
+
+// Call updateFoodLogDisplay in your updateProgressUI function
+function updateProgressUI() {
+    // ... existing code ...
+    
+    // Add food log display
+    updateFoodLogDisplay();
+    
+    // ... rest of existing code ...
+}
+
+// Add this function to check localStorage
+function checkLocalStorage() {
+    console.log('Checking localStorage...');
+    console.log('fitcareFoodLogs:', localStorage.getItem('fitcareFoodLogs'));
+    console.log('fitcareDailyCalories:', localStorage.getItem('fitcareDailyCalories'));
+}
+
+// Update getFoodLogsForDate to be more robust
+function getFoodLogsForDate(date) {
+    try {
+        const allLogs = JSON.parse(localStorage.getItem('fitcareFoodLogs') || '{}');
+        const dateStr = date.toISOString().split('T')[0];
+        console.log(`Getting food logs for ${dateStr}:`, allLogs[dateStr] || []);
+        return allLogs[dateStr] || [];
+    } catch (error) {
+        console.error('Error getting food logs:', error);
+        return [];
+    }
+}
+
+// Update getDailyCaloriesForDate to be more robust
+function getDailyCaloriesForDate(date) {
+    try {
+        const dailyCalories = JSON.parse(localStorage.getItem('fitcareDailyCalories') || '{}');
+        const dateStr = date.toISOString().split('T')[0];
+        const calories = dailyCalories[dateStr] || 0;
+        console.log(`Getting calories for ${dateStr}:`, calories);
+        return calories;
+    } catch (error) {
+        console.error('Error getting daily calories:', error);
+        return 0;
+    }
+}
+// Function to get exercise logs for a specific date
+function getExerciseLogsForDate(date) {
+    try {
+        const allLogs = JSON.parse(localStorage.getItem('fitcareExerciseLogs') || '{}');
+        const dateStr = date.toISOString().split('T')[0];
+        const logs = allLogs[dateStr] || [];
+        
+        console.log(`Getting exercise logs for ${dateStr}:`, logs);
+        
+        // Calculate total calories from exercises
+        const totalCalories = logs.reduce((total, log) => total + (log.calories || 0), 0);
+        console.log(`Total calories from exercises on ${dateStr}:`, totalCalories);
+        
+        return logs;
+    } catch (error) {
+        console.error('Error getting exercise logs:', error);
+        return [];
+    }
+}
+
+// Function to calculate total exercise time from logs
+function getTotalExerciseTimeFromLogs(exerciseLogs) {
+    return exerciseLogs.reduce((total, exercise) => {
+        return total + (exercise.duration || 0);
+    }, 0);
+}
+
+// Function to get exercise calories from logs
+function getTotalCaloriesFromLogs(exerciseLogs) {
+    return exerciseLogs.reduce((total, exercise) => {
+        return total + (exercise.calories || 0);
+    }, 0);
+}
+
+// Update the loadProgressDataForDate function
+function loadProgressDataForDate() {
+    showLoading('Loading progress data...');
+    
+    setTimeout(() => {
+        const isToday = new Date().toDateString() === currentDate.toDateString();
+        const dateStr = currentDate.toISOString().split('T')[0];
+        
+        // Get exercise logs for the selected date
+        const exerciseLogs = getExerciseLogsForDate(currentDate);
+        console.log(`Exercise logs for ${dateStr}:`, exerciseLogs);
+        
+        // Get total calories burned from exercises
+        const totalCaloriesFromExercise = exerciseLogs.reduce((total, log) => total + (log.calories || 0), 0);
+        
+        // Get food logs for the selected date
+        const foodLogs = getFoodLogsForDate(currentDate);
+        const totalCaloriesFromFood = getDailyCaloriesForDate(currentDate);
+        
+        // Calculate totals from exercise logs
+        const totalExerciseTime = exerciseLogs.reduce((total, log) => total + (log.duration || 5), 0);
+        
+        // Convert exercise logs to the format expected by the UI
+        const formattedExercises = exerciseLogs.map(log => ({
+            type: log.name || "Gym Exercise",
+            duration: log.duration || 5,
+            calories: log.calories || 0,
+            time: getTimeFromTimestamp(log.timestamp),
+            reps: log.reps || 0,
+            equipment: log.equipment || "N/A"
+        }));
+        
+        // Update progress data
+        progressData.exercises = formattedExercises;
+        progressData.dailyCalories = {
+            gained: totalCaloriesFromFood || (isToday ? 1850 : Math.floor(Math.random() * 500 + 1500)),
+            burned: totalCaloriesFromExercise,
+            net: (totalCaloriesFromFood || (isToday ? 1850 : Math.floor(Math.random() * 500 + 1500))) - totalCaloriesFromExercise
+        };
+        
+        // Store food logs in progress data
+        progressData.foodLogs = foodLogs;
+        
+        updateProgressUI();
+        hideLoading();
+        
+        // Log for debugging
+        console.log('Progress data loaded:', {
+            date: dateStr,
+            exerciseCount: formattedExercises.length,
+            totalCaloriesBurned: totalCaloriesFromExercise,
+            totalExerciseTime: totalExerciseTime,
+            caloriesGained: totalCaloriesFromFood
+        });
+    }, 600);
+}
+
+// Helper function to extract time from timestamp
+function getTimeFromTimestamp(timestamp) {
+    if (!timestamp) return "N/A";
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+    });
+}
+
+// Function to update exercise log display
+function updateExerciseLogDisplay() {
+    const exerciseLog = document.getElementById('exerciseLog');
+    const emptyState = document.getElementById('emptyExerciseState');
+    
+    exerciseLog.innerHTML = '';
+    
+    if (progressData.exercises.length === 0) {
+        emptyState.style.display = 'block';
+        exerciseLog.style.display = 'none';
+    } else {
+        emptyState.style.display = 'none';
+        exerciseLog.style.display = 'flex';
+        
+        progressData.exercises.forEach((exercise, index) => {
+            const exerciseItem = document.createElement('div');
+            exerciseItem.className = 'exercise-item slide-in';
+            exerciseItem.style.animationDelay = `${index * 0.1}s`;
+            
+            // Get appropriate icon based on exercise type
+            let icon = '💪';
+            if (exercise.type.toLowerCase().includes('run') || exercise.type.toLowerCase().includes('walk')) {
+                icon = '🏃';
+            } else if (exercise.type.toLowerCase().includes('cycle')) {
+                icon = '🚴';
+            } else if (exercise.type.toLowerCase().includes('jump')) {
+                icon = '🤸';
+            } else if (exercise.type.toLowerCase().includes('meditat') || exercise.type.toLowerCase().includes('yoga')) {
+                icon = '🧘';
+            } else if (exercise.type.toLowerCase().includes('breath')) {
+                icon = '🌬️';
+            }
+            
+            exerciseItem.innerHTML = `
+                <div class="exercise-icon">${icon}</div>
+                <div class="exercise-info">
+                    <div class="exercise-name">${exercise.type}</div>
+                    <div class="exercise-details">
+                        <span>⏱️ ${exercise.duration} min</span>
+                        <span>🕒 ${exercise.time || "Completed"}</span>
+                    </div>
+                </div>
+                <div class="exercise-calories">🔥 ${exercise.calories}</div>
+            `;
+            
+            exerciseLog.appendChild(exerciseItem);
+        });
+    }
+    
+    // Update statistics with real data
+    const totalExerciseTime = progressData.exercises.reduce((sum, ex) => sum + ex.duration, 0);
+    const totalActivities = progressData.exercises.length;
+    const totalCaloriesBurned = progressData.exercises.reduce((sum, ex) => sum + ex.calories, 0);
+    
+    document.getElementById('totalExerciseTime').textContent = totalExerciseTime + ' min';
+    document.getElementById('totalActivities').textContent = totalActivities;
+    
+    // Generate realistic stats based on exercise data
+    const avgHeartRate = 110 + Math.floor(Math.random() * 40);
+    const stepsCount = totalExerciseTime * 100 + Math.floor(Math.random() * 500);
+    
+    document.getElementById('avgHeartRate').textContent = avgHeartRate;
+    document.getElementById('stepsCount').textContent = stepsCount.toLocaleString();
+}
+
+// Update the main updateProgressUI function to use the new display function
+function updateProgressUI() {
+    // Update calorie displays
+    document.getElementById('caloriesGained').textContent = progressData.dailyCalories.gained;
+    document.getElementById('caloriesBurned').textContent = progressData.dailyCalories.burned;
+    
+    const netBalance = progressData.dailyCalories.net;
+    const balanceElement = document.getElementById('calorieBalance');
+    balanceElement.textContent = Math.abs(netBalance);
+    
+    if (netBalance > 0) {
+        balanceElement.className = 'balance-value balance-positive';
+        balanceElement.textContent = `+${netBalance}`;
+    } else if (netBalance < 0) {
+        balanceElement.className = 'balance-value balance-negative';
+        balanceElement.textContent = `${netBalance}`;
+    } else {
+        balanceElement.className = 'balance-value';
+        balanceElement.textContent = '0';
+    }
+    
+    // Update exercise log with real data
+    updateExerciseLogDisplay();
+    
+    // Update weekly chart
+    updateWeeklyChart();
+    
+    // Add food log display if food was logged
+    updateFoodLogDisplay();
+    
+    console.log('Updated progress UI with:', {
+        exercises: progressData.exercises,
+        calories: progressData.dailyCalories,
+        foodLogs: progressData.foodLogs
+    });
+}
+
+// Debug function to check exercise data
+function debugExerciseData() {
+    const today = new Date().toISOString().split('T')[0];
+    const exerciseLogs = JSON.parse(localStorage.getItem('fitcareExerciseLogs') || '{}');
+    const dailyCalories = JSON.parse(localStorage.getItem('fitcareDailyCalories') || '{}');
+    
+    console.log('=== EXERCISE DATA DEBUG ===');
+    console.log('Today:', today);
+    console.log('Exercise logs:', exerciseLogs);
+    console.log('Today\'s exercises:', exerciseLogs[today] || []);
+    console.log('Daily calories:', dailyCalories);
+    console.log('Today\'s calories burned:', dailyCalories[today] || 0);
+    
+    alert(`Exercise Data Debug:\n\n` +
+          `Today: ${today}\n` +
+          `Exercises today: ${exerciseLogs[today]?.length || 0}\n` +
+          `Total calories burned today: ${dailyCalories[today] || 0}\n` +
+          `Check console for full details.`);
+}
+    </script>
+</body>
+</html>

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Fitness Care Trainer</title>
+<style>
+body{
+  background: radial-gradient(circle at top, #0a0a0a, #000000);
+  font-family: Arial, sans-serif;
+  min-height:100vh;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  margin:0;
+  color:#eaeaea;
+}
+.app{
+  background: linear-gradient(145deg,#050505,#0f0f0f);
+  padding:20px;
+  width:360px;
+  border-radius:18px;
+  border:1px solid #00ff5a;
+  box-shadow:0 0 25px rgba(0,255,90,0.35);
+}
+h1{text-align:center;color:#00ff5a;}
+h3,h4{color:#39ff14;}
+select,input{
+  width:100%;padding:10px;margin:6px 0;
+  border-radius:8px;border:1px solid #00ff5a;
+  background:#050505;color:#fff;
+}
+button{
+  width:100%;padding:12px;margin-top:10px;
+  border-radius:10px;
+  background:linear-gradient(135deg,#00ff5a,#39ff14);
+  font-weight:bold;cursor:pointer;
+}
+.hide{display:none;}
+#exercise{max-height:140px;}
+</style>
+</head>
+
+<body>
+<div class="app">
+<h1>🏋 Fitness Care Trainer</h1>
+
+<h3>Select Fitness Goal</h3>
+<select id="goal">
+  <option value="">Choose goal</option>
+  <option value="fatloss">Weight Loss</option>
+  <option value="muscle">Muscle Gain</option>
+  <option value="general">General Fitness</option>
+  <option value="strength">Strength</option>
+</select>
+<p id="goalSuggestion"></p>
+
+<h3>Select Fitness Level</h3>
+<select id="level">
+  <option value="">Choose level</option>
+  <option value="beginner">Beginner</option>
+  <option value="intermediate">Intermediate</option>
+  <option value="advanced">Advanced</option>
+</select>
+
+<div id="equipmentBox" class="hide">
+<h3>Select Equipment</h3>
+<select id="equipment">
+  <option value="">Choose equipment</option>
+  <option>Barbell</option>
+  <option>Dumbbell</option>
+  <option>Machine</option>
+  <option>Cable</option>
+  <option>Smith Machine</option>
+  <option>Band</option>
+</select>
+</div>
+
+<div id="typeBox" class="hide">
+<h3>Select Exercise Type</h3>
+<select id="type">
+  <option value="">Choose</option>
+  <option value="bench">Bench</option>
+  <option value="squat">Squat</option>
+  <option value="bicep">Bicep</option>
+  <option value="triceps">Triceps</option>
+  <option value="shoulder">Shoulder</option>
+  <option value="back">Back</option>
+  <option value="abs">Abs</option>
+  <option value="cardio">Cardio</option>
+</select>
+</div>
+
+<div id="exerciseBox" class="hide">
+<h3>Select Exercise</h3>
+<select id="exercise"></select>
+</div>
+
+<div id="countBox" class="hide">
+<h3>Enter Reps</h3>
+<input type="number" id="reps">
+<button id="submitBtn">Submit</button>
+<p id="calories">Calories burned: 0</p>
+</div>
+
+<h4>🔥 Daily Streak: <span id="streak">0</span> days</h4>
+</div>
+
+<script>
+const exercisesData = {
+  bench:[
+    {name:"Bench Press (Barbell)",cal:8,equip:["Barbell","Smith Machine"]},
+    {name:"Bench Press (Dumbbell)",cal:7,equip:["Dumbbell"]},
+    {name:"Chest Press Machine",cal:7,equip:["Machine"]}
+  ],
+  squat:[
+    {name:"Barbell Squat",cal:10,equip:["Barbell","Smith Machine"]},
+    {name:"Goblet Squat",cal:8,equip:["Dumbbell"]},
+    {name:"Machine Squat",cal:9,equip:["Machine"]}
+  ],
+  bicep:[
+    {name:"Barbell Curl",cal:6,equip:["Barbell"]},
+    {name:"Dumbbell Curl",cal:5,equip:["Dumbbell"]},
+    {name:"Cable Curl",cal:6,equip:["Cable"]},
+    {name:"Band Curl",cal:4,equip:["Band"]}
+  ],
+  triceps:[
+    {name:"Cable Pushdown",cal:6,equip:["Cable"]},
+    {name:"Overhead Extension",cal:5,equip:["Dumbbell"]},
+    {name:"Skull Crushers",cal:7,equip:["Barbell"]}
+  ],
+  shoulder:[
+    {name:"Shoulder Press",cal:7,equip:["Barbell","Dumbbell"]},
+    {name:"Lateral Raise",cal:5,equip:["Dumbbell"]},
+    {name:"Machine Press",cal:6,equip:["Machine"]}
+  ],
+  back:[
+    {name:"Lat Pulldown",cal:7,equip:["Machine"]},
+    {name:"Barbell Row",cal:8,equip:["Barbell"]},
+    {name:"Cable Row",cal:7,equip:["Cable"]}
+  ],
+  abs:[
+    {name:"Crunches",cal:4,equip:["Machine","Band"]},
+    {name:"Leg Raises",cal:5,equip:["Machine"]},
+    {name:"Plank",cal:6,equip:["Band"]}
+  ],
+  cardio:[
+    {name:"Jumping Jacks",cal:6,equip:["Machine"]},
+    {name:"Mountain Climbers",cal:8,equip:["Machine"]}
+  ]
+};
+
+const goal=document.getElementById("goal"),
+goalSuggestion=document.getElementById("goalSuggestion"),
+level=document.getElementById("level"),
+equipment=document.getElementById("equipment"),
+type=document.getElementById("type"),
+exercise=document.getElementById("exercise"),
+reps=document.getElementById("reps"),
+calories=document.getElementById("calories"),
+streak=document.getElementById("streak");
+
+goal.onchange=()=>{
+  goalSuggestion.innerText={
+    fatloss:"🔥 Cardio + Squats",
+    muscle:"💪 Heavy Compound Lifts",
+    general:"⚖ Balanced Training",
+    strength:"🏋 Low reps, heavy weight"
+  }[goal.value]||"";
+};
+
+level.onchange=()=> equipmentBox.classList.remove("hide");
+equipment.onchange=()=> typeBox.classList.remove("hide");
+
+type.onchange=()=>{
+  exercise.innerHTML="";
+  const eq=equipment.value;
+  const list=exercisesData[type.value].filter(e=>e.equip.includes(eq));
+
+  if(list.length===0){
+    exercise.innerHTML="<option>No exercise available</option>";
+    countBox.classList.add("hide");
+  }else{
+    list.forEach(e=>{
+      exercise.innerHTML+=`<option value="${e.cal}">${e.name} (${e.cal} cal/rep)</option>`;
+    });
+    exerciseBox.classList.remove("hide");
+    countBox.classList.remove("hide");
+  }
+};
+
+reps.oninput=()=>{
+  calories.innerText="Calories burned: "+(reps.value*exercise.value||0);
+};
+
+submitBtn.onclick=()=>{
+  alert("Workout Saved 💪");
+  const today=new Date().toLocaleDateString();
+  if(localStorage.last!==today){
+    localStorage.last=today;
+    streak.innerText=++localStorage.streak||1;
+  }
+};
+
+streak.innerText=localStorage.streak||0;
+</script>
+</body>
+</html>

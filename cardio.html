@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FITCARE - Cardio</title>
+
+<style>
+    body {
+        background: #0b0f0c;
+        font-family: Arial, sans-serif;
+        color: #fff;
+        margin: 0;
+        padding: 20px;
+    }
+
+    /* Back Button Styles */
+    .back-button {
+        display: inline-block;
+        background: #00ff7f;
+        color: #000;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-bottom: 15px;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        font-size: 14px;
+    }
+
+    .back-button:hover {
+        background: #00cc66;
+        transform: translateY(-1px);
+    }
+
+    .back-button:active {
+        transform: translateY(0);
+    }
+
+    h1 {
+        text-align: center;
+        color: #00ff7f;
+        margin-bottom: 15px;
+        margin-top: 10px;
+    }
+
+    .container {
+        max-width: 420px;
+        margin: auto;
+    }
+
+    /* TOTAL CALORIES CARD */
+    .summary-card {
+        background: #111;
+        border: 1px solid #00ff7f;
+        border-radius: 14px;
+        padding: 15px;
+        text-align: center;
+        margin-bottom: 20px;
+        box-shadow: 0 0 10px rgba(0,255,127,0.2);
+    }
+
+    .summary-title {
+        font-size: 14px;
+        opacity: 0.8;
+    }
+
+    .summary-value {
+        font-size: 28px;
+        color: #00ff7f;
+        font-weight: bold;
+    }
+
+    /* EXERCISE CARD */
+    .exercise-card {
+        background: #111;
+        border: 1px solid #00ff7f;
+        border-radius: 14px;
+        padding: 15px;
+        margin-bottom: 18px;
+        box-shadow: 0 0 10px rgba(0,255,127,0.15);
+    }
+
+    .exercise-title {
+        font-size: 18px;
+        color: #00ff7f;
+    }
+
+    .details {
+        font-size: 13px;
+        opacity: 0.8;
+        margin-bottom: 8px;
+    }
+
+    .timer {
+        text-align: center;
+        font-size: 26px;
+        margin: 10px 0;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 8px;
+        background: #222;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .progress {
+        height: 100%;
+        background: #00ff7f;
+        width: 100%;
+        transition: width 1s linear;
+    }
+
+    .buttons {
+        display: flex;
+        gap: 10px;
+        margin-top: 12px;
+    }
+
+    button {
+        flex: 1;
+        padding: 8px;
+        border: none;
+        border-radius: 8px;
+        background: #00ff7f;
+        color: #000;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    button:disabled {
+        background: #555;
+        cursor: not-allowed;
+    }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <!-- Back Button -->
+    <a href="catg.html" class="back-button">← Back to Categories</a>
+
+    <h1>🏃 Cardio Workouts</h1>
+
+    <!-- TOTAL CALORIES -->
+    <div class="summary-card">
+        <div class="summary-title">🔥 Calories Burnt</div>
+        <div class="summary-value" id="totalCalories">0</div>
+    </div>
+
+    <!-- WALKING -->
+    <div class="exercise-card" data-duration="1200" data-calories="100">
+        <div class="exercise-title">🚶 Walking</div>
+        <div class="details">20 min • 100 cal • Low impact cardio</div>
+        <div class="timer">20:00</div>
+        <div class="progress-bar"><div class="progress"></div></div>
+        <div class="buttons">
+            <button class="start">Start</button>
+            <button class="pause" disabled>Pause</button>
+            <button class="reset">Reset</button>
+        </div>
+    </div>
+
+    <!-- RUNNING -->
+    <div class="exercise-card" data-duration="1800" data-calories="300">
+        <div class="exercise-title">🏃 Running</div>
+        <div class="details">30 min • 300 cal • High intensity cardio</div>
+        <div class="timer">30:00</div>
+        <div class="progress-bar"><div class="progress"></div></div>
+        <div class="buttons">
+            <button class="start">Start</button>
+            <button class="pause" disabled>Pause</button>
+            <button class="reset">Reset</button>
+        </div>
+    </div>
+
+    <!-- JUMP ROPE -->
+    <div class="exercise-card" data-duration="900" data-calories="200">
+        <div class="exercise-title">🤸 Jump Rope</div>
+        <div class="details">15 min • 200 cal • Full body cardio</div>
+        <div class="timer">15:00</div>
+        <div class="progress-bar"><div class="progress"></div></div>
+        <div class="buttons">
+            <button class="start">Start</button>
+            <button class="pause" disabled>Pause</button>
+            <button class="reset">Reset</button>
+        </div>
+    </div>
+
+    <!-- CYCLING -->
+    <div class="exercise-card" data-duration="1500" data-calories="250">
+        <div class="exercise-title">🚴 Cycling</div>
+        <div class="details">25 min • 250 cal • Leg focused cardio</div>
+        <div class="timer">25:00</div>
+        <div class="progress-bar"><div class="progress"></div></div>
+        <div class="buttons">
+            <button class="start">Start</button>
+            <button class="pause" disabled>Pause</button>
+            <button class="reset">Reset</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+let totalCalories = +localStorage.getItem("totalCalories") || 0;
+document.getElementById("totalCalories").textContent = Math.floor(totalCalories);
+
+// Update localStorage with total calories
+function updateLocalStorage(exerciseName, calories) {
+    // Save total calories
+    localStorage.setItem("totalCalories", totalCalories);
+    
+    // Update completed exercises count
+    const exercisesDone = (+localStorage.getItem("completedExercises") || 0) + 1;
+    localStorage.setItem("completedExercises", exercisesDone);
+    
+    // Update workout time (estimate based on exercise duration)
+    const currentTime = +localStorage.getItem("totalWorkoutTime") || 0;
+    const exerciseTime = calories / 10; // Estimate: 10 calories per minute
+    localStorage.setItem("totalWorkoutTime", Math.floor(currentTime + exerciseTime));
+    
+    // Save last workout info
+    localStorage.setItem("lastWorkoutType", "Cardio: " + exerciseName);
+    localStorage.setItem("lastWorkoutCalories", Math.floor(calories));
+    localStorage.setItem("lastWorkoutTime", Math.floor(exerciseTime));
+}
+
+function updateTotalCalories() {
+    document.getElementById("totalCalories").textContent =
+        Math.floor(totalCalories);
+}
+
+document.querySelectorAll(".exercise-card").forEach(card => {
+
+    const duration = parseInt(card.dataset.duration);
+    const calories = parseInt(card.dataset.calories);
+    const caloriesPerSecond = calories / duration;
+
+    let remaining = duration;
+    let interval = null;
+    let isCompleted = false;
+
+    const timer = card.querySelector(".timer");
+    const progress = card.querySelector(".progress");
+    const start = card.querySelector(".start");
+    const pause = card.querySelector(".pause");
+    const reset = card.querySelector(".reset");
+    const exerciseTitle = card.querySelector(".exercise-title").textContent;
+
+    function updateUI() {
+        let min = Math.floor(remaining / 60);
+        let sec = remaining % 60;
+        timer.textContent = `${min}:${sec.toString().padStart(2,'0')}`;
+        progress.style.width = (remaining / duration) * 100 + "%";
+    }
+
+    // For cardio.html and mind.html (timed exercises)
+function completeExercise() {
+    clearInterval(interval);
+    interval = null;
+    isCompleted = true;
+    start.disabled = true;
+    pause.disabled = true;
+    timer.style.color = "#00ff7f";
+    timer.textContent = "Completed! ✅";
+    progress.style.background = "#00cc66";
+    
+    // Update localStorage with exercise data
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Get or initialize exercise logs
+    let exerciseLogs = JSON.parse(localStorage.getItem('fitcareExerciseLogs') || '{}');
+    if (!exerciseLogs[today]) {
+        exerciseLogs[today] = [];
+    }
+    
+    // Add new exercise log
+    const durationMinutes = Math.ceil(duration / 60); // Convert seconds to minutes
+    const calories = parseInt(card.dataset.calories);
+    const exerciseName = exerciseTitle.replace(/[🏃💪🧘🚶🤸🚴🌬️]/g, '').trim();
+    
+    exerciseLogs[today].push({
+        name: exerciseName,
+        type: 'cardio', // or 'strength' or 'mind' based on page
+        duration: durationMinutes,
+        calories: calories,
+        date: today,
+        timestamp: new Date().toISOString()
+    });
+    
+    // Save back to localStorage
+    localStorage.setItem('fitcareExerciseLogs', JSON.stringify(exerciseLogs));
+    
+    // Also update total exercise time
+    const totalTime = +localStorage.getItem('totalExerciseTime') || 0;
+    localStorage.setItem('totalExerciseTime', totalTime + durationMinutes);
+    
+    // Show completion message
+    setTimeout(() => {
+        alert(`${exerciseTitle} completed! 🎉\nCalories burnt: ${calories}\nTime: ${durationMinutes} min`);
+    }, 100);
+}
+
+    start.onclick = () => {
+        if (interval || isCompleted) return;
+
+        interval = setInterval(() => {
+            remaining--;
+            totalCalories += caloriesPerSecond;
+
+            updateUI();
+            updateTotalCalories();
+
+            if (remaining <= 0) {
+                completeExercise();
+            }
+        }, 1000);
+
+        start.disabled = true;
+        pause.disabled = false;
+    };
+
+    pause.onclick = () => {
+        clearInterval(interval);
+        interval = null;
+        start.disabled = false;
+        pause.disabled = true;
+    };
+
+    reset.onclick = () => {
+        clearInterval(interval);
+        interval = null;
+        remaining = duration;
+        isCompleted = false;
+        updateUI();
+        start.disabled = false;
+        pause.disabled = true;
+        timer.style.color = "";
+        progress.style.background = "#00ff7f";
+    };
+
+    updateUI();
+});
+</script>
+
+</body>
+</html>

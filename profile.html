@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FITCARE - Profile</title>
+
+<style>
+/* === BASE STYLES === */
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    -webkit-tap-highlight-color:transparent;
+}
+
+body{
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto;
+    background:#000;
+    color:#fff;
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:10px;
+}
+
+/* === MOBILE CONTAINER === */
+.mobile-container{
+    width:100%;
+    max-width:428px;
+    height:100vh;
+    max-height:926px;
+    background:#000;
+    position:relative;
+    overflow:hidden;
+    border:1px solid #333;
+    border-radius:24px;
+    box-shadow:0 10px 40px rgba(0,255,0,0.15);
+    display:flex;
+    flex-direction:column;
+}
+
+/* === SIDE NAVIGATION === */
+.side-nav{
+    position:absolute;
+    top:0;
+    left:-280px;
+    width:280px;
+    height:100%;
+    background:#000;
+    border-right:1px solid #00ff00;
+    z-index:1000;
+    transition:left 0.25s cubic-bezier(0.4,0.0,0.2,1);
+    box-shadow:5px 0 30px rgba(0,255,0,0.2);
+    display:flex;
+    flex-direction:column;
+    border-radius:24px 0 0 24px;
+    overflow:hidden;
+}
+
+.side-nav.open{
+    left:0;
+}
+
+.nav-header{
+    padding:20px 16px;
+    border-bottom:1px solid #333;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+.nav-header h2{
+    color:#00ff00;
+    font-size:1.4em;
+    font-weight:700;
+}
+
+.close-nav{
+    background:rgba(0,255,0,0.1);
+    border:none;
+    color:#00ff00;
+    font-size:1.3em;
+    width:40px;
+    height:40px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+}
+
+.nav-profile{
+    padding:20px 16px;
+    border-bottom:1px solid #333;
+}
+
+.profile-info{
+    display:flex;
+    align-items:center;
+    gap:12px;
+}
+
+.profile-pic{
+    width:50px;
+    height:50px;
+    border-radius:50%;
+    background:linear-gradient(135deg,#00ff00,#00cc00);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:1.5em;
+    font-weight:bold;
+    color:#000;
+}
+
+.profile-text h3{
+    color:#fff;
+    font-size:1.1em;
+    margin-bottom:2px;
+}
+
+.profile-text p{
+    color:#888;
+    font-size:0.85em;
+}
+
+.nav-menu{
+    flex:1;
+    overflow-y:auto;
+    padding:16px 0;
+    -webkit-overflow-scrolling:touch;
+}
+
+.nav-item-side{
+    display:flex;
+    align-items:center;
+    gap:16px;
+    padding:16px;
+    color:#ddd;
+    text-decoration:none;
+    transition:all 0.2s;
+    border-left:3px solid transparent;
+}
+
+.nav-item-side.active{
+    background:rgba(0,255,0,0.08);
+    color:#00ff00;
+    border-left-color:#00ff00;
+}
+
+.nav-item-side:active{
+    background:rgba(0,255,0,0.15);
+    transform:scale(0.98);
+}
+
+.nav-icon-side{
+    font-size:1.2em;
+    width:24px;
+}
+
+.nav-label{
+    font-size:0.95em;
+}
+
+.nav-footer{
+    padding:20px 16px;
+    border-top:1px solid #333;
+}
+
+.logout-btn{
+    width:100%;
+    padding:14px;
+    background:rgba(255,0,0,0.1);
+    border:1px solid rgba(255,0,0,0.3);
+    border-radius:12px;
+    color:#ff4444;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    font-size:0.95em;
+    font-weight:500;
+    cursor:pointer;
+}
+
+.logout-btn:active{
+    background:rgba(255,0,0,0.2);
+    transform:scale(0.98);
+}
+
+/* === OVERLAY === */
+.overlay{
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    bottom:0;
+    background:rgba(0,0,0,0.85);
+    z-index:999;
+    opacity:0;
+    visibility:hidden;
+    transition:opacity 0.25s ease;
+    backdrop-filter:blur(3px);
+    border-radius:24px;
+}
+
+.overlay.active{
+    opacity:1;
+    visibility:visible;
+}
+
+/* === SWIPE INDICATOR === */
+.swipe-indicator{
+    position:absolute;
+    top:50%;
+    left:10px;
+    width:4px;
+    height:40px;
+    background:rgba(0,255,0,0.5);
+    border-radius:2px;
+    transform:translateY(-50%);
+    opacity:0;
+    transition:opacity 0.3s ease;
+    pointer-events:none;
+    z-index:1001;
+}
+
+.swipe-indicator.visible{
+    opacity:1;
+}
+
+/* === STATUS BAR === */
+.status-bar{
+    padding:12px 16px 8px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:0.85em;
+    color:#00ff00;
+    background:#000;
+    z-index:10;
+    flex-shrink:0;
+}
+
+.menu-toggle{
+    background:rgba(0,255,0,0.1);
+    border:none;
+    width:44px;
+    height:44px;
+    border-radius:50%;
+    color:#00ff00;
+    font-size:1.3em;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+}
+
+.menu-toggle:active{
+    background:rgba(0,255,0,0.2);
+    transform:scale(0.95);
+}
+
+.time{
+    font-weight:600;
+    font-size:1em;
+}
+
+.status-icons{
+    display:flex;
+    gap:8px;
+    font-size:1em;
+}
+
+/* === MAIN CONTENT === */
+.main-content{
+    flex:1;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    display:flex;
+    flex-direction:column;
+}
+
+/* === HEADER === */
+.header{
+    padding:16px;
+    background:#000;
+    flex-shrink:0;
+}
+
+.header h1{
+    font-size:1.8em;
+    margin-bottom:4px;
+}
+
+.fit{
+    color:#00ff00;
+}
+
+.header p{
+    color:#888;
+    font-size:0.9em;
+}
+
+/* === CONTENT === */
+.content{
+    padding:0 16px 16px;
+    flex:1;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+}
+
+/* === PROFILE CARD === */
+.card{
+    background:#0a0a0a;
+    border:1px solid rgba(0,255,0,0.2);
+    border-radius:16px;
+    padding:16px;
+    margin-bottom:14px;
+}
+
+.card-title{
+    color:#00ff00;
+    font-size:1.1em;
+    margin-bottom:12px;
+    display:flex;
+    gap:8px;
+}
+
+/* === AVATAR === */
+.avatar{
+    width:90px;
+    height:90px;
+    border-radius:50%;
+    background:linear-gradient(135deg,#00ff00,#00cc00);
+    color:#000;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:36px;
+    font-weight:bold;
+    margin:10px auto 20px;
+}
+
+/* === FORM === */
+label{
+    display:block;
+    font-size:0.8em;
+    color:#aaa;
+    margin-bottom:4px;
+}
+
+input,select{
+    width:100%;
+    padding:12px;
+    margin-bottom:14px;
+    background:#000;
+    border:1px solid #00ff00;
+    border-radius:10px;
+    color:#fff;
+    font-size:0.9em;
+}
+
+input:focus,select:focus{
+    outline:none;
+    border-color:#00ff00;
+    box-shadow:0 0 10px rgba(0,255,0,0.3);
+}
+
+/* === BMI === */
+.bmi-box{
+    background:rgba(0,255,0,0.05);
+    border:1px solid #00ff00;
+    border-radius:12px;
+    padding:14px;
+    text-align:center;
+}
+
+.bmi-value{
+    font-size:2.2em;
+    color:#00ff00;
+    font-weight:700;
+}
+
+#bmiCategory{
+    color:#00ff00;
+    margin-top:5px;
+    font-size:0.9em;
+}
+
+/* === BUTTONS === */
+.action-buttons{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin-top:16px;
+}
+
+.btn{
+    padding:14px;
+    border-radius:12px;
+    font-weight:600;
+    cursor:pointer;
+    font-size:0.95em;
+    transition:all 0.2s ease;
+}
+
+.btn:active{
+    transform:scale(0.96);
+}
+
+.btn-primary{
+    background:#00ff00;
+    color:#000;
+    border:none;
+    box-shadow:0 4px 15px rgba(0,255,0,0.3);
+}
+
+.btn-secondary{
+    background:transparent;
+    color:#00ff00;
+    border:1px solid #00ff00;
+    box-shadow:0 4px 15px rgba(0,255,0,0.1);
+}
+
+/* === BOTTOM NAVIGATION === */
+.bottom-nav{
+    background:#0a0a0a;
+    border-top:1px solid rgba(0,255,0,0.2);
+    display:flex;
+    justify-content:space-around;
+    padding:12px 0;
+    z-index:100;
+    flex-shrink:0;
+    border-radius:0 0 24px 24px;
+}
+
+.nav-item{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+    color:#666;
+    font-size:0.7em;
+    cursor:pointer;
+    transition:all 0.2s ease;
+    min-width:60px;
+    padding:8px 4px;
+    border-radius:8px;
+    min-height:60px;
+    justify-content:center;
+    text-decoration:none;
+}
+
+.nav-item.active{
+    color:#00ff00;
+    background:rgba(0,255,0,0.1);
+}
+
+.nav-item .nav-icon{
+    font-size:1.4em;
+}
+
+.nav-item:active{
+    transform:scale(0.9);
+}
+
+/* === SCROLLBAR === */
+.nav-menu::-webkit-scrollbar,
+.content::-webkit-scrollbar,
+.main-content::-webkit-scrollbar{
+    width:3px;
+}
+
+.nav-menu::-webkit-scrollbar-track,
+.content::-webkit-scrollbar-track,
+.main-content::-webkit-scrollbar-track{
+    background:transparent;
+}
+
+.nav-menu::-webkit-scrollbar-thumb,
+.content::-webkit-scrollbar-thumb,
+.main-content::-webkit-scrollbar-thumb{
+    background:#00ff00;
+    border-radius:3px;
+}
+
+/* === LOADING OVERLAY === */
+#loadingOverlay{
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    bottom:0;
+    background:rgba(0,0,0,0.9);
+    display:none;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    z-index:2000;
+    border-radius:24px;
+}
+
+#loadingOverlay .spinner{
+    width:50px;
+    height:50px;
+    border:3px solid #333;
+    border-top-color:#00ff00;
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+    margin-bottom:20px;
+}
+
+#loadingOverlay .loading-text{
+    color:#00ff00;
+    font-size:14px;
+    text-align:center;
+}
+
+@keyframes spin{
+    to{transform:rotate(360deg);}
+}
+
+/* === MOBILE OPTIMIZATIONS === */
+@media(max-width:428px){
+    .mobile-container{
+        border-radius:0;
+        border:none;
+        max-width:100%;
+        max-height:100%;
+    }
+    
+    .side-nav{
+        border-radius:0;
+    }
+    
+    .overlay{
+        border-radius:0;
+    }
+    
+    .bottom-nav{
+        border-radius:0;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<div class="mobile-container" id="mobileContainer">
+    <!-- SIDE NAVIGATION -->
+    <div class="side-nav" id="sideNav">
+        <div class="nav-header">
+            <h2>FITCARE</h2>
+            <button class="close-nav" id="closeNav">✕</button>
+        </div>
+
+        <div class="nav-profile">
+            <div class="profile-info">
+                <div class="profile-pic" id="profileInitial">U</div>
+                <div class="profile-text">
+                    <h3 id="sidebarUserName">User</h3>
+                    <p id="sidebarUserEmail">user@example.com</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="nav-menu">
+            <a href="home.html" class="nav-item-side">
+                <span class="nav-icon-side">🏠</span>
+                <span class="nav-label">Dashboard</span>
+            </a>
+            <a href="progress.html" class="nav-item-side">
+                <span class="nav-icon-side">📊</span>
+                <span class="nav-label">Analytics</span>
+            </a>
+            <a href="meals.html" class="nav-item-side">
+                <span class="nav-icon-side">🍽️</span>
+                <span class="nav-label">Meal Plans</span>
+            </a>
+            <a href="catg.html" class="nav-item-side">
+                <span class="nav-icon-side">💪</span>
+                <span class="nav-label">Workouts</span>
+            </a>
+            <a href="weight.html" class="nav-item-side">
+                <span class="nav-icon-side">🏋</span>
+                <span class="nav-label">Gym Training</span>
+            </a>
+            <a href="goals.html" class="nav-item-side">
+                <span class="nav-icon-side">🥦</span>
+                <span class="nav-label">Log Food</span>
+            </a>
+            <a href="progress.html" class="nav-item-side">
+                <span class="nav-icon-side">📈</span>
+                <span class="nav-label">Progress</span>
+            </a>
+            <a href="shop.html" class="nav-item-side">
+                <span class="nav-icon-side">⚙️</span>
+                <span class="nav-label">Store</span>
+            </a>
+            
+        </div>
+
+        <div class="nav-footer">
+            <button class="logout-btn" onclick="logout()">
+                <span>🚪</span>
+                <span>Logout</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- OVERLAY -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- SWIPE INDICATOR -->
+    <div class="swipe-indicator" id="swipeIndicator"></div>
+
+    <!-- LOADING OVERLAY -->
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text">Loading...</div>
+    </div>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="main-content">
+        <!-- STATUS BAR -->
+        <div class="status-bar">
+            <button class="menu-toggle" id="menuToggle">☰</button>
+            <div class="time" id="currentTime">9:41</div>
+            <div class="status-icons">
+                <span>📶</span>
+                <span>🔋</span>
+            </div>
+        </div>
+
+        <!-- HEADER -->
+        <div class="header">
+            <h1><span class="fit">PROFILE</span></h1>
+            <p>Manage your personal information</p>
+        </div>
+
+        <!-- CONTENT -->
+        <div class="content">
+            <div class="card">
+                <div class="card-title">👤 Profile Information</div>
+
+                <div class="avatar" id="avatar">U</div>
+
+                <label>Name</label>
+                <input type="text" id="name" placeholder="Enter your name">
+
+                <label>Email</label>
+                <input type="email" id="email" placeholder="Enter your email">
+
+                <label>Height (cm)</label>
+                <input type="number" id="height" placeholder="e.g., 175">
+
+                <label>Weight (kg)</label>
+                <input type="number" id="weight" placeholder="e.g., 70">
+
+                <label>Goal</label>
+                <select id="goal">
+                    <option value="lose">Lose Weight</option>
+                    <option value="gain">Gain Weight</option>
+                    <option value="maintain">Maintain</option>
+                </select>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📊 BMI</div>
+                <div class="bmi-box">
+                    <div class="bmi-value" id="bmi">--</div>
+                    <div id="bmiCategory"></div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
+                <button class="btn btn-secondary" onclick="window.location.href='home.html'">Back to Home</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAVIGATION -->
+    <div class="bottom-nav">
+        <a href="home.html" class="nav-item">
+            <span class="nav-icon">🏠</span>
+            <span>Home</span>
+        </a>
+        <a href="stats.html" class="nav-item">
+            <span class="nav-icon">📊</span>
+            <span>Progress</span>
+        </a>
+        <a href="meals.html" class="nav-item">
+            <span class="nav-icon">🍽️</span>
+            <span>Meals</span>
+        </a>
+        <a href="#" class="nav-item active">
+            <span class="nav-icon">👤</span>
+            <span>Profile</span>
+        </a>
+    </div>
+</div>
+
+<script>
+// Navigation variables
+let touchStartX = 0;
+let touchEndX = 0;
+let sidebarOpen = false;
+
+// Sidebar functions
+function handleTouchStart(e) {
+    touchStartX = e.changedTouches[0].clientX;
+    
+    if (touchStartX < 50 && !sidebarOpen) {
+        showSwipeIndicator();
+    }
+}
+
+function handleTouchMove(e) {
+    if (touchStartX < 30 && !sidebarOpen) {
+        e.preventDefault();
+    }
+}
+
+function handleTouchEnd(e) {
+    touchEndX = e.changedTouches[0].clientX;
+    const swipeDistance = touchEndX - touchStartX;
+    
+    hideSwipeIndicator();
+    
+    if (touchStartX < 50 && swipeDistance > 80) {
+        toggleSidebar();
+        simulateHaptic();
+        return;
+    }
+    
+    if (sidebarOpen && touchStartX - touchEndX > 80) {
+        closeSidebar();
+        simulateHaptic();
+        return;
+    }
+}
+
+function showSwipeIndicator() {
+    const indicator = document.getElementById('swipeIndicator');
+    indicator.style.transform = 'translateY(-50%) scale(1.2)';
+    indicator.classList.add('visible');
+}
+
+function hideSwipeIndicator() {
+    const indicator = document.getElementById('swipeIndicator');
+    indicator.style.transform = 'translateY(-50%) scale(1)';
+    indicator.classList.remove('visible');
+}
+
+function toggleSidebar() {
+    const sideNav = document.getElementById('sideNav');
+    const overlay = document.getElementById('overlay');
+    const mainContent = document.querySelector('.main-content');
+    
+    if (!sidebarOpen) {
+        sideNav.classList.add('open');
+        overlay.classList.add('active');
+        mainContent.style.overflow = 'hidden';
+        document.addEventListener('touchstart', handleOverlayTouch, { passive: true });
+    } else {
+        sideNav.classList.remove('open');
+        overlay.classList.remove('active');
+        mainContent.style.overflow = '';
+        document.removeEventListener('touchstart', handleOverlayTouch);
+    }
+    
+    sidebarOpen = !sidebarOpen;
+    simulateHaptic();
+}
+
+function closeSidebar() {
+    const sideNav = document.getElementById('sideNav');
+    const overlay = document.getElementById('overlay');
+    const mainContent = document.querySelector('.main-content');
+    
+    sideNav.classList.remove('open');
+    overlay.classList.remove('active');
+    mainContent.style.overflow = '';
+    sidebarOpen = false;
+    
+    document.removeEventListener('touchstart', handleOverlayTouch);
+    simulateHaptic();
+}
+
+function handleOverlayTouch(e) {
+    if (sidebarOpen && !e.target.closest('.side-nav')) {
+        closeSidebar();
+    }
+}
+
+function simulateHaptic() {
+    if (navigator.vibrate) {
+        navigator.vibrate(10);
+    }
+}
+
+function showLoading(message) {
+    const loader = document.getElementById('loadingOverlay');
+    if (loader) {
+        const text = loader.querySelector('.loading-text');
+        if (text) text.textContent = message || 'Loading...';
+        loader.style.display = 'flex';
+    }
+}
+
+function hideLoading() {
+    const loader = document.getElementById('loadingOverlay');
+    if (loader) {
+        setTimeout(() => {
+            loader.style.display = 'none';
+        }, 300);
+    }
+}
+
+// Profile functions
+function updateTime() {
+    const now = new Date();
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    document.getElementById('currentTime').textContent = `${hours}:${minutes}`;
+}
+
+function calculateBMI(height, weight) {
+    const heightM = height / 100;
+    return (weight / (heightM * heightM)).toFixed(1);
+}
+
+function getBMICategory(bmi) {
+    if (bmi < 18.5) return "Underweight";
+    if (bmi < 25) return "Normal Weight";
+    if (bmi < 30) return "Overweight";
+    return "Obese";
+}
+
+function loadProfile() {
+    const storedData = localStorage.getItem('fitcareUserData');
+    
+    if (storedData) {
+        try {
+            const data = JSON.parse(storedData);
+            
+            // Update form fields
+            document.getElementById('name').value = data.name || '';
+            document.getElementById('email').value = data.email || '';
+            document.getElementById('height').value = data.height || '';
+            document.getElementById('weight').value = data.weight || '';
+            document.getElementById('goal').value = data.goal || 'lose';
+            
+            // Update sidebar
+            document.getElementById('sidebarUserName').textContent = data.name || 'User';
+            document.getElementById('sidebarUserEmail').textContent = data.email || 'user@example.com';
+            document.getElementById('profileInitial').textContent = (data.name || 'User').charAt(0).toUpperCase();
+            
+            // Update avatar
+            document.getElementById('avatar').textContent = (data.name || 'User').charAt(0).toUpperCase();
+            
+            // Calculate and display BMI
+            if (data.height && data.weight) {
+                const bmi = calculateBMI(parseFloat(data.height), parseFloat(data.weight));
+                const category = getBMICategory(parseFloat(bmi));
+                
+                document.getElementById('bmi').textContent = bmi;
+                document.getElementById('bmiCategory').textContent = category;
+                
+                // Color code BMI
+                const bmiElement = document.getElementById('bmi');
+                bmiElement.style.color = category === 'Normal Weight' ? '#00ff00' : 
+                                        category === 'Underweight' ? '#00ccff' : 
+                                        category === 'Overweight' ? '#ff9900' : '#ff4444';
+            }
+            
+            console.log('✅ Profile data loaded successfully');
+        } catch (error) {
+            console.error('❌ Error loading profile data:', error);
+        }
+    }
+}
+
+function saveProfile() {
+    showLoading('Saving profile...');
+    
+    const profileData = {
+        name: document.getElementById('name').value.trim(),
+        email: document.getElementById('email').value.trim(),
+        height: document.getElementById('height').value,
+        weight: document.getElementById('weight').value,
+        goal: document.getElementById('goal').value
+    };
+    
+    // Validation
+    if (!profileData.name) {
+        hideLoading();
+        alert('Please enter your name');
+        return;
+    }
+    
+    if (!profileData.email) {
+        hideLoading();
+        alert('Please enter your email');
+        return;
+    }
+    
+    if (!profileData.height || profileData.height <= 0) {
+        hideLoading();
+        alert('Please enter a valid height');
+        return;
+    }
+    
+    if (!profileData.weight || profileData.weight <= 0) {
+        hideLoading();
+        alert('Please enter a valid weight');
+        return;
+    }
+    
+    // Save to localStorage
+    localStorage.setItem('fitcareUserData', JSON.stringify(profileData));
+    
+    // Update UI
+    setTimeout(() => {
+        loadProfile();
+        hideLoading();
+        
+        // Show success feedback
+        const saveBtn = document.querySelector('.btn-primary');
+        const originalText = saveBtn.textContent;
+        saveBtn.textContent = '✓ Saved!';
+        saveBtn.style.background = '#00cc00';
+        
+        setTimeout(() => {
+            saveBtn.textContent = originalText;
+            saveBtn.style.background = '#00ff00';
+        }, 1500);
+    }, 800);
+}
+
+function logout() {
+    if (confirm('Are you sure you want to logout?')) {
+        showLoading('Logging out...');
+        
+        setTimeout(() => {
+            localStorage.removeItem('fitcareUserData');
+            hideLoading();
+            alert('Successfully logged out!');
+            window.location.href = 'login3.html';
+        }, 1000);
+    }
+}
+
+// Initialize
+function init() {
+    // Set up event listeners
+    const mobileContainer = document.getElementById('mobileContainer');
+    mobileContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
+    mobileContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
+    mobileContainer.addEventListener('touchend', handleTouchEnd, { passive: true });
+    
+    // Sidebar controls
+    document.getElementById('menuToggle').addEventListener('click', toggleSidebar);
+    document.getElementById('closeNav').addEventListener('click', closeSidebar);
+    document.getElementById('overlay').addEventListener('click', closeSidebar);
+    
+    // Update time
+    updateTime();
+    setInterval(updateTime, 60000);
+    
+    // Load profile data
+    loadProfile();
+    
+    // Highlight active bottom nav
+    const bottomNavItems = document.querySelectorAll('.bottom-nav a');
+    bottomNavItems.forEach(item => {
+        if (item.href === window.location.href || 
+            (item.getAttribute('href') === '#' && window.location.pathname.includes('profile'))) {
+            item.classList.add('active');
+        } else {
+            item.classList.remove('active');
+        }
+    });
+    
+    // Highlight active side nav
+    const sideNavItems = document.querySelectorAll('.nav-item-side');
+    sideNavItems.forEach(item => {
+        if (item.href === window.location.href) {
+            item.classList.add('active');
+        }
+    });
+    
+    // Add real-time BMI calculation
+    const heightInput = document.getElementById('height');
+    const weightInput = document.getElementById('weight');
+    
+    function updateBMI() {
+        const height = parseFloat(heightInput.value);
+        const weight = parseFloat(weightInput.value);
+        
+        if (height && weight && height > 0 && weight > 0) {
+            const bmi = calculateBMI(height, weight);
+            const category = getBMICategory(parseFloat(bmi));
+            
+            document.getElementById('bmi').textContent = bmi;
+            document.getElementById('bmiCategory').textContent = category;
+            
+            // Color code BMI
+            const bmiElement = document.getElementById('bmi');
+            bmiElement.style.color = category === 'Normal Weight' ? '#00ff00' : 
+                                    category === 'Underweight' ? '#00ccff' : 
+                                    category === 'Overweight' ? '#ff9900' : '#ff4444';
+        }
+    }
+    
+    heightInput.addEventListener('input', updateBMI);
+    weightInput.addEventListener('input', updateBMI);
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', init);
+
+// Prevent zoom on double tap
+document.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+}, { passive: false });
+
+// Prevent context menu on long press
+document.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+});
+</script>
+
+</body>
+</html>

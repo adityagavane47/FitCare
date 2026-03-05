@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FITCARE | Smart Healthcare</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Segoe UI",sans-serif}
+
+/* ================= BACKGROUND ================= */
+body{
+    height:100vh;
+    background:
+        radial-gradient(circle at 10% 20%, rgba(0,255,100,0.18), transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(0,255,100,0.12), transparent 45%),
+        repeating-linear-gradient(45deg,#050505,#050505 12px,#0e0e0e 12px,#0e0e0e 24px);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    overflow:hidden;
+}
+
+.shape{
+    position:absolute;
+    border-radius:50%;
+    background:rgba(0,255,100,0.15);
+    filter:blur(30px);
+    animation:float 8s infinite alternate;
+}
+.shape.one{width:200px;height:200px;top:10%;left:5%}
+.shape.two{width:260px;height:260px;bottom:10%;right:5%}
+
+@keyframes float{to{transform:translateY(30px)}}
+
+/* ================= APP ================= */
+.app{
+    width:100%;
+    max-width:520px;
+    height:100%;
+    background:rgba(8,8,8,0.95);
+    backdrop-filter:blur(12px);
+    box-shadow:0 0 50px rgba(0,255,100,0.45);
+    display:flex;
+    flex-direction:column;
+}
+
+/* ================= HEADER ================= */
+.header{
+    text-align:center;
+    padding:30px 20px 20px;
+    border-bottom:1px solid rgba(0,255,100,0.3);
+}
+
+.logo{
+    width:70px;
+    margin-bottom:10px;
+    filter:drop-shadow(0 0 15px rgba(0,255,100,0.8));
+}
+
+.header h1{
+    font-family:'Orbitron',sans-serif;
+    font-size:38px;
+    color:#00ff66;
+    letter-spacing:4px;
+    animation:neonGlow 2s infinite alternate;
+}
+
+@keyframes neonGlow{
+    from{text-shadow:0 0 10px #00ff66}
+    to{text-shadow:0 0 28px #00ff66}
+}
+
+.tagline{
+    color:#8affb8;
+    font-size:14px;
+    margin-top:6px;
+}
+
+/* ================= CONTENT ================= */
+.content{flex:1;padding:35px}
+
+.step{display:none;text-align:center;animation:slideFade .5s ease}
+.step.active{display:block}
+
+@keyframes slideFade{
+    from{opacity:0;transform:translateY(20px)}
+    to{opacity:1;transform:translateY(0)}
+}
+
+.step img{
+    width:120px;
+    margin-bottom:20px;
+    filter:drop-shadow(0 0 12px rgba(0,255,100,0.6));
+}
+
+input,select{
+    width:100%;
+    padding:14px;
+    margin-bottom:8px;
+    border-radius:10px;
+    border:2px solid #00ff66;
+    background:#000;
+    color:#fff;
+    font-size:15px;
+}
+
+input::placeholder{color:#8affb8}
+
+input:focus,select:focus{box-shadow:0 0 15px #00ff66}
+
+button{
+    width:100%;
+    padding:14px;
+    border:none;
+    border-radius:10px;
+    background:#00ff66;
+    color:#000;
+    font-weight:bold;
+    font-size:16px;
+    cursor:pointer;
+    transition:.3s;
+}
+
+button:disabled{
+    opacity:.4;
+    cursor:not-allowed;
+}
+
+button:hover:not(:disabled){
+    box-shadow:0 0 20px #00ff66;
+    transform:scale(1.02);
+}
+
+/* ================= VALIDATION ================= */
+.error-text{
+    font-size:12px;
+    color:#ff4d4d;
+    text-align:left;
+    margin-bottom:12px;
+}
+
+.valid{
+    border-color:#00ff66!important;
+    box-shadow:0 0 12px rgba(0,255,100,0.6);
+}
+
+.invalid{
+    border-color:#ff4d4d!important;
+    box-shadow:0 0 12px rgba(255,77,77,0.6);
+}
+
+/* ================= FOOTER ================= */
+.footer{
+    text-align:center;
+    padding:15px;
+    font-size:12px;
+    color:#8affb8;
+    border-top:1px solid rgba(0,255,100,0.3);
+}
+</style>
+</head>
+
+<body>
+
+<div class="shape one"></div>
+<div class="shape two"></div>
+
+<div class="app">
+
+<div class="header">
+    <img src="ChatGPT Image Dec 16, 2025, 12_17_19 AM.png" class="logo">
+    <h1>FITCARE</h1>
+    <div class="tagline">Track • Transform • Thrive</div>
+</div>
+
+<div class="content">
+
+<!-- EMAIL -->
+<div class="step active" id="step1">
+    <img src="ChatGPT Image Dec 18, 2025, 04_46_22 PM.png">
+    <input id="email" type="email" placeholder="Enter Email" required>
+    <div class="error-text" id="emailError"></div>
+    <button id="btn1" disabled onclick="next()">Continue</button>
+</div>
+
+<!-- PHONE -->
+<div class="step" id="step2">
+    <img src="ChatGPT Image Dec 18, 2025, 04_48_04 PM.png">
+    <input id="phone" type="tel" placeholder="Phone Number"
+           maxlength="10" required
+           oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+    <div class="error-text" id="phoneError"></div>
+    <button id="btn2" disabled onclick="next()">Continue</button>
+</div>
+
+<!-- HEIGHT -->
+<div class="step" id="step3">
+    <img src="ChatGPT Image Dec 18, 2025, 04_50_13 PM.png">
+    <input id="height" type="number" placeholder="Height (cm)" min="50" max="250" required>
+    <div class="error-text" id="heightError"></div>
+    <button id="btn3" disabled onclick="next()">Continue</button>
+</div>
+
+<!-- WEIGHT -->
+<div class="step" id="step4">
+    <img src="WhatsApp Image 2025-12-18 at 17.01.33.jpeg">
+    <input id="weight" type="number" placeholder="Weight (kg)" min="10" max="300" required>
+    <div class="error-text" id="weightError"></div>
+    <button id="btn4" disabled onclick="next()">Continue</button>
+</div>
+
+<!-- GOAL -->
+<div class="step" id="step5">
+    <img src="WhatsApp Image 2025-12-18 at 17.22.42.jpeg">
+    <select id="goal" required>
+        <option value="">Select Health Goal</option>
+        <option>Lose Weight</option>
+        <option>Gain Weight</option>
+        <option>Maintain Healthy Diet</option>
+    </select>
+    <div class="error-text" id="goalError"></div>
+    <button id="btn5" disabled onclick="submitForm()">Finish</button>
+</div>
+
+</div>
+
+<div class="footer">© 2025 FITCARE</div>
+</div>
+
+<!-- ================= FIREBASE + VALIDATION ================= -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* 🔴 ADD YOUR FIREBASE CONFIG */
+const firebaseConfig = {
+  apiKey: "AIzaSyB1NLon8USMu67HUXFGpBj6IW9lgm6VOi8",
+  authDomain: "fitcare-97ec0.firebaseapp.com",
+  projectId: "fitcare-97ec0",
+  storageBucket: "fitcare-97ec0.firebasestorage.app",
+  messagingSenderId: "580231397778",
+  appId: "1:580231397778:web:a1c88e846d25d871c3414b",
+  measurementId: "G-W4V4L9RNR3"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let current = 1;
+window.next = () => {
+    document.getElementById("step"+current).classList.remove("active");
+    current++;
+    document.getElementById("step"+current).classList.add("active");
+};
+
+/* ===== REAL-TIME VALIDATION ===== */
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+email.addEventListener("input",()=>{
+    toggle(email,emailError,btn1,emailPattern.test(email.value),"Invalid email");
+});
+
+phone.addEventListener("input",()=>{
+    toggle(phone,phoneError,btn2,/^[0-9]{10}$/.test(phone.value),"10 digit phone required");
+});
+
+height.addEventListener("input",()=>{
+    const h=+height.value;
+    toggle(height,heightError,btn3,h>=50&&h<=250,"50–250 cm only");
+});
+
+weight.addEventListener("input",()=>{
+    const w=+weight.value;
+    toggle(weight,weightError,btn4,w>=10&&w<=300,"10–300 kg only");
+});
+
+goal.addEventListener("change",()=>{
+    toggle(goal,goalError,btn5,goal.value!=="" ,"Select a goal");
+});
+
+function toggle(input,err,btn,ok,msg){
+    if(ok){
+        input.classList.add("valid");
+        input.classList.remove("invalid");
+        err.textContent="";
+        btn.disabled=false;
+    }else{
+        input.classList.add("invalid");
+        input.classList.remove("valid");
+        err.textContent=msg;
+        btn.disabled=true;
+    }
+}
+
+/* ===== FINAL SUBMIT ===== */
+window.submitForm = async ()=>{
+    const userData={
+        email:email.value,
+        phone:phone.value,
+        height:height.value,
+        weight:weight.value,
+        goal:goal.value,
+        createdAt:new Date()
+    };
+    
+    try {
+        // Save to Firebase
+        await addDoc(collection(db,"users"),userData);
+        
+        // Store in localStorage for home page access
+        localStorage.setItem('fitcareUserData', JSON.stringify({
+            email: email.value,
+            phone: phone.value,
+            height: parseFloat(height.value),
+            weight: parseFloat(weight.value),
+            goal: goal.value,
+            timestamp: new Date().toISOString()
+        }));
+        
+        alert("Welcome to FITCARE 🎉");
+        
+        // Redirect to home page
+        window.location.href = "home.html";
+    } catch(error) {
+        console.error("Error saving data:", error);
+        alert("Error saving data. Please try again.");
+    }
+};
+</script>
+
+</body>
+</html>

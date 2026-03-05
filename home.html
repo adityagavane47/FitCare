@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FITCARE - Home</title>
+   <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            touch-action: pan-y;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        /* Mobile Container - Main Wrapper */
+        .mobile-container {
+            width: 100%;
+            max-width: 428px;
+            height: 100vh;
+            max-height: 926px;
+            background-color: #000;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #333;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0, 255, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Side Navigation - Contained within mobile container */
+        .side-nav {
+            position: absolute;
+            top: 0;
+            left: -280px;
+            width: 280px;
+            height: 100%;
+            background: #000;
+            border-right: 1px solid #00ff00;
+            z-index: 1000;
+            transition: left 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
+            box-shadow: 5px 0 30px rgba(0, 255, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            border-radius: 24px 0 0 24px;
+            overflow: hidden;
+        }
+
+        .side-nav.open {
+            left: 0;
+        }
+
+        .nav-header {
+            padding: 20px 16px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-header h2 {
+            color: #00ff00;
+            font-size: 1.4em;
+            font-weight: 700;
+        }
+
+        .close-nav {
+            background: rgba(0, 255, 0, 0.1);
+            border: none;
+            color: #00ff00;
+            font-size: 1.3em;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+                align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .nav-profile {
+            padding: 20px 16px;
+            border-bottom: 1px solid #333;
+        }
+
+        .profile-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .profile-pic {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00ff00, #00cc00);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .profile-text h3 {
+            color: #fff;
+            font-size: 1.1em;
+            margin-bottom: 2px;
+        }
+
+        .profile-text p {
+            color: #888;
+            font-size: 0.85em;
+        }
+
+        .nav-menu {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .nav-item-side {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            color: #ddd;
+            text-decoration: none;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item-side.active {
+            background: rgba(0, 255, 0, 0.08);
+            color: #00ff00;
+            border-left-color: #00ff00;
+        }
+
+        .nav-item-side:active {
+            background: rgba(0, 255, 0, 0.15);
+            transform: scale(0.98);
+        }
+
+        .nav-icon-side {
+            font-size: 1.2em;
+            width: 24px;
+        }
+
+        .nav-label {
+            font-size: 0.95em;
+        }
+
+        .nav-footer {
+            padding: 20px 16px;
+            border-top: 1px solid #333;
+        }
+
+        .logout-btn {
+            width: 100%;
+            padding: 14px;
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            border-radius: 12px;
+            color: #ff4444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 0.95em;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .logout-btn:active {
+            background: rgba(255, 0, 0, 0.2);
+            transform: scale(0.98);
+        }
+
+        /* Overlay - Contained within mobile container */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s ease;
+            backdrop-filter: blur(3px);
+            border-radius: 24px;
+        }
+
+        .overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Status Bar - Fixed within container */
+        .status-bar {
+            padding: 12px 16px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85em;
+            color: #00ff00;
+            background: #000;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .menu-toggle {
+            background: rgba(0, 255, 0, 0.1);
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            color: #00ff00;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .menu-toggle:active {
+            background: rgba(0, 255, 0, 0.2);
+            transform: scale(0.95);
+        }
+
+        .time {
+            font-weight: 600;
+            font-size: 1em;
+        }
+
+        .status-icons {
+            display: flex;
+            gap: 8px;
+            font-size: 1em;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            padding: 16px;
+            background: #000;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 4px;
+        }
+
+        .header .fit {
+            color: #00ff00;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 0.9em;
+        }
+
+        /* Content */
+        .content {
+            padding: 0 16px 16px;
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Quote Section */
+        .quote-section {
+            background: rgba(0, 255, 0, 0.05);
+            border: 1px solid #00ff00;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 15px rgba(0, 255, 0, 0.1);
+        }
+
+        .quote-section p {
+            font-size: 0.95em;
+            font-style: italic;
+            color: #00ff00;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        /* Cards */
+        .card {
+            background: #0a0a0a;
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #00ff00;
+        }
+
+        .icon {
+            font-size: 1.2em;
+        }
+
+        /* BMI Section */
+        .bmi-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .bmi-display {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .bmi-value {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: #00ff00;
+            text-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+        }
+
+        .bmi-category {
+            color: #00ff00;
+            font-size: 0.9em;
+        }
+
+        .bmi-reference {
+            background: rgba(0, 255, 0, 0.05);
+            border: 1px solid rgba(0, 255, 0, 0.1);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .bmi-reference div {
+            font-size: 0.8em;
+            color: #aaa;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(0, 255, 0, 0.1);
+        }
+
+        .bmi-reference div:last-child {
+            border-bottom: none;
+        }
+
+        /* Progress Items */
+        .progress-item {
+            margin-bottom: 20px;
+        }
+
+        .progress-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+
+        .progress-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            font-size: 0.9em;
+        }
+
+        .progress-value {
+            color: #00ff00;
+            font-weight: 600;
+            font-size: 0.85em;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #1a1a1a;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff00, #00cc00);
+            border-radius: 10px;
+            transition: width 0.5s ease-out;
+            box-shadow: 0 0 8px rgba(0, 255, 0, 0.6);
+        }
+
+        /* Exercise Section */
+        .exercise-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .exercise-card {
+            background: rgba(13, 13, 13, 0.8);
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            border-radius: 12px;
+            padding: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .exercise-card:active {
+            transform: scale(0.98);
+            border-color: #00ff00;
+            background: rgba(0, 255, 0, 0.05);
+        }
+
+        .exercise-card h3 {
+            color: #00ff00;
+            margin-bottom: 6px;
+            font-size: 0.95em;
+        }
+
+        .exercise-card p {
+            color: #aaa;
+            font-size: 0.8em;
+            margin: 2px 0;
+        }
+
+        /* Exercise Timer Styles */
+        .exercise-timer {
+            display: none;
+            text-align: center;
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 255, 0, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(0, 255, 0, 0.2);
+        }
+
+        .timer-display {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #00ff00;
+            margin: 10px 0;
+        }
+
+        .timer-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .timer-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .timer-start {
+            background: #00ff00;
+            color: #000;
+        }
+
+        .timer-pause {
+            background: #ff9900;
+            color: #000;
+        }
+
+        .timer-stop {
+            background: #ff4444;
+            color: #fff;
+        }
+
+        .timer-btn:active {
+            transform: scale(0.95);
+        }
+
+        .timer-complete {
+            background: #00cc00;
+            color: #fff;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+            margin-bottom: 16px;
+        }
+
+        .btn {
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+        }
+
+        .btn-primary {
+            background-color: #00ff00;
+            color: #000;
+            box-shadow: 0 4px 15px rgba(0, 255, 0, 0.3);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            box-shadow: 0 4px 15px rgba(0, 255, 0, 0.1);
+        }
+
+        /* Bottom Navigation - Fixed within container */
+        .bottom-nav {
+            background: #0a0a0a;
+            border-top: 1px solid rgba(0, 255, 0, 0.2);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            z-index: 100;
+            flex-shrink: 0;
+            border-radius: 0 0 24px 24px;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            color: #666;
+            font-size: 0.7em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 60px;
+            padding: 8px 4px;
+            border-radius: 8px;
+            min-height: 60px;
+            justify-content: center;
+        }
+
+        .nav-item.active {
+            color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .nav-item .nav-icon {
+            font-size: 1.4em;
+        }
+
+        .nav-item:active {
+            transform: scale(0.9);
+        }
+
+        /* Hide scrollbar but keep functionality */
+        .nav-menu::-webkit-scrollbar,
+        .content::-webkit-scrollbar,
+        .main-content::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .nav-menu::-webkit-scrollbar-track,
+        .content::-webkit-scrollbar-track,
+        .main-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .nav-menu::-webkit-scrollbar-thumb,
+        .content::-webkit-scrollbar-thumb,
+        .main-content::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 3px;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 428px) {
+            .mobile-container {
+                border-radius: 0;
+                border: none;
+                max-width: 100%;
+                max-height: 100%;
+            }
+            
+            .side-nav {
+                border-radius: 0 0 0 0;
+            }
+            
+            .overlay {
+                border-radius: 0;
+            }
+            
+            .bottom-nav {
+                border-radius: 0;
+            }
+        }
+
+        @media (max-height: 926px) {
+            .mobile-container {
+                max-height: 100vh;
+            }
+        }
+
+        /* Swipe indicator */
+        .swipe-indicator {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            width: 4px;
+            height: 40px;
+            background: rgba(0, 255, 0, 0.5);
+            border-radius: 2px;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 1001;
+        }
+
+        .swipe-indicator.visible {
+            opacity: 1;
+        }
+
+        /* Safe area support */
+        .status-bar {
+            padding-top: calc(12px + env(safe-area-inset-top, 0px));
+        }
+
+        .bottom-nav {
+            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        }
+
+        /* Loading overlay */
+        #loadingOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            border-radius: 24px;
+        }
+
+        #loadingOverlay .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #333;
+            border-top-color: #00ff00;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        #loadingOverlay .loading-text {
+            color: #00ff00;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-width: 428px;
+    margin: 0 auto;
+    background: #0a0a0a;
+    border-top: 1px solid rgba(0, 255, 0, 0.2);
+    display: flex;
+    justify-content: space-around;
+    padding: 12px 0;
+    z-index: 100;
+}
+
+.bottom-nav a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    color: #666;
+    font-size: 0.7em;
+    padding: 8px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    min-width: 60px;
+}
+
+.bottom-nav a.active {
+    color: #00ff00;
+    background: rgba(0, 255, 0, 0.1);
+}
+
+.bottom-nav a:active {
+    transform: scale(0.9);
+}
+
+.nav-icon {
+    font-size: 1.4em;
+    margin-bottom: 4px;
+}
+
+.nav-label {
+    font-size: 0.7em;
+}
+
+/* Exercise timer animation */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.timer-active {
+    animation: pulse 2s infinite;
+    border-color: #00ff00;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.3);
+}
+    </style>
+</head>
+<body>
+    <!-- Mobile Container -->
+    <div class="mobile-container" id="mobileContainer">
+        <!-- Side Navigation -->
+        <div class="side-nav" id="sideNav">
+            <div class="nav-header">
+                <h2>FITCARE</h2>
+                <button class="close-nav" id="closeNav">✕</button>
+            </div>
+
+            <div class="nav-profile">
+                <div class="profile-info">
+                    <div class="profile-pic" id="profileInitial">U</div>
+                    <div class="profile-text">
+                        <h3 id="sidebarUserName">User</h3>
+                        <p id="sidebarUserEmail">user@example.com</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Updated Sidebar Navigation with href links -->
+            <div class="nav-menu">
+                <a href="home.html" class="nav-item-side active">
+                    <span class="nav-icon-side">🏠</span>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+                <a href="progress.html" class="nav-item-side">
+                    <span class="nav-icon-side">📊</span>
+                    <span class="nav-label">Analytics</span>
+                </a>
+                <a href="meals.html" class="nav-item-side">
+                    <span class="nav-icon-side">🍽️</span>
+                    <span class="nav-label">Meal Plans</span>
+                </a>
+                <a href="catg.html" class="nav-item-side">
+                    <span class="nav-icon-side">💪</span>
+                    <span class="nav-label">Workouts</span>
+                </a>
+                <a href="weight.html" class="nav-item-side">
+                    <span class="nav-icon-side">🏋🏽</span>
+                    <span class="nav-label">Gym Training</span>
+                </a>
+                <a href="goals.html" class="nav-item-side">
+                    <span class="nav-icon-side">🥦</span>
+                    <span class="nav-label">Log Food</span>
+                </a>
+                <a href="progress.html" class="nav-item-side">
+                    <span class="nav-icon-side">📈</span>
+                    <span class="nav-label">Progress</span>
+                </a>
+                <a href="shop.html" class="nav-item-side">
+                    <span class="nav-icon-side">🛒</span>
+                    <span class="nav-label">Store</span>
+                </a>
+                
+            </div>
+
+            <div class="nav-footer">
+                <button class="logout-btn" onclick="logout()">
+                    <span>🚪</span>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Overlay -->
+        <div class="overlay" id="overlay"></div>
+
+        <!-- Swipe Indicator -->
+        <div class="swipe-indicator" id="swipeIndicator"></div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay">
+            <div class="spinner"></div>
+            <div class="loading-text">Loading...</div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <button class="menu-toggle" id="menuToggle">☰</button>
+                <div class="time" id="currentTime">9:41</div>
+                <div class="status-icons">
+                    <span>📶</span>
+                    <span>🔋</span>
+                </div>
+            </div>
+
+            <!-- Header -->
+            <div class="header">
+                <h1><span class="fit">FIT</span>CARE</h1>
+                <p>Welcome back, <span id="userName">User</span>!</p>
+            </div>
+
+            <!-- Content -->
+            <div class="content">
+                <!-- Motivational Quote -->
+                <div class="quote-section">
+                    <p id="motivationalQuote"></p>
+                </div>
+
+                <!-- BMI Section -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon">📊</span>
+                        <span>Body Mass Index</span>
+                    </div>
+                    <div class="bmi-container">
+                        <div class="bmi-display">
+                            <div>
+                                <div class="bmi-value" id="bmiValue">--</div>
+                                <div class="bmi-category" id="bmiCategory">Calculating...</div>
+                            </div>
+                        </div>
+                        <div class="bmi-reference">
+                            <div>Underweight &lt; 18.5</div>
+                            <div>Normal 18.5 - 24.9</div>
+                            <div>Overweight 25 - 29.9</div>
+                            <div>Obese ≥ 30</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Daily Targets -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon">🎯</span>
+                        <span>Daily Targets</span>
+                    </div>
+
+                    <div class="progress-item">
+                        <div class="progress-header">
+                            <div class="progress-label">
+                                <span>🔥</span>
+                                <span>Calories</span>
+                            </div>
+                            <div class="progress-value">
+                                <span id="caloriesConsumed">1450</span>/<span id="caloriesTarget">2000</span>
+                            </div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="caloriesProgress"></div>
+                        </div>
+                    </div>
+
+                    <div class="progress-item">
+                        <div class="progress-header">
+                            <div class="progress-label">
+                                <span>💧</span>
+                                <span>Water</span>
+                            </div>
+                            <div class="progress-value">
+                                <span id="waterConsumed">5</span>/<span id="waterTarget">8</span> cups
+                            </div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="waterProgress"></div>
+                        </div>
+                    </div>
+
+                    <div class="progress-item">
+                        <div class="progress-header">
+                            <div class="progress-label">
+                                <span>💪</span>
+                                <span>Protein</span>
+                            </div>
+                            <div class="progress-value">
+                                <span id="proteinConsumed">65</span>/<span id="proteinTarget">120</span>g
+                            </div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="proteinProgress"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Exercise Recommendations -->
+                <div class="card">
+                    <div class="card-title">
+                        <span class="icon">🏋️</span>
+                        <span>Exercises for <span id="goalType">Your Goal</span></span>
+                    </div>
+                    <div class="exercise-grid" id="exerciseGrid"></div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="window.location.href='logfood.html'">Log Food</button>
+                    <button class="btn btn-secondary" onclick="viewDietPlan()">Diet Plan</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="home.html" class="nav-link active">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-label">Home</span>
+            </a>
+            <a href="progress.html" class="nav-link">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Progress</span>
+            </a>
+            <a href="meals.html" class="nav-link">
+                <span class="nav-icon">🍽️</span>
+                <span class="nav-label">Meals</span>
+            </a>
+            <a href="profile.html" class="nav-link">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Profile</span>
+            </a>
+        </nav>
+    </div>
+
+    <script>
+        // Enhanced mobile fitness dashboard
+        let touchStartX = 0;
+        let touchEndX = 0;
+        let sidebarOpen = false;
+        let lastTouchTime = 0;
+        
+        // Enhanced user data with realistic defaults
+        let userData = {
+            name: "User",
+            email: "user@example.com",
+            caloriesConsumed: 1450,
+            caloriesTarget: 2000,
+            waterIntake: 5,
+            waterTarget: 8,
+            proteinConsumed: 65,
+            proteinTarget: 120,
+            bmi: 0,
+            bmiCategory: "Calculating...",
+            goal: "lose",
+            height: 0,
+            weight: 0,
+            streakDays: 7,
+            weeklyProgress: 12
+        };
+        
+        const motivationalQuotes = [
+            "Your body can stand almost anything. It's your mind you have to convince.",
+            "The only bad workout is the one that didn't happen.",
+            "Progress, not perfection. Every step counts.",
+            "Sweat is fat crying. Keep going!",
+            "You don't have to be extreme, just consistent.",
+            "The difference between try and triumph is a little umph.",
+            "Your health is an investment, not an expense.",
+            "Small daily improvements lead to stunning results.",
+            "Don't stop when you're tired, stop when you're done.",
+            "The body achieves what the mind believes."
+        ];
+        
+        // Exercise data with estimated calories per minute
+        const exercisesForWeightLoss = [
+            { name: "Running", duration: "30 min", calories: "300 cal", icon: "🏃", caloriesPerMin: 10 },
+            { name: "Jump Rope", duration: "15 min", calories: "200 cal", icon: "🔄", caloriesPerMin: 13 },
+            { name: "HIIT Workout", duration: "20 min", calories: "250 cal", icon: "⚡", caloriesPerMin: 12.5 },
+            { name: "Cycling", duration: "45 min", calories: "400 cal", icon: "🚴", caloriesPerMin: 9 }
+        ];
+        
+        const exercisesForWeightGain = [
+            { name: "Bench Press", sets: "4x8", focus: "Chest", icon: "🏋️", caloriesPerMin: 8 },
+            { name: "Squats", sets: "4x10", focus: "Legs", icon: "🦵", caloriesPerMin: 10 },
+            { name: "Deadlifts", sets: "3x8", focus: "Back", icon: "🔝", caloriesPerMin: 12 },
+            { name: "Shoulder Press", sets: "3x10", focus: "Shoulders", icon: "💪", caloriesPerMin: 7 }
+        ];
+        
+        const exercisesForMaintain = [
+            { name: "Yoga", duration: "30 min", benefits: "Flexibility", icon: "🧘", caloriesPerMin: 5 },
+            { name: "Swimming", duration: "30 min", benefits: "Full Body", icon: "🏊", caloriesPerMin: 11 },
+            { name: "Walking", duration: "45 min", benefits: "Low Impact", icon: "🚶", caloriesPerMin: 7 },
+            { name: "Pilates", duration: "30 min", benefits: "Core Strength", icon: "🎯", caloriesPerMin: 6 }
+        ];
+        
+        // Exercise timer variables
+        let activeTimer = null;
+        let exerciseTimers = {};
+        
+        // Mobile swipe gesture handling - optimized for container
+        function handleTouchStart(e) {
+            touchStartX = e.changedTouches[0].clientX;
+            lastTouchTime = Date.now();
+            
+            if (touchStartX < 50 && !sidebarOpen) {
+                showSwipeIndicator();
+            }
+        }
+        
+        function handleTouchMove(e) {
+            if (touchStartX < 30 && !sidebarOpen) {
+                e.preventDefault();
+            }
+        }
+        
+        function handleTouchEnd(e) {
+            touchEndX = e.changedTouches[0].clientX;
+            const swipeDistance = touchEndX - touchStartX;
+            
+            hideSwipeIndicator();
+            
+            // Check for edge swipe to open sidebar (only from container edge)
+            if (touchStartX < 50 && swipeDistance > 80) {
+                toggleSidebar();
+                simulateHaptic();
+                return;
+            }
+            
+            // Check for swipe to close sidebar
+            if (sidebarOpen && touchStartX - touchEndX > 80) {
+                closeSidebar();
+                simulateHaptic();
+                return;
+            }
+            
+            // Prevent rapid double taps
+            const currentTime = Date.now();
+            if (currentTime - lastTouchTime < 300) {
+                return;
+            }
+        }
+        
+        function showSwipeIndicator() {
+            const indicator = document.getElementById('swipeIndicator');
+            indicator.style.transform = 'translateY(-50%) scale(1.2)';
+            indicator.classList.add('visible');
+        }
+        
+        function hideSwipeIndicator() {
+            const indicator = document.getElementById('swipeIndicator');
+            indicator.style.transform = 'translateY(-50%) scale(1)';
+            indicator.classList.remove('visible');
+        }
+        
+        // Sidebar functions
+        function toggleSidebar() {
+            const sideNav = document.getElementById('sideNav');
+            const overlay = document.getElementById('overlay');
+            const mainContent = document.querySelector('.main-content');
+            
+            if (!sidebarOpen) {
+                sideNav.classList.add('open');
+                overlay.classList.add('active');
+                mainContent.style.overflow = 'hidden';
+                document.addEventListener('touchstart', handleOverlayTouch, { passive: true });
+            } else {
+                sideNav.classList.remove('open');
+                overlay.classList.remove('active');
+                mainContent.style.overflow = '';
+                document.removeEventListener('touchstart', handleOverlayTouch);
+            }
+            
+            sidebarOpen = !sidebarOpen;
+            simulateHaptic();
+        }
+        
+        function closeSidebar() {
+            const sideNav = document.getElementById('sideNav');
+            const overlay = document.getElementById('overlay');
+            const mainContent = document.querySelector('.main-content');
+            
+            sideNav.classList.remove('open');
+            overlay.classList.remove('active');
+            mainContent.style.overflow = '';
+            sidebarOpen = false;
+            
+            document.removeEventListener('touchstart', handleOverlayTouch);
+            simulateHaptic();
+        }
+        
+        function handleOverlayTouch(e) {
+            if (sidebarOpen && !e.target.closest('.side-nav')) {
+                closeSidebar();
+            }
+        }
+        
+        // Enhanced user data loading
+        function loadUserData() {
+            showLoading('Loading your data...');
+            
+            setTimeout(() => {
+                // Try to get data from onboarding (fitcareUserData)
+                const storedData = localStorage.getItem('fitcareUserData');
+                
+                if (storedData) {
+                    try {
+                        const data = JSON.parse(storedData);
+                        
+                        // Update userData with stored onboarding data
+                        Object.assign(userData, {
+                            name: data.name || extractNameFromEmail(data.email),
+                            email: data.email || "user@example.com",
+                            height: parseFloat(data.height) || 170,
+                            weight: parseFloat(data.weight) || 70,
+                            goal: data.goal || 'lose',
+                            bmi: parseFloat(data.bmi) || calculateBMI(data.height, data.weight),
+                            bmiCategory: data.bmiCategory || getBMICategory(parseFloat(data.bmi) || calculateBMI(data.height, data.weight)),
+                            phone: data.phone || '',
+                            gender: data.gender || '',
+                            activity: data.activity || ''
+                        });
+                        
+                        console.log('✅ User data loaded from onboarding:', userData);
+                        
+                        // If BMI is not provided, calculate it
+                        if (!userData.bmi && userData.height && userData.weight) {
+                            userData.bmi = calculateBMI(userData.height, userData.weight);
+                            userData.bmiCategory = getBMICategory(parseFloat(userData.bmi));
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ Error parsing user data:', error);
+                        generateSampleData();
+                    }
+                } else {
+                    console.log('ℹ️ No onboarding data found. Using sample data.');
+                    generateSampleData();
+                }
+                
+                // Update UI with loaded data
+                updateUIWithUserData();
+                hideLoading();
+                
+            }, 800);
+        }
+        
+        function generateSampleData() {
+            // Check if we have any user data
+            const storedData = localStorage.getItem('fitcareUserData');
+            
+            if (storedData) {
+                try {
+                    const data = JSON.parse(storedData);
+                    userData.name = data.name || "User";
+                    userData.email = data.email || "user@example.com";
+                    userData.height = parseFloat(data.height) || 175;
+                    userData.weight = parseFloat(data.weight) || 72;
+                    userData.goal = data.goal || "lose";
+                    userData.bmi = calculateBMI(userData.height, userData.weight);
+                    userData.bmiCategory = getBMICategory(parseFloat(userData.bmi));
+                    userData.phone = data.phone || '';
+                    userData.gender = data.gender || '';
+                    userData.activity = data.activity || '';
+                } catch (error) {
+                    // If parsing fails, use defaults
+                    setDefaultSampleData();
+                }
+            } else {
+                setDefaultSampleData();
+            }
+        }
+        
+        function setDefaultSampleData() {
+            // Generate realistic sample data for demo
+            userData.name = "Alex Johnson";
+            userData.email = "alex@example.com";
+            userData.height = 175;
+            userData.weight = 72;
+            userData.goal = "lose";
+            userData.bmi = calculateBMI(175, 72);
+            userData.bmiCategory = getBMICategory(parseFloat(userData.bmi));
+            userData.phone = '';
+            userData.gender = '';
+            userData.activity = '';
+        }
+        
+        function extractNameFromEmail(email) {
+            if (!email) return "User";
+            const emailParts = email.split('@')[0];
+            return emailParts.charAt(0).toUpperCase() + emailParts.slice(1);
+        }
+        
+        function calculateBMI(heightCm, weightKg) {
+            const heightM = heightCm / 100;
+            const bmi = weightKg / (heightM * heightM);
+            return bmi.toFixed(1);
+        }
+        
+        function getBMICategory(bmi) {
+            if (bmi < 18.5) return "Underweight";
+            if (bmi < 25) return "Normal Weight";
+            if (bmi < 30) return "Overweight";
+            return "Obese";
+        }
+        
+        function simulateHaptic() {
+            // Simulate haptic feedback for mobile
+            if (navigator.vibrate) {
+                navigator.vibrate(10);
+            }
+        }
+        
+        function showLoading(message) {
+            const loader = document.getElementById('loadingOverlay');
+            if (loader) {
+                const text = loader.querySelector('.loading-text');
+                if (text) text.textContent = message || 'Loading...';
+                loader.style.display = 'flex';
+            }
+        }
+        
+        function hideLoading() {
+            const loader = document.getElementById('loadingOverlay');
+            if (loader) {
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 300);
+            }
+        }
+        
+        function updateUIWithUserData() {
+            // Update all UI elements with user data
+            
+            // Sidebar updates
+            document.getElementById('sidebarUserName').textContent = userData.name;
+            document.getElementById('sidebarUserEmail').textContent = userData.email;
+            document.getElementById('profileInitial').textContent = userData.name.charAt(0).toUpperCase();
+            
+            // Main header update
+            document.getElementById('userName').textContent = userData.name;
+            
+            // Update BMI display
+            const bmiValue = document.getElementById('bmiValue');
+            const bmiCategory = document.getElementById('bmiCategory');
+            
+            if (userData.bmi) {
+                bmiValue.textContent = userData.bmi;
+                bmiCategory.textContent = userData.bmiCategory;
+                
+                // Add color coding based on BMI category
+                bmiCategory.className = 'bmi-category';
+                if (userData.bmiCategory.includes('Normal')) {
+                    bmiValue.style.color = '#00ff00';
+                } else if (userData.bmiCategory.includes('Overweight')) {
+                    bmiValue.style.color = '#ff9900';
+                } else if (userData.bmiCategory.includes('Obese')) {
+                    bmiValue.style.color = '#ff4444';
+                } else {
+                    bmiValue.style.color = '#00ccff';
+                }
+            }
+            
+            // Update goal type for exercise recommendations
+            document.getElementById('goalType').textContent = 
+                userData.goal === "lose" ? "Weight Loss" : 
+                userData.goal === "gain" ? "Weight Gain" : 
+                "Maintenance";
+            
+            // Load exercises based on goal
+            loadExercises();
+            
+            // Update progress bars with animation
+            setTimeout(() => {
+                updateProgress('calories', userData.caloriesConsumed, userData.caloriesTarget);
+                updateProgress('water', userData.waterIntake, userData.waterTarget);
+                updateProgress('protein', userData.proteinConsumed, userData.proteinTarget);
+            }, 100);
+        }
+        
+        function updateProgress(type, consumed, target) {
+            const percentage = Math.min((consumed / target) * 100, 100);
+            const progressBar = document.getElementById(type + 'Progress');
+            
+            // Animate the progress bar
+            progressBar.style.width = '0%';
+            setTimeout(() => {
+                progressBar.style.width = percentage + '%';
+                
+                // Update the text values
+                document.getElementById(type + 'Consumed').textContent = consumed;
+                document.getElementById(type + 'Target').textContent = target;
+            }, 50);
+        }
+        
+        function loadExercises() {
+            let exercises, goalText;
+            
+            if (userData.goal === "lose") {
+                exercises = exercisesForWeightLoss;
+                goalText = "Weight Loss";
+            } else if (userData.goal === "gain") {
+                exercises = exercisesForWeightGain;
+                goalText = "Weight Gain";
+            } else {
+                exercises = exercisesForMaintain;
+                goalText = "Maintenance";
+            }
+            
+            document.getElementById('goalType').textContent = goalText;
+            
+            const exerciseGrid = document.getElementById('exerciseGrid');
+            exerciseGrid.innerHTML = '';
+            
+            exercises.forEach((exercise, index) => {
+                const card = document.createElement('div');
+                card.className = 'exercise-card';
+                card.style.animationDelay = `${index * 0.1}s`;
+                card.dataset.exerciseName = exercise.name;
+                card.dataset.caloriesPerMin = exercise.caloriesPerMin;
+                card.dataset.estimatedCalories = exercise.calories;
+                
+                let details = '';
+                if (exercise.duration) {
+                    if (exercise.calories) {
+                        details = `
+                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                <span style="font-size: 0.85em; color: #888;">⏱️ ${exercise.duration}</span>
+                                <span style="font-size: 0.85em; color: #888;">🔥 ${exercise.calories}</span>
+                            </div>
+                        `;
+                    } else if (exercise.benefits) {
+                        details = `
+                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                <span style="font-size: 0.85em; color: #888;">⏱️ ${exercise.duration}</span>
+                                <span style="font-size: 0.85em; color: #888;">🎯 ${exercise.benefits}</span>
+                            </div>
+                        `;
+                    }
+                } else if (exercise.sets) {
+                    details = `
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                            <span style="font-size: 0.85em; color: #888;">🔢 ${exercise.sets}</span>
+                            <span style="font-size: 0.85em; color: #888;">💪 ${exercise.focus}</span>
+                        </div>
+                    `;
+                }
+                
+                // Add timer HTML
+                const timerHTML = `
+                    <div class="exercise-timer" id="timer-${index}">
+                        <div class="timer-display">00:00</div>
+                        <div class="timer-buttons">
+                            <button class="timer-btn timer-start" onclick="startTimer(${index})">Start</button>
+                            <button class="timer-btn timer-pause" onclick="pauseTimer(${index})" style="display: none;">Pause</button>
+                            <button class="timer-btn timer-stop" onclick="stopTimer(${index})" style="display: none;">Stop</button>
+                        </div>
+                        <div style="margin-top: 10px; font-size: 0.8em; color: #888;">
+                            Calories burned: <span id="calories-${index}">0</span> cal
+                        </div>
+                    </div>
+                `;
+                
+                card.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 1.5em;">${exercise.icon}</span>
+                        <div style="flex: 1;">
+                            <h3>${exercise.name}</h3>
+                            ${details}
+                        </div>
+                    </div>
+                    ${timerHTML}
+                `;
+                
+                // Initialize timer state
+                exerciseTimers[index] = {
+                    seconds: 0,
+                    interval: null,
+                    running: false,
+                    exerciseName: exercise.name,
+                    caloriesPerMin: exercise.caloriesPerMin
+                };
+                
+                // Add click handler for the card (to show/hide timer)
+                card.addEventListener('click', (e) => {
+                    // Don't trigger if clicking on timer buttons
+                    if (e.target.classList.contains('timer-btn')) return;
+                    
+                    simulateHaptic();
+                    const timerElement = card.querySelector('.exercise-timer');
+                    
+                    // Hide any other visible timers
+                    document.querySelectorAll('.exercise-timer').forEach(timer => {
+                        if (timer !== timerElement && timer.style.display === 'block') {
+                            timer.style.display = 'none';
+                            // Also remove active class from parent card
+                            timer.closest('.exercise-card').classList.remove('timer-active');
+                        }
+                    });
+                    
+                    // Toggle current timer
+                    if (timerElement.style.display === 'block') {
+                        timerElement.style.display = 'none';
+                        card.classList.remove('timer-active');
+                    } else {
+                        timerElement.style.display = 'block';
+                        card.classList.add('timer-active');
+                        // Scroll to make timer visible
+                        timerElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                });
+                
+                exerciseGrid.appendChild(card);
+            });
+        }
+        
+        // Timer functions
+        function startTimer(index) {
+            if (activeTimer !== null && activeTimer !== index) {
+                stopTimer(activeTimer);
+            }
+            
+            const timer = exerciseTimers[index];
+            if (!timer.running) {
+                timer.running = true;
+                activeTimer = index;
+                
+                // Update button visibility
+                const card = document.querySelector(`#timer-${index}`).closest('.exercise-card');
+                card.querySelector('.timer-start').style.display = 'none';
+                card.querySelector('.timer-pause').style.display = 'inline-block';
+                card.querySelector('.timer-stop').style.display = 'inline-block';
+                
+                // Add active class to card
+                card.classList.add('timer-active');
+                
+                timer.interval = setInterval(() => {
+                    timer.seconds++;
+                    updateTimerDisplay(index);
+                    
+                    // Calculate calories
+                    const calories = Math.floor((timer.seconds / 60) * timer.caloriesPerMin);
+                    document.getElementById(`calories-${index}`).textContent = calories;
+                }, 1000);
+                
+                simulateHaptic();
+            }
+        }
+        
+        function pauseTimer(index) {
+            const timer = exerciseTimers[index];
+            if (timer.running) {
+                timer.running = false;
+                clearInterval(timer.interval);
+                
+                // Update button visibility
+                const card = document.querySelector(`#timer-${index}`).closest('.exercise-card');
+                card.querySelector('.timer-start').style.display = 'inline-block';
+                card.querySelector('.timer-pause').style.display = 'none';
+                card.querySelector('.timer-stop').style.display = 'inline-block';
+                
+                simulateHaptic();
+            }
+        }
+        
+        function stopTimer(index) {
+            const timer = exerciseTimers[index];
+            const card = document.querySelector(`#timer-${index}`).closest('.exercise-card');
+            
+            if (timer.running) {
+                timer.running = false;
+                clearInterval(timer.interval);
+                
+                // Save exercise data if timer was running for at least 30 seconds
+                if (timer.seconds >= 30) {
+                    saveExerciseData(index);
+                }
+                
+                // Reset timer
+                timer.seconds = 0;
+                updateTimerDisplay(index);
+                document.getElementById(`calories-${index}`).textContent = '0';
+                
+                // Update button visibility
+                card.querySelector('.timer-start').style.display = 'inline-block';
+                card.querySelector('.timer-pause').style.display = 'none';
+                card.querySelector('.timer-stop').style.display = 'none';
+                
+                // Remove active class
+                card.classList.remove('timer-active');
+                
+                if (activeTimer === index) {
+                    activeTimer = null;
+                }
+                
+                simulateHaptic();
+                
+                // Show completion message
+                if (timer.seconds >= 30) {
+                    const minutes = Math.floor(timer.seconds / 60);
+                    const calories = Math.floor((timer.seconds / 60) * timer.caloriesPerMin);
+                    
+                    setTimeout(() => {
+                        alert(`✅ ${timer.exerciseName} completed!\nDuration: ${minutes} min ${timer.seconds % 60} sec\nCalories burned: ${calories} cal`);
+                    }, 300);
+                }
+            } else {
+                // If timer wasn't running, just hide it
+                card.querySelector('.exercise-timer').style.display = 'none';
+                card.classList.remove('timer-active');
+            }
+        }
+        
+        function updateTimerDisplay(index) {
+            const timer = exerciseTimers[index];
+            const minutes = Math.floor(timer.seconds / 60);
+            const seconds = timer.seconds % 60;
+            const display = document.querySelector(`#timer-${index} .timer-display`);
+            display.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        function saveExerciseData(index) {
+            const timer = exerciseTimers[index];
+            if (timer.seconds === 0) return;
+            
+            const minutes = Math.floor(timer.seconds / 60);
+            const calories = Math.floor((timer.seconds / 60) * timer.caloriesPerMin);
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Get or initialize exercise logs
+            let exerciseLogs = JSON.parse(localStorage.getItem('fitcareExerciseLogs') || '{}');
+            if (!exerciseLogs[today]) {
+                exerciseLogs[today] = [];
+            }
+            
+            // Add new exercise log
+            exerciseLogs[today].push({
+                name: timer.exerciseName,
+                type: userData.goal === "lose" ? "cardio" : userData.goal === "gain" ? "strength" : "maintenance",
+                duration: minutes,
+                seconds: timer.seconds,
+                calories: calories,
+                date: today,
+                timestamp: new Date().toISOString(),
+                source: "home_page"
+            });
+            
+            // Save back to localStorage
+            localStorage.setItem('fitcareExerciseLogs', JSON.stringify(exerciseLogs));
+            
+            // Update total exercise time
+            const totalTime = +localStorage.getItem('totalExerciseTime') || 0;
+            localStorage.setItem('totalExerciseTime', totalTime + minutes);
+            
+            // Update total calories burned
+            const totalCalories = +localStorage.getItem('totalCalories') || 0;
+            localStorage.setItem('totalCalories', totalCalories + calories);
+            
+            // Update completed exercises count
+            const exercisesDone = (+localStorage.getItem('completedExercises') || 0) + 1;
+            localStorage.setItem('completedExercises', exercisesDone);
+            
+            console.log(`✅ Exercise saved: ${timer.exerciseName}, ${minutes} min, ${calories} cal`);
+        }
+        
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                showLoading('Logging out...');
+                
+                setTimeout(() => {
+                    localStorage.removeItem('fitcareUserData');
+                    hideLoading();
+                    alert('Successfully logged out!');
+                    window.location.href = 'login3.html';
+                }, 1000);
+            }
+        }
+        
+        function viewDietPlan() {
+            simulateHaptic();
+            showLoading('Opening Diet Plan...');
+            setTimeout(() => {
+                hideLoading();
+                window.location.href = 'dietplan.html';
+            }, 800);
+        }
+        
+        function updateTime() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('currentTime').textContent = `${hours}:${minutes}`;
+        }
+        
+        // Highlight active nav item
+        function highlightActiveNav() {
+            const currentPage = window.location.pathname.split('/').pop();
+            const navLinks = document.querySelectorAll('.bottom-nav a');
+            
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === currentPage) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            });
+        }
+        
+        // Highlight active sidebar item
+        function highlightActiveSidebarItem() {
+            const currentPage = window.location.pathname.split('/').pop();
+            const sidebarLinks = document.querySelectorAll('.nav-item-side');
+            
+            sidebarLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === currentPage) {
+                    link.classList.add('active');
+                    // Remove active class from others
+                    sidebarLinks.forEach(otherLink => {
+                        if (otherLink !== link) {
+                            otherLink.classList.remove('active');
+                        }
+                    });
+                }
+            });
+        }
+        
+        // Initialize sidebar navigation with loading animation
+        function initSidebarNavigation() {
+            const sidebarLinks = document.querySelectorAll('.nav-item-side');
+            
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    // Close sidebar when navigating
+                    closeSidebar();
+                    
+                    // Show loading animation
+                    const href = this.getAttribute('href');
+                    if (href && !href.startsWith('#')) {
+                        e.preventDefault();
+                        showLoading(`Loading ${this.querySelector('.nav-label').textContent}...`);
+                        
+                        // Simulate loading delay for demo
+                        setTimeout(() => {
+                            window.location.href = href;
+                        }, 800);
+                    }
+                });
+            });
+        }
+        
+        function init() {
+            // Set up event listeners
+            const mobileContainer = document.getElementById('mobileContainer');
+            mobileContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
+            mobileContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
+            mobileContainer.addEventListener('touchend', handleTouchEnd, { passive: true });
+            
+            // Sidebar controls
+            document.getElementById('menuToggle').addEventListener('click', toggleSidebar);
+            document.getElementById('closeNav').addEventListener('click', closeSidebar);
+            document.getElementById('overlay').addEventListener('click', closeSidebar);
+            
+            // Initialize sidebar navigation
+            initSidebarNavigation();
+            
+            // Set up time and quote
+            updateTime();
+            setInterval(updateTime, 60000); // Update every minute
+            
+            const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+            document.getElementById('motivationalQuote').textContent = `"${randomQuote}"`;
+            
+            // Load user data
+            loadUserData();
+            
+            // Highlight active navigation items
+            highlightActiveNav();
+            highlightActiveSidebarItem();
+            
+            // Add refresh on pull gesture
+            let startY = 0;
+            let isScrolling = false;
+            
+            const contentArea = document.querySelector('.content');
+            contentArea.addEventListener('touchstart', (e) => {
+                startY = e.touches[0].clientY;
+                isScrolling = contentArea.scrollTop === 0;
+            });
+            
+            contentArea.addEventListener('touchend', (e) => {
+                const endY = e.changedTouches[0].clientY;
+                if (isScrolling && startY - endY > 100) {
+                    // Pull to refresh
+                    showLoading('Refreshing...');
+                    setTimeout(() => {
+                        loadUserData();
+                        highlightActiveNav();
+                        highlightActiveSidebarItem();
+                    }, 1000);
+                }
+            });
+            
+            // Bottom nav items
+            const bottomNavItems = document.querySelectorAll('.nav-link');
+            bottomNavItems.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    // Don't prevent default - let the href work
+                    simulateHaptic();
+                });
+            });
+        }
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', init);
+        
+        // Prevent zoom on double tap
+        document.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+        
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+    </script>
+</body>
+</html>

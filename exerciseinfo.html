@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FITCARE - Exercise Guide</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            touch-action: pan-y;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        /* Mobile Container - Main Wrapper */
+        .mobile-container {
+            width: 100%;
+            max-width: 428px;
+            height: 100vh;
+            max-height: 926px;
+            background-color: #000;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #333;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0, 255, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Side Navigation */
+        .side-nav {
+            position: absolute;
+            top: 0;
+            left: -280px;
+            width: 280px;
+            height: 100%;
+            background: #000;
+            border-right: 1px solid #00ff00;
+            z-index: 1000;
+            transition: left 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
+            box-shadow: 5px 0 30px rgba(0, 255, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            border-radius: 24px 0 0 24px;
+            overflow: hidden;
+        }
+
+        .side-nav.open {
+            left: 0;
+        }
+
+        .nav-header {
+            padding: 20px 16px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-header h2 {
+            color: #00ff00;
+            font-size: 1.4em;
+            font-weight: 700;
+        }
+
+        .close-nav {
+            background: rgba(0, 255, 0, 0.1);
+            border: none;
+            color: #00ff00;
+            font-size: 1.3em;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .nav-profile {
+            padding: 20px 16px;
+            border-bottom: 1px solid #333;
+        }
+
+        .profile-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .profile-pic {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00ff00, #00cc00);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .profile-text h3 {
+            color: #fff;
+            font-size: 1.1em;
+            margin-bottom: 2px;
+        }
+
+        .profile-text p {
+            color: #888;
+            font-size: 0.85em;
+        }
+
+        .nav-menu {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .nav-item-side {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            color: #ddd;
+            text-decoration: none;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item-side.active {
+            background: rgba(0, 255, 0, 0.08);
+            color: #00ff00;
+            border-left-color: #00ff00;
+        }
+
+        .nav-item-side:active {
+            background: rgba(0, 255, 0, 0.15);
+            transform: scale(0.98);
+        }
+
+        .nav-icon-side {
+            font-size: 1.2em;
+            width: 24px;
+        }
+
+        .nav-label {
+            font-size: 0.95em;
+        }
+
+        .nav-footer {
+            padding: 20px 16px;
+            border-top: 1px solid #333;
+        }
+
+        .logout-btn {
+            width: 100%;
+            padding: 14px;
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            border-radius: 12px;
+            color: #ff4444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 0.95em;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .logout-btn:active {
+            background: rgba(255, 0, 0, 0.2);
+            transform: scale(0.98);
+        }
+
+        /* Overlay */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s ease;
+            backdrop-filter: blur(3px);
+            border-radius: 24px;
+        }
+
+        .overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Status Bar */
+        .status-bar {
+            padding: 12px 16px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85em;
+            color: #00ff00;
+            background: #000;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .menu-toggle {
+            background: rgba(0, 255, 0, 0.1);
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            color: #00ff00;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .menu-toggle:active {
+            background: rgba(0, 255, 0, 0.2);
+            transform: scale(0.95);
+        }
+
+        .time {
+            font-weight: 600;
+            font-size: 1em;
+        }
+
+        .status-icons {
+            display: flex;
+            gap: 8px;
+            font-size: 1em;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 80px;
+        }
+
+        /* Exercise Guide Content */
+        .exercise-guide {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .back-button {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 10px 20px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            font-size: 0.95em;
+        }
+
+        .back-button:active {
+            transform: scale(0.98);
+            background: rgba(0, 255, 0, 0.2);
+        }
+
+        .exercise-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .exercise-header h1 {
+            color: #00ff5a;
+            font-size: 1.8em;
+            margin-bottom: 5px;
+        }
+
+        .exercise-meta {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .meta-tag {
+            background: rgba(0, 255, 90, 0.1);
+            border: 1px solid #00ff5a;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            color: #00ff5a;
+        }
+
+        .exercise-details {
+            background: rgba(10, 10, 10, 0.8);
+            border-radius: 18px;
+            padding: 25px;
+            border: 1px solid #00ff5a;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            color: #00ff5a;
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #00ff5a;
+            opacity: 0.3;
+        }
+
+        .step-list {
+            list-style: none;
+            counter-reset: step-counter;
+        }
+
+        .step-item {
+            position: relative;
+            padding: 15px 0 15px 50px;
+            border-bottom: 1px solid rgba(0, 255, 90, 0.1);
+        }
+
+        .step-item:last-child {
+            border-bottom: none;
+        }
+
+        .step-item::before {
+            counter-increment: step-counter;
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 15px;
+            width: 32px;
+            height: 32px;
+            background: #00ff5a;
+            color: #000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .step-title {
+            color: #fff;
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 1em;
+        }
+
+        .step-description {
+            color: #ccc;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        .tips-list {
+            background: rgba(0, 255, 90, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .tip-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 8px;
+            transition: background 0.3s;
+        }
+
+        .tip-item:hover {
+            background: rgba(0, 255, 90, 0.1);
+        }
+
+        .tip-icon {
+            color: #00ff5a;
+            font-size: 1.2em;
+            min-width: 24px;
+        }
+
+        .tip-text {
+            color: #ccc;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+
+        .muscle-diagram {
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0, 255, 90, 0.05);
+            border-radius: 12px;
+        }
+
+        .muscle-groups {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .muscle-tag {
+            background: rgba(255, 100, 0, 0.1);
+            border: 1px solid #ff6400;
+            color: #ff6400;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+        }
+
+        .muscle-tag.primary {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid #ff0000;
+            color: #ff0000;
+        }
+
+        .variations {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .variation-card {
+            background: rgba(0, 255, 90, 0.05);
+            border: 1px solid rgba(0, 255, 90, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+
+        .variation-card:active {
+            transform: scale(0.98);
+        }
+
+        .variation-name {
+            color: #00ff5a;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .difficulty {
+            margin-top: 5px;
+            font-size: 0.8em;
+            color: #888;
+        }
+
+        .demo-container {
+            position: relative;
+            margin: 20px 0;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #111;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .demo-placeholder {
+            color: #666;
+            font-size: 1em;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .demo-button {
+            background: linear-gradient(135deg, #00ff5a, #39ff14);
+            color: #000;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .demo-button:active {
+            transform: scale(0.98);
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #0a0a0a;
+            border-top: 1px solid rgba(0, 255, 0, 0.2);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            z-index: 100;
+            flex-shrink: 0;
+            border-radius: 0 0 24px 24px;
+        }
+
+        .nav-link {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: #666;
+            font-size: 0.7em;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            min-width: 60px;
+        }
+
+        .nav-link.active {
+            color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .nav-link:active {
+            transform: scale(0.9);
+        }
+
+        .nav-icon {
+            font-size: 1.4em;
+            margin-bottom: 4px;
+        }
+
+        /* Loading overlay */
+        #loadingOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            border-radius: 24px;
+        }
+
+        #loadingOverlay .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #333;
+            border-top-color: #00ff00;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        #loadingOverlay .loading-text {
+            color: #00ff00;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Swipe indicator */
+        .swipe-indicator {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            width: 4px;
+            height: 40px;
+            background: rgba(0, 255, 0, 0.5);
+            border-radius: 2px;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 1001;
+        }
+
+        .swipe-indicator.visible {
+            opacity: 1;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 428px) {
+            .mobile-container {
+                border-radius: 0;
+                border: none;
+                max-width: 100%;
+                max-height: 100%;
+            }
+            
+            .side-nav {
+                border-radius: 0 0 0 0;
+            }
+            
+            .overlay {
+                border-radius: 0;
+            }
+            
+            .bottom-nav {
+                border-radius: 0;
+            }
+            
+            .exercise-details {
+                padding: 20px 15px;
+            }
+        }
+
+        /* Exercise Database */
+        .exercise-database {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .exercise-card {
+            background: rgba(10, 10, 10, 0.8);
+            border: 1px solid rgba(0, 255, 90, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .exercise-card:active {
+            transform: scale(0.98);
+            border-color: #00ff5a;
+            background: rgba(0, 255, 90, 0.1);
+        }
+
+        .exercise-card h4 {
+            color: #00ff5a;
+            margin-bottom: 8px;
+            font-size: 1em;
+        }
+
+        .exercise-meta-small {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .meta-small {
+            background: rgba(0, 255, 90, 0.1);
+            color: #00ff5a;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.7em;
+        }
+
+        /* Search Bar */
+        .search-container {
+            margin-bottom: 20px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 20px;
+            background: rgba(10, 10, 10, 0.8);
+            border: 1px solid #00ff5a;
+            border-radius: 12px;
+            color: #fff;
+            font-size: 1em;
+        }
+
+        .search-input:focus {
+            outline: none;
+            box-shadow: 0 0 10px rgba(0, 255, 90, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Mobile Container -->
+    <div class="mobile-container" id="mobileContainer">
+        <!-- Side Navigation -->
+        <div class="side-nav" id="sideNav">
+            <div class="nav-header">
+                <h2>FITCARE</h2>
+                <button class="close-nav" id="closeNav">✕</button>
+            </div>
+
+            <div class="nav-profile">
+                <div class="profile-info">
+                    <div class="profile-pic" id="profileInitial">U</div>
+                    <div class="profile-text">
+                        <h3 id="sidebarUserName">User</h3>
+                        <p id="sidebarUserEmail">user@example.com</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar Navigation -->
+            <div class="nav-menu">
+                <a href="home.html" class="nav-item-side">
+                    <span class="nav-icon-side">🏠</span>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+                <a href="progress.html" class="nav-item-side">
+                    <span class="nav-icon-side">📊</span>
+                    <span class="nav-label">Analytics</span>
+                </a>
+                <a href="meals.html" class="nav-item-side">
+                    <span class="nav-icon-side">🍽️</span>
+                    <span class="nav-label">Meal Plans</span>
+                </a>
+                <a href="trainer.html" class="nav-item-side">
+                    <span class="nav-icon-side">💪</span>
+                    <span class="nav-label">Workout</span>
+                </a>
+                <a href="weight.html" class="nav-item-side">
+                    <span class="nav-icon-side">🏋🏽</span>
+                    <span class="nav-label">Gym Training</span>
+                </a>
+                <a href="goals.html" class="nav-item-side">
+                    <span class="nav-icon-side">🥦</span>
+                    <span class="nav-label">Log Food</span>
+                </a>
+                <a href="#" class="nav-item-side active">
+                    <span class="nav-icon-side">📚</span>
+                    <span class="nav-label">Exercise Guide</span>
+                </a>
+                <a href="shop.html" class="nav-item-side">
+                    <span class="nav-icon-side">🛒</span>
+                    <span class="nav-label">Store</span>
+                </a>
+            </div>
+
+            <div class="nav-footer">
+                <button class="logout-btn" onclick="logout()">
+                    <span>🚪</span>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Overlay -->
+        <div class="overlay" id="overlay"></div>
+
+        <!-- Swipe Indicator -->
+        <div class="swipe-indicator" id="swipeIndicator"></div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay">
+            <div class="spinner"></div>
+            <div class="loading-text">Loading...</div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <button class="menu-toggle" id="menuToggle">☰</button>
+                <div class="time" id="currentTime">9:41</div>
+                <div class="status-icons">
+                    <span>📶</span>
+                    <span>🔋</span>
+                </div>
+            </div>
+
+            <!-- Exercise Guide Content -->
+            <div class="exercise-guide" id="exerciseGuide">
+                <!-- This will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="home.html" class="nav-link">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-label">Home</span>
+            </a>
+            <a href="progress.html" class="nav-link">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label">Progress</span>
+            </a>
+            <a href="meals.html" class="nav-link">
+                <span class="nav-icon">🍽️</span>
+                <span class="nav-label">Meals</span>
+            </a>
+            <a href="trainer.html" class="nav-link">
+                <span class="nav-icon">🏋️</span>
+                <span class="nav-label">Trainer</span>
+            </a>
+            <a href="#" class="nav-link active">
+                <span class="nav-icon">📚</span>
+                <span class="nav-label">Guide</span>
+            </a>
+        </nav>
+    </div>
+
+    <script>
+        // Navigation Variables
+        let touchStartX = 0;
+        let touchEndX = 0;
+        let sidebarOpen = false;
+        let lastTouchTime = 0;
+        let currentView = 'list'; // 'list' or 'detail'
+        let currentExercise = null;
+
+        // Comprehensive Exercise Database with Detailed Instructions
+        const exerciseDatabase = {
+            "Barbell Bench Press": {
+                category: "chest",
+                equipment: "Barbell",
+                difficulty: "Intermediate",
+                caloriesPerRep: 8,
+                primaryMuscles: ["Pectorals (Chest)", "Triceps", "Anterior Deltoids"],
+                secondaryMuscles: ["Serratus Anterior", "Biceps"],
+                steps: [
+                    {
+                        title: "Setup Position",
+                        description: "Lie flat on a bench with your eyes under the bar. Plant your feet firmly on the ground. Grip the bar slightly wider than shoulder-width."
+                    },
+                    {
+                        title: "Unrack the Bar",
+                        description: "Lift the bar off the rack and hold it directly above your chest with arms fully extended. Keep your wrists straight."
+                    },
+                    {
+                        title: "Lower the Bar",
+                        description: "Inhale and slowly lower the bar to your mid-chest. Keep your elbows at a 45-degree angle to your body."
+                    },
+                    {
+                        title: "Press Upward",
+                        description: "Exhale and press the bar back up to the starting position. Squeeze your chest muscles at the top."
+                    },
+                    {
+                        title: "Repeat",
+                        description: "Perform desired number of repetitions, maintaining control throughout the movement."
+                    }
+                ],
+                tips: [
+                    "Keep your shoulder blades retracted throughout the movement",
+                    "Don't bounce the bar off your chest",
+                    "Maintain a slight arch in your lower back",
+                    "Keep your glutes on the bench at all times",
+                    "Use a spotter when lifting heavy weights"
+                ],
+                commonMistakes: [
+                    "Flaring elbows out too wide",
+                    "Bouncing the bar off the chest",
+                    "Lifting hips off the bench",
+                    "Uneven bar path"
+                ],
+                variations: [
+                    { name: "Incline Bench Press", difficulty: "Intermediate", target: "Upper Chest" },
+                    { name: "Decline Bench Press", difficulty: "Intermediate", target: "Lower Chest" },
+                    { name: "Dumbbell Press", difficulty: "Beginner", target: "Chest (Unilateral)" },
+                    { name: "Close Grip Press", difficulty: "Advanced", target: "Triceps Focus" }
+                ]
+            },
+            "Dumbbell Bench Press": {
+                category: "chest",
+                equipment: "Dumbbell",
+                difficulty: "Beginner",
+                caloriesPerRep: 7,
+                primaryMuscles: ["Pectorals", "Triceps", "Shoulders"],
+                secondaryMuscles: ["Serratus Anterior"],
+                steps: [
+                    {
+                        title: "Setup Position",
+                        description: "Sit on the bench with dumbbells resting on your knees. Lie back while bringing the dumbbells to chest level."
+                    },
+                    {
+                        title: "Starting Position",
+                        description: "Press the dumbbells up until your arms are fully extended. Keep palms facing forward."
+                    },
+                    {
+                        title: "Lower the Weights",
+                        description: "Inhale and lower the dumbbells to the sides of your chest. Keep elbows at 45-degree angle."
+                    },
+                    {
+                        title: "Press Upward",
+                        description: "Exhale and press the dumbbells back up, squeezing your chest at the top."
+                    }
+                ],
+                tips: [
+                    "Keep dumbbells parallel to each other",
+                    "Control the descent, don't let gravity do the work",
+                    "Squeeze chest at the top of movement",
+                    "Keep feet planted firmly"
+                ],
+                variations: [
+                    { name: "Incline Dumbbell Press", difficulty: "Beginner", target: "Upper Chest" },
+                    { name: "Neutral Grip Press", difficulty: "Beginner", target: "Shoulder Friendly" }
+                ]
+            },
+            "Barbell Squat": {
+                category: "legs",
+                equipment: "Barbell",
+                difficulty: "Intermediate",
+                caloriesPerRep: 10,
+                primaryMuscles: ["Quadriceps", "Glutes", "Hamstrings"],
+                secondaryMuscles: ["Calves", "Core", "Lower Back"],
+                steps: [
+                    {
+                        title: "Rack Position",
+                        description: "Position the bar on your upper back (not neck). Grip the bar wider than shoulder-width."
+                    },
+                    {
+                        title: "Unrack and Setup",
+                        description: "Lift the bar off the rack and take 2-3 steps back. Feet shoulder-width apart, toes slightly out."
+                    },
+                    {
+                        title: "Initiate Descent",
+                        description: "Take a deep breath, brace your core, and begin to lower yourself as if sitting back into a chair."
+                    },
+                    {
+                        title: "Depth",
+                        description: "Lower until your thighs are parallel to the floor or as low as flexibility allows."
+                    },
+                    {
+                        title: "Drive Up",
+                        description: "Push through your heels to return to standing position. Exhale as you pass the hardest point."
+                    }
+                ],
+                tips: [
+                    "Keep chest up and back straight",
+                    "Push knees out during descent",
+                    "Drive through heels, not toes",
+                    "Maintain neutral spine position",
+                    "Use a squat rack with safety bars"
+                ],
+                variations: [
+                    { name: "Front Squat", difficulty: "Advanced", target: "Quads Focus" },
+                    { name: "Goblet Squat", difficulty: "Beginner", target: "Form Practice" },
+                    { name: "Box Squat", difficulty: "Beginner", target: "Depth Control" }
+                ]
+            },
+            "Push Ups": {
+                category: "chest",
+                equipment: "Bodyweight",
+                difficulty: "Beginner",
+                caloriesPerRep: 6,
+                primaryMuscles: ["Chest", "Triceps", "Shoulders"],
+                secondaryMuscles: ["Core", "Back"],
+                steps: [
+                    {
+                        title: "Starting Position",
+                        description: "Place hands slightly wider than shoulder-width. Body in straight line from head to heels."
+                    },
+                    {
+                        title: "Lower Body",
+                        description: "Bend elbows to lower your chest toward the floor. Keep elbows at 45-degree angle."
+                    },
+                    {
+                        title: "Depth",
+                        description: "Lower until your chest is about a fist's distance from the floor."
+                    },
+                    {
+                        title: "Push Up",
+                        description: "Push through your palms to return to starting position, squeezing chest at the top."
+                    }
+                ],
+                tips: [
+                    "Keep core tight throughout",
+                    "Don't let hips sag or rise",
+                    "Full range of motion",
+                    "Control both descent and ascent"
+                ],
+                variations: [
+                    { name: "Knee Push Ups", difficulty: "Beginner", target: "Easier Version" },
+                    { name: "Decline Push Ups", difficulty: "Intermediate", target: "Upper Chest" },
+                    { name: "Diamond Push Ups", difficulty: "Advanced", target: "Triceps Focus" }
+                ]
+            },
+            "Barbell Curl": {
+                category: "biceps",
+                equipment: "Barbell",
+                difficulty: "Beginner",
+                caloriesPerRep: 6,
+                primaryMuscles: ["Biceps Brachii"],
+                secondaryMuscles: ["Brachialis", "Forearms"],
+                steps: [
+                    {
+                        title: "Starting Position",
+                        description: "Stand with feet shoulder-width apart. Hold barbell with underhand grip, hands shoulder-width."
+                    },
+                    {
+                        title: "Curl Motion",
+                        description: "Keeping elbows close to sides, curl the bar toward your shoulders."
+                    },
+                    {
+                        title: "Peak Contraction",
+                        description: "Squeeze biceps hard at the top of the movement."
+                    },
+                    {
+                        title: "Lower with Control",
+                        description: "Slowly lower the bar back to starting position."
+                    }
+                ],
+                tips: [
+                    "Don't swing the weight",
+                    "Keep elbows stationary",
+                    "Focus on mind-muscle connection",
+                    "Full range of motion"
+                ]
+            },
+            "Triceps Pushdown": {
+                category: "triceps",
+                equipment: "Cable",
+                difficulty: "Beginner",
+                caloriesPerRep: 6,
+                primaryMuscles: ["Triceps"],
+                secondaryMuscles: ["Shoulders"],
+                steps: [
+                    {
+                        title: "Setup",
+                        description: "Attach straight bar to high pulley. Stand facing machine with slight forward lean."
+                    },
+                    {
+                        title: "Starting Position",
+                        description: "Grip bar with palms down. Upper arms close to sides, elbows bent at 90 degrees."
+                    },
+                    {
+                        title: "Push Down",
+                        description: "Extend elbows to push bar down until arms are straight."
+                    },
+                    {
+                        title: "Return",
+                        description: "Control the weight back to starting position."
+                    }
+                ],
+                tips: [
+                    "Keep elbows pinned to sides",
+                    "Only forearms should move",
+                    "Squeeze triceps at bottom",
+                    "Don't use body momentum"
+                ]
+            },
+            "Shoulder Press": {
+                category: "shoulders",
+                equipment: "Dumbbell",
+                difficulty: "Intermediate",
+                caloriesPerRep: 7,
+                primaryMuscles: ["Deltoids", "Triceps"],
+                secondaryMuscles: ["Upper Chest", "Traps"],
+                steps: [
+                    {
+                        title: "Setup",
+                        description: "Sit on bench with back support. Hold dumbbells at shoulder height, palms forward."
+                    },
+                    {
+                        title: "Press Up",
+                        description: "Press dumbbells overhead until arms are fully extended."
+                    },
+                    {
+                        title: "Lower",
+                        description: "Lower dumbbells back to shoulder height with control."
+                    }
+                ],
+                tips: [
+                    "Don't arch lower back excessively",
+                    "Keep core engaged",
+                    "Control the weight throughout",
+                    "Breathe out as you press up"
+                ]
+            },
+            "Lat Pulldown": {
+                category: "back",
+                equipment: "Machine",
+                difficulty: "Beginner",
+                caloriesPerRep: 7,
+                primaryMuscles: ["Latissimus Dorsi"],
+                secondaryMuscles: ["Biceps", "Rhomboids"],
+                steps: [
+                    {
+                        title: "Setup",
+                        description: "Sit at lat pulldown machine. Adjust knee pad to secure legs."
+                    },
+                    {
+                        title: "Grip",
+                        description: "Grip bar wider than shoulder-width, palms facing forward."
+                    },
+                    {
+                        title: "Pull Down",
+                        description: "Pull bar down to upper chest, leaning back slightly."
+                    },
+                    {
+                        title: "Return",
+                        description: "Control the weight back to starting position."
+                    }
+                ],
+                tips: [
+                    "Squeeze shoulder blades together",
+                    "Don't use excessive body swing",
+                    "Full range of motion",
+                    "Focus on back, not just arms"
+                ]
+            },
+            "Crunches": {
+                category: "abs",
+                equipment: "Bodyweight",
+                difficulty: "Beginner",
+                caloriesPerRep: 4,
+                primaryMuscles: ["Rectus Abdominis"],
+                secondaryMuscles: ["Obliques"],
+                steps: [
+                    {
+                        title: "Starting Position",
+                        description: "Lie on back with knees bent, feet flat on floor. Hands behind head or crossed on chest."
+                    },
+                    {
+                        title: "Curl Up",
+                        description: "Lift shoulder blades off floor by contracting abs."
+                    },
+                    {
+                        title: "Peak",
+                        description: "Hold for a moment at the top, squeezing abs."
+                    },
+                    {
+                        title: "Lower",
+                        description: "Slowly lower back to starting position."
+                    }
+                ],
+                tips: [
+                    "Don't pull on neck with hands",
+                    "Exhale as you crunch up",
+                    "Inhale as you lower down",
+                    "Slow and controlled movement"
+                ]
+            },
+            "Jumping Jacks": {
+                category: "cardio",
+                equipment: "Bodyweight",
+                difficulty: "Beginner",
+                caloriesPerRep: 6,
+                primaryMuscles: ["Full Body"],
+                secondaryMuscles: ["Cardiovascular System"],
+                steps: [
+                    {
+                        title: "Starting Position",
+                        description: "Stand with feet together, arms at sides."
+                    },
+                    {
+                        title: "Jump",
+                        description: "Jump while spreading legs shoulder-width apart."
+                    },
+                    {
+                        title: "Arm Motion",
+                        description: "Simultaneously raise arms overhead."
+                    },
+                    {
+                        title: "Return",
+                        description: "Jump back to starting position."
+                    }
+                ],
+                tips: [
+                    "Land softly on balls of feet",
+                    "Maintain steady rhythm",
+                    "Breathe regularly",
+                    "Engage core throughout"
+                ]
+            }
+        };
+
+        // Navigation Functions
+        function handleTouchStart(e) {
+            touchStartX = e.changedTouches[0].clientX;
+            lastTouchTime = Date.now();
+            
+            if (touchStartX < 50 && !sidebarOpen) {
+                showSwipeIndicator();
+            }
+        }
+        
+        function handleTouchMove(e) {
+            if (touchStartX < 30 && !sidebarOpen) {
+                e.preventDefault();
+            }
+        }
+        
+        function handleTouchEnd(e) {
+            touchEndX = e.changedTouches[0].clientX;
+            const swipeDistance = touchEndX - touchStartX;
+            
+            hideSwipeIndicator();
+            
+            if (touchStartX < 50 && swipeDistance > 80) {
+                toggleSidebar();
+                simulateHaptic();
+                return;
+            }
+            
+            if (sidebarOpen && touchStartX - touchEndX > 80) {
+                closeSidebar();
+                simulateHaptic();
+                return;
+            }
+            
+            const currentTime = Date.now();
+            if (currentTime - lastTouchTime < 300) {
+                return;
+            }
+        }
+        
+        function showSwipeIndicator() {
+            const indicator = document.getElementById('swipeIndicator');
+            indicator.style.transform = 'translateY(-50%) scale(1.2)';
+            indicator.classList.add('visible');
+        }
+        
+        function hideSwipeIndicator() {
+            const indicator = document.getElementById('swipeIndicator');
+            indicator.style.transform = 'translateY(-50%) scale(1)';
+            indicator.classList.remove('visible');
+        }
+        
+        function toggleSidebar() {
+            const sideNav = document.getElementById('sideNav');
+            const overlay = document.getElementById('overlay');
+            const mainContent = document.querySelector('.main-content');
+            
+            if (!sidebarOpen) {
+                sideNav.classList.add('open');
+                overlay.classList.add('active');
+                mainContent.style.overflow = 'hidden';
+                document.addEventListener('touchstart', handleOverlayTouch, { passive: true });
+            } else {
+                sideNav.classList.remove('open');
+                overlay.classList.remove('active');
+                mainContent.style.overflow = '';
+                document.removeEventListener('touchstart', handleOverlayTouch);
+            }
+            
+            sidebarOpen = !sidebarOpen;
+            simulateHaptic();
+        }
+        
+        function closeSidebar() {
+            const sideNav = document.getElementById('sideNav');
+            const overlay = document.getElementById('overlay');
+            const mainContent = document.querySelector('.main-content');
+            
+            sideNav.classList.remove('open');
+            overlay.classList.remove('active');
+            mainContent.style.overflow = '';
+            sidebarOpen = false;
+            
+            document.removeEventListener('touchstart', handleOverlayTouch);
+            simulateHaptic();
+        }
+        
+        function handleOverlayTouch(e) {
+            if (sidebarOpen && !e.target.closest('.side-nav')) {
+                closeSidebar();
+            }
+        }
+        
+        function simulateHaptic() {
+            if (navigator.vibrate) {
+                navigator.vibrate(10);
+            }
+        }
+        
+        function showLoading(message) {
+            const loader = document.getElementById('loadingOverlay');
+            if (loader) {
+                const text = loader.querySelector('.loading-text');
+                if (text) text.textContent = message || 'Loading...';
+                loader.style.display = 'flex';
+            }
+        }
+        
+        function hideLoading() {
+            const loader = document.getElementById('loadingOverlay');
+            if (loader) {
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 300);
+            }
+        }
+        
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                showLoading('Logging out...');
+                
+                setTimeout(() => {
+                    localStorage.removeItem('fitcareUserData');
+                    hideLoading();
+                    alert('Successfully logged out!');
+                    window.location.href = 'index.html';
+                }, 1000);
+            }
+        }
+        
+        function updateTime() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('currentTime').textContent = `${hours}:${minutes}`;
+        }
+        
+        function loadUserData() {
+            const storedData = localStorage.getItem('fitcareUserData');
+            
+            if (storedData) {
+                try {
+                    const data = JSON.parse(storedData);
+                    document.getElementById('sidebarUserName').textContent = data.name || "User";
+                    document.getElementById('sidebarUserEmail').textContent = data.email || "user@example.com";
+                    document.getElementById('profileInitial').textContent = (data.name || "User").charAt(0).toUpperCase();
+                } catch (error) {
+                    console.error('Error parsing user data:', error);
+                }
+            }
+        }
+
+        // Exercise Guide Functions
+        function showExerciseList() {
+            currentView = 'list';
+            const guideContainer = document.getElementById('exerciseGuide');
+            
+            let html = `
+                <div class="back-button" onclick="goBackToTrainer()">
+                    <span>←</span> Back to Trainer
+                </div>
+                
+                <div class="exercise-header">
+                    <h1>🏋️ Exercise Library</h1>
+                    <p>Learn proper form for every exercise</p>
+                </div>
+                
+                <div class="search-container">
+                    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search exercises..." oninput="filterExercises()">
+                </div>
+                
+                <div class="exercise-database" id="exerciseList">
+            `;
+            
+            // Group exercises by category
+            const categories = {};
+            Object.keys(exerciseDatabase).forEach(exerciseName => {
+                const exercise = exerciseDatabase[exerciseName];
+                if (!categories[exercise.category]) {
+                    categories[exercise.category] = [];
+                }
+                categories[exercise.category].push({name: exerciseName, ...exercise});
+            });
+            
+            // Display exercises by category
+            Object.keys(categories).forEach(category => {
+                html += `<h3 class="section-title" style="margin-top: 20px;">${category.charAt(0).toUpperCase() + category.slice(1)} Exercises</h3>`;
+                
+                categories[category].forEach(exercise => {
+                    html += `
+                        <div class="exercise-card" onclick="showExerciseDetail('${exercise.name}')">
+                            <h4>${exercise.name}</h4>
+                            <div class="exercise-meta-small">
+                                <span class="meta-small">${exercise.equipment}</span>
+                                <span class="meta-small">${exercise.difficulty}</span>
+                                <span class="meta-small">${exercise.caloriesPerRep} cal/rep</span>
+                            </div>
+                        </div>
+                    `;
+                });
+            });
+            
+            html += `</div>`;
+            guideContainer.innerHTML = html;
+        }
+
+        function showExerciseDetail(exerciseName) {
+            currentView = 'detail';
+            const exercise = exerciseDatabase[exerciseName];
+            if (!exercise) return;
+            
+            currentExercise = exerciseName;
+            const guideContainer = document.getElementById('exerciseGuide');
+            
+            let html = `
+                <div class="back-button" onclick="showExerciseList()">
+                    <span>←</span> Back to Library
+                </div>
+                
+                <div class="exercise-header">
+                    <h1>${exerciseName}</h1>
+                    <div class="exercise-meta">
+                        <span class="meta-tag">${exercise.category}</span>
+                        <span class="meta-tag">${exercise.equipment}</span>
+                        <span class="meta-tag">${exercise.difficulty}</span>
+                        <span class="meta-tag">${exercise.caloriesPerRep} cal/rep</span>
+                    </div>
+                </div>
+                
+                <div class="exercise-details">
+                    <h3 class="section-title">🎯 Target Muscles</h3>
+                    <div class="muscle-diagram">
+                        <div class="muscle-groups">
+                            ${exercise.primaryMuscles.map(muscle => `
+                                <span class="muscle-tag primary">${muscle}</span>
+                            `).join('')}
+                            ${exercise.secondaryMuscles.map(muscle => `
+                                <span class="muscle-tag">${muscle}</span>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <h3 class="section-title">📝 Step-by-Step Instructions</h3>
+                    <ol class="step-list">
+                        ${exercise.steps.map((step, index) => `
+                            <li class="step-item">
+                                <div class="step-title">${step.title}</div>
+                                <div class="step-description">${step.description}</div>
+                            </li>
+                        `).join('')}
+                    </ol>
+                    
+                    <h3 class="section-title">💡 Pro Tips</h3>
+                    <div class="tips-list">
+                        ${exercise.tips.map(tip => `
+                            <div class="tip-item">
+                                <span class="tip-icon">✓</span>
+                                <span class="tip-text">${tip}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    ${exercise.commonMistakes ? `
+                        <h3 class="section-title">⚠️ Common Mistakes</h3>
+                        <div class="tips-list">
+                            ${exercise.commonMistakes.map(mistake => `
+                                <div class="tip-item">
+                                    <span class="tip-icon">✗</span>
+                                    <span class="tip-text">${mistake}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    ${exercise.variations ? `
+                        <h3 class="section-title">🔄 Variations</h3>
+                        <div class="variations">
+                            ${exercise.variations.map(variation => `
+                                <div class="variation-card">
+                                    <div class="variation-name">${variation.name}</div>
+                                    <div class="difficulty">${variation.difficulty} • ${variation.target}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    <div class="demo-container">
+                        <div class="demo-placeholder">
+                            🎥 Exercise Demonstration
+                            <p style="color: #888; margin-top: 10px; font-size: 0.9em;">
+                                Video demonstration would appear here
+                            </p>
+                            <button class="demo-button" onclick="playDemo('${exerciseName}')">
+                                <span>▶️</span> Watch Demo
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 25px;">
+                        <button class="demo-button" onclick="useThisExercise('${exerciseName}')" style="background: linear-gradient(135deg, #00ff5a, #39ff14);">
+                            <span>💪</span> Use This Exercise in Workout
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            guideContainer.innerHTML = html;
+            guideContainer.scrollTop = 0;
+        }
+
+        function filterExercises() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const cards = document.querySelectorAll('.exercise-card');
+            
+            cards.forEach(card => {
+                const exerciseName = card.querySelector('h4').textContent.toLowerCase();
+                if (exerciseName.includes(searchTerm)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        function playDemo(exerciseName) {
+            alert(`🎬 Playing demonstration for ${exerciseName}\n\nIn a real app, this would show a video tutorial.`);
+        }
+
+        function useThisExercise(exerciseName) {
+            // Save the selected exercise to localStorage
+            localStorage.setItem('fitcareSelectedExercise', exerciseName);
+            
+            // Navigate back to trainer page
+            alert(`✅ ${exerciseName} selected!\n\nGoing back to workout page...`);
+            setTimeout(() => {
+                window.location.href = 'trainer.html';
+            }, 1000);
+        }
+
+        function goBackToTrainer() {
+            window.location.href = 'trainer.html';
+        }
+
+        // Initialize the page
+        function init() {
+            // Set up event listeners for navigation
+            const mobileContainer = document.getElementById('mobileContainer');
+            mobileContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
+            mobileContainer.addEventListener('touchmove', handleTouchMove, { passive: false });
+            mobileContainer.addEventListener('touchend', handleTouchEnd, { passive: true });
+            
+            // Sidebar controls
+            document.getElementById('menuToggle').addEventListener('click', toggleSidebar);
+            document.getElementById('closeNav').addEventListener('click', closeSidebar);
+            document.getElementById('overlay').addEventListener('click', closeSidebar);
+            
+            // Update time
+            updateTime();
+            setInterval(updateTime, 60000);
+            
+            // Load user data
+            loadUserData();
+            
+            // Load exercise list
+            showExerciseList();
+            
+            // Bottom nav items
+            const bottomNavItems = document.querySelectorAll('.nav-link');
+            bottomNavItems.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    if (this.getAttribute('href') === '#') {
+                        e.preventDefault();
+                    }
+                    simulateHaptic();
+                });
+            });
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', init);
+        
+        // Prevent zoom on double tap
+        document.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+        }, { passive: false });
+        
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
+    </script>
+</body>
+</html>

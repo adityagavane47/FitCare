@@ -1,0 +1,2250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FITCARE - Nutrition Plan</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+            touch-action: pan-y;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+        }
+
+        
+        .mobile-container {
+            width: 100%;
+            max-width: 428px;
+            height: 100vh;
+            max-height: 926px;
+            background-color: #000;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #333;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0, 255, 0, 0.15);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Side Navigation - Contained within mobile container */
+        .side-nav {
+            position: absolute;
+            top: 0;
+            left: -280px;
+            width: 280px;
+            height: 100%;
+            background: #000;
+            border-right: 1px solid #00ff00;
+            z-index: 1000;
+            transition: left 0.25s cubic-bezier(0.4, 0.0, 0.2, 1);
+            box-shadow: 5px 0 30px rgba(0, 255, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            border-radius: 24px 0 0 24px;
+            overflow: hidden;
+        }
+
+        .side-nav.open {
+            left: 0;
+        }
+
+        .nav-header {
+            padding: 20px 16px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-header h2 {
+            color: #00ff00;
+            font-size: 1.4em;
+            font-weight: 700;
+        }
+
+        .close-nav {
+            background: rgba(0, 255, 0, 0.1);
+            border: none;
+            color: #00ff00;
+            font-size: 1.3em;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .nav-profile {
+            padding: 20px 16px;
+            border-bottom: 1px solid #333;
+        }
+
+        .profile-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .profile-pic {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #00ff00, #00cc00);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .profile-text h3 {
+            color: #fff;
+            font-size: 1.1em;
+            margin-bottom: 2px;
+        }
+
+        .profile-text p {
+            color: #888;
+            font-size: 0.85em;
+        }
+
+        .nav-menu {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 0;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .nav-item-side {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            color: #ddd;
+            text-decoration: none;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .nav-item-side.active {
+            background: rgba(0, 255, 0, 0.08);
+            color: #00ff00;
+            border-left-color: #00ff00;
+        }
+
+        .nav-item-side:active {
+            background: rgba(0, 255, 0, 0.15);
+            transform: scale(0.98);
+        }
+
+        .nav-icon-side {
+            font-size: 1.2em;
+            width: 24px;
+        }
+
+        .nav-label {
+            font-size: 0.95em;
+        }
+
+        .nav-footer {
+            padding: 20px 16px;
+            border-top: 1px solid #333;
+        }
+
+        .logout-btn {
+            width: 100%;
+            padding: 14px;
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            border-radius: 12px;
+            color: #ff4444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-size: 0.95em;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .logout-btn:active {
+            background: rgba(255, 0, 0, 0.2);
+            transform: scale(0.98);
+        }
+
+        /* Overlay - Contained within mobile container */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.25s ease;
+            backdrop-filter: blur(3px);
+            border-radius: 24px;
+        }
+
+        .overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Status Bar - Fixed within container */
+        .status-bar {
+            padding: 12px 16px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85em;
+            color: #00ff00;
+            background: #000;
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .menu-toggle {
+            background: rgba(0, 255, 0, 0.1);
+            border: none;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            color: #00ff00;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .menu-toggle:active {
+            background: rgba(0, 255, 0, 0.2);
+            transform: scale(0.95);
+        }
+
+        .time {
+            font-weight: 600;
+            font-size: 1em;
+        }
+
+        .status-icons {
+            display: flex;
+            gap: 8px;
+            font-size: 1em;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            padding: 16px;
+            background: #000;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 4px;
+        }
+
+        .header .fit {
+            color: #00ff00;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 0.9em;
+        }
+
+        /* Content */
+        .content {
+            padding: 0 16px 16px;
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Quote Section */
+        .quote-section {
+            background: rgba(0, 255, 0, 0.05);
+            border: 1px solid #00ff00;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 15px rgba(0, 255, 0, 0.1);
+        }
+
+        .quote-section p {
+            font-size: 0.95em;
+            font-style: italic;
+            color: #00ff00;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        /* Diet Plan Selection */
+        .plan-selection {
+            margin-bottom: 16px;
+        }
+
+        .plan-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .plan-card {
+            background: rgba(13, 13, 13, 0.8);
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .plan-card.active {
+            background: rgba(0, 255, 0, 0.15);
+            border-color: #00ff00;
+            transform: scale(0.98);
+        }
+
+        .plan-card:active {
+            transform: scale(0.96);
+        }
+
+        .plan-icon {
+            font-size: 1.8em;
+            margin-bottom: 8px;
+        }
+
+        .plan-name {
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+
+        .plan-desc {
+            font-size: 0.7em;
+            color: #888;
+        }
+
+        /* Cards */
+        .card {
+            background: #0a0a0a;
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #00ff00;
+        }
+
+        .icon {
+            font-size: 1.2em;
+        }
+
+        /* Input Form */
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #00ff00;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 14px;
+            background: #111;
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 1em;
+            transition: all 0.2s;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: #00ff00;
+            box-shadow: 0 0 0 2px rgba(0, 255, 0, 0.1);
+        }
+
+        /* Radio Buttons */
+        .radio-group {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .radio-option {
+            flex: 1;
+        }
+
+        .radio-option input {
+            display: none;
+        }
+
+        .radio-option label {
+            display: block;
+            text-align: center;
+            padding: 12px 8px;
+            background: rgba(0, 255, 0, 0.05);
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            border-radius: 10px;
+            color: #aaa;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .radio-option input:checked + label {
+            background: rgba(0, 255, 0, 0.15);
+            color: #00ff00;
+            border-color: #00ff00;
+            font-weight: 600;
+        }
+
+        /* Select Dropdown */
+        select.input-field {
+            appearance: none;
+            background: #111 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2300ff00' d='M6 8L2 4h8z'/%3E%3C/svg%3E") no-repeat right 14px center;
+            padding-right: 40px;
+        }
+
+        /* Buttons */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-top: 20px;
+            margin-bottom: 16px;
+        }
+
+        .btn {
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+        }
+
+        .btn-primary {
+            background-color: #00ff00;
+            color: #000;
+            box-shadow: 0 4px 15px rgba(0, 255, 0, 0.3);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            box-shadow: 0 4px 15px rgba(0, 255, 0, 0.1);
+        }
+
+        .btn-danger {
+            background-color: transparent;
+            color: #ff4444;
+            border: 1px solid #ff4444;
+            box-shadow: 0 4px 15px rgba(255, 68, 68, 0.1);
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            border-radius: 24px;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #333;
+            border-top-color: #00ff00;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        .loading-text {
+            color: #00ff00;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Plan Result */
+        .plan-result {
+            display: none;
+        }
+
+        .plan-header {
+            background: linear-gradient(135deg, rgba(0, 255, 0, 0.1), rgba(0, 200, 0, 0.2));
+            border: 1px solid #00ff00;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .plan-header h3 {
+            font-size: 1.3em;
+            color: #00ff00;
+            margin-bottom: 8px;
+        }
+
+        .plan-header p {
+            color: #aaa;
+            font-size: 0.9em;
+        }
+
+        /* Daily Progress Section */
+        .daily-progress {
+            margin-bottom: 20px;
+        }
+
+        .progress-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .progress-title {
+            font-size: 1em;
+            font-weight: 600;
+            color: #00ff00;
+        }
+
+        .progress-percentage {
+            font-size: 1.1em;
+            font-weight: 700;
+            color: #00ff00;
+        }
+
+        .progress-bar-large {
+            width: 100%;
+            height: 16px;
+            background-color: #1a1a1a;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 8px;
+        }
+
+        .progress-fill-large {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff00, #00cc00);
+            border-radius: 10px;
+            transition: width 0.5s ease-out;
+            box-shadow: 0 0 8px rgba(0, 255, 0, 0.6);
+        }
+
+        .progress-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8em;
+            color: #888;
+        }
+
+        .plan-details {
+            margin-bottom: 20px;
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(0, 255, 0, 0.1);
+        }
+
+        .detail-item:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: #fff;
+            font-weight: 500;
+            font-size: 0.9em;
+        }
+
+        .detail-value {
+            color: #00ff00;
+            font-weight: 600;
+        }
+
+        .meal-plan {
+            margin-top: 20px;
+        }
+
+        .meal {
+            background: rgba(13, 13, 13, 0.8);
+            border: 1px solid rgba(0, 255, 0, 0.2);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 12px;
+            border-left: 4px solid #00ff00;
+            position: relative;
+        }
+
+        .meal.completed {
+            border-left-color: #00cc00;
+            background: rgba(0, 255, 0, 0.05);
+        }
+
+        .meal-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .meal-name {
+            color: #00ff00;
+            font-weight: 600;
+            font-size: 0.95em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .meal-time {
+            color: #888;
+            font-size: 0.85em;
+            background: rgba(0, 255, 0, 0.1);
+            padding: 4px 8px;
+            border-radius: 6px;
+        }
+
+        .meal-items {
+            color: #ddd;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        .meal-nutrition {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed rgba(0, 255, 0, 0.2);
+            font-size: 0.8em;
+            color: #888;
+        }
+
+        .nutrition-item {
+            text-align: center;
+            flex: 1;
+        }
+
+        .nutrition-value {
+            color: #00ff00;
+            font-weight: 600;
+            display: block;
+            font-size: 0.85em;
+        }
+
+        .meal-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .meal-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.85em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .meal-btn:active {
+            transform: scale(0.95);
+        }
+
+        .meal-btn.complete {
+            background-color: rgba(0, 255, 0, 0.1);
+            color: #00ff00;
+            border: 1px solid #00ff00;
+        }
+
+        .meal-btn.complete.active {
+            background-color: #00ff00;
+            color: #000;
+        }
+
+        .meal-btn.skip {
+            background-color: rgba(255, 68, 68, 0.1);
+            color: #ff4444;
+            border: 1px solid #ff4444;
+        }
+
+        .meal-btn.skip.active {
+            background-color: #ff4444;
+            color: #fff;
+        }
+
+        .meal-status {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7em;
+            font-weight: bold;
+        }
+
+        .meal-status.completed {
+            background-color: #00ff00;
+            color: #000;
+            box-shadow: 0 0 8px rgba(0, 255, 0, 0.5);
+        }
+
+        .meal-status.skipped {
+            background-color: #ff4444;
+            color: #fff;
+            box-shadow: 0 0 8px rgba(255, 68, 68, 0.5);
+        }
+
+        /* Progress Bars */
+        .progress-item {
+            margin-bottom: 20px;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+
+        .progress-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            font-size: 0.9em;
+        }
+
+        .progress-value {
+            color: #00ff00;
+            font-weight: 600;
+            font-size: 0.85em;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background-color: #1a1a1a;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff00, #00cc00);
+            border-radius: 10px;
+            transition: width 0.5s ease-out;
+            box-shadow: 0 0 8px rgba(0, 255, 0, 0.6);
+        }
+
+        /* Bottom Navigation */
+        .bottom-nav {
+            background: #0a0a0a;
+            border-top: 1px solid rgba(0, 255, 0, 0.2);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            z-index: 100;
+            flex-shrink: 0;
+            border-radius: 0 0 24px 24px;
+        }
+
+        .nav-link {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-decoration: none;
+            color: #666;
+            font-size: 0.7em;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            min-width: 60px;
+        }
+
+        .nav-link.active {
+            color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .nav-link:active {
+            transform: scale(0.9);
+        }
+
+        .nav-icon {
+            font-size: 1.4em;
+            margin-bottom: 4px;
+        }
+
+        .nav-label {
+            font-size: 0.7em;
+        }
+
+        /* Swipe indicator */
+        .swipe-indicator {
+            position: absolute;
+            top: 50%;
+            left: 10px;
+            width: 4px;
+            height: 40px;
+            background: rgba(0, 255, 0, 0.5);
+            border-radius: 2px;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            z-index: 1001;
+        }
+
+        .swipe-indicator.visible {
+            opacity: 1;
+        }
+
+        /* Hide scrollbar but keep functionality */
+        .nav-menu::-webkit-scrollbar,
+        .content::-webkit-scrollbar,
+        .main-content::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .nav-menu::-webkit-scrollbar-track,
+        .content::-webkit-scrollbar-track,
+        .main-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .nav-menu::-webkit-scrollbar-thumb,
+        .content::-webkit-scrollbar-thumb,
+        .main-content::-webkit-scrollbar-thumb {
+            background: #00ff00;
+            border-radius: 3px;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 428px) {
+            .mobile-container {
+                border-radius: 0;
+                border: none;
+                max-width: 100%;
+                max-height: 100%;
+            }
+            
+            .side-nav {
+                border-radius: 0 0 0 0;
+            }
+            
+            .overlay {
+                border-radius: 0;
+            }
+            
+            .bottom-nav {
+                border-radius: 0;
+            }
+            
+            .plan-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-height: 926px) {
+            .mobile-container {
+                max-height: 100vh;
+            }
+        }
+
+        /* Safe area support */
+        .status-bar {
+            padding-top: calc(12px + env(safe-area-inset-top, 0px));
+        }
+
+        .bottom-nav {
+            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+        }
+    </style>
+</head>
+<body>
+    <!-- Mobile Container -->
+    <div class="mobile-container" id="mobileContainer">
+        <!-- Side Navigation -->
+        <div class="side-nav" id="sideNav">
+            <div class="nav-header">
+                <h2>FITCARE</h2>
+                <button class="close-nav" id="closeNav">✕</button>
+            </div>
+
+            <div class="nav-profile">
+                <div class="profile-info">
+                    <div class="profile-pic" id="profileInitial">U</div>
+                    <div class="profile-text">
+                        <h3 id="sidebarUserName">User</h3>
+                        <p id="sidebarUserEmail">user@example.com</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar Navigation -->
+            <div class="nav-menu">
+                <a href="home.html" class="nav-item-side">
+                    <span class="nav-icon-side">🏠</span>
+                    <span class="nav-label">Dashboard</span>
+                </a>
+                <a href="nutrition.html" class="nav-item-side active">
+                    <span class="nav-icon-side">🍽️</span>
+                    <span class="nav-label">Nutrition Plan</span>
+                </a>
+                <a href="meals.html" class="nav-item-side">
+                    <span class="nav-icon-side">🥗</span>
+                    <span class="nav-label">Meal Plans</span>
+                </a>
+                <a href="catg.html" class="nav-item-side">
+                    <span class="nav-icon-side">💪</span>
+                    <span class="nav-label">Workouts</span>
+                </a>
+                <a href="progress.html" class="nav-item-side">
+                    <span class="nav-icon-side">📊</span>
+                    <span class="nav-label">Analytics</span>
+                </a>
+                <a href="goals.html" class="nav-item-side">
+                    <span class="nav-icon-side">🥦</span>
+                    <span class="nav-label">Log Food</span>
+                </a>
+                <a href="weight.html" class="nav-item-side">
+                    <span class="nav-icon-side">🏋🏽</span>
+                    <span class="nav-label">Gym Training</span>
+                </a>
+                <a href="shop.html" class="nav-item-side">
+                    <span class="nav-icon-side">🛒</span>
+                    <span class="nav-label">Store</span>
+                </a>
+                
+            </div>
+
+            <div class="nav-footer">
+                <button class="logout-btn" onclick="logout()">
+                    <span>🚪</span>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Overlay -->
+        <div class="overlay" id="overlay"></div>
+
+        <!-- Swipe Indicator -->
+        <div class="swipe-indicator" id="swipeIndicator"></div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loadingOverlay">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Generating your personalized nutrition plan...</div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Status Bar -->
+            <div class="status-bar">
+                <button class="menu-toggle" id="menuToggle">☰</button>
+                <div class="time" id="currentTime">9:41</div>
+                <div class="status-icons">
+                    <span>📶</span>
+                    <span>🔋</span>
+                </div>
+            </div>
+
+            <!-- Header -->
+            <div class="header">
+                <h1><span class="fit">NUTRITION</span> PLAN</h1>
+                <p>Get your personalized meal plan based on your goals</p>
+            </div>
+
+            <!-- Content -->
+            <div class="content">
+                <!-- Motivational Quote -->
+                <div class="quote-section">
+                    <p id="motivationalQuote">"You are what you eat, so don't be fast, cheap, easy, or fake."</p>
+                </div>
+
+                <!-- Diet Plan Selection -->
+                <div class="card plan-selection">
+                    <div class="card-title">
+                        <span class="icon">📋</span>
+                        <span>Select Diet Plan Type</span>
+                    </div>
+                    <div class="plan-grid" id="dietPlanSelection">
+                        <div class="plan-card" data-plan="balanced">
+                            <div class="plan-icon">⚖️</div>
+                            <div class="plan-name">Balanced</div>
+                            <div class="plan-desc">All food groups</div>
+                        </div>
+                        <div class="plan-card active" data-plan="keto">
+                            <div class="plan-icon">🥩</div>
+                            <div class="plan-name">Keto</div>
+                            <div class="plan-desc">High fat, low carb</div>
+                        </div>
+                        <div class="plan-card" data-plan="vegan">
+                            <div class="plan-icon">🌱</div>
+                            <div class="plan-name">Vegan</div>
+                            <div class="plan-desc">Plant-based only</div>
+                        </div>
+                        <div class="plan-card" data-plan="mediterranean">
+                            <div class="plan-icon">🐟</div>
+                            <div class="plan-name">Mediterranean</div>
+                            <div class="plan-desc">Heart healthy</div>
+                        </div>
+                        <div class="plan-card" data-plan="paleo">
+                            <div class="plan-icon">🥓</div>
+                            <div class="plan-name">Paleo</div>
+                            <div class="plan-desc">Whole foods</div>
+                        </div>
+                        <div class="plan-card" data-plan="intermittent">
+                            <div class="plan-icon">⏰</div>
+                            <div class="plan-name">Intermittent</div>
+                            <div class="plan-desc">Time-restricted</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Form -->
+                <div class="card" id="inputForm">
+                    <div class="card-title">
+                        <span class="icon">📝</span>
+                        <span>Personal Details</span>
+                    </div>
+
+                    <div class="input-group">
+                        <label class="input-label">Weight (kg)</label>
+                        <input type="number" id="weight" class="input-field" min="30" max="200" placeholder="Enter your weight" value="70">
+                    </div>
+
+                    <div class="input-group">
+                        <label class="input-label">Height (cm)</label>
+                        <input type="number" id="height" class="input-field" min="100" max="250" placeholder="Enter your height" value="175">
+                    </div>
+
+                    <div class="input-group">
+                        <label class="input-label">Age</label>
+                        <input type="number" id="age" class="input-field" min="15" max="100" placeholder="Enter your age" value="30">
+                    </div>
+
+                    <div class="input-group">
+                        <label class="input-label">Gender</label>
+                        <select id="gender" class="input-field">
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label class="input-label">Activity Level</label>
+                        <select id="activity" class="input-field">
+                            <option value="sedentary">Sedentary (little exercise)</option>
+                            <option value="light">Light (1-3 days/week)</option>
+                            <option value="moderate" selected>Moderate (3-5 days/week)</option>
+                            <option value="active">Active (6-7 days/week)</option>
+                            <option value="very-active">Very Active (athlete)</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label class="input-label">Goal</label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="loss" name="goal" value="loss" checked>
+                                <label for="loss">Weight Loss</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="gain" name="goal" value="gain">
+                                <label for="gain">Weight Gain</label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="maintain" name="goal" value="maintain">
+                                <label for="maintain">Maintain</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button class="btn btn-primary" id="generateBtn">
+                        🍎 Generate Nutrition Plan
+                    </button>
+                </div>
+
+                <!-- Plan Result -->
+                <div class="plan-result" id="planResult">
+                    <!-- Daily Progress Section -->
+                    <div class="card daily-progress">
+                        <div class="progress-summary">
+                            <div class="progress-title">Today's Progress</div>
+                            <div class="progress-percentage" id="progressPercentage">0%</div>
+                        </div>
+                        <div class="progress-bar-large">
+                            <div class="progress-fill-large" id="dailyProgressBar" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-stats">
+                            <span id="mealsCompleted">0 meals completed</span>
+                            <span id="caloriesConsumed">0/0 calories</span>
+                        </div>
+                    </div>
+
+                    <div class="plan-header">
+                        <h3 id="planTitle">Personalized Nutrition Plan</h3>
+                        <p id="planDescription">Track your meals and progress</p>
+                    </div>
+
+                    <!-- Macronutrient Progress -->
+                    <div class="card">
+                        <div class="card-title">
+                            <span class="icon">📊</span>
+                            <span>Daily Macronutrients</span>
+                        </div>
+
+                        <div class="plan-details">
+                            <div class="detail-item">
+                                <span class="detail-label">Daily Calories:</span>
+                                <span class="detail-value" id="calories">0</span>
+                            </div>
+                            <div class="progress-item">
+                                <div class="progress-header">
+                                    <div class="progress-label">
+                                        <span>💪</span>
+                                        <span>Protein</span>
+                                    </div>
+                                    <div class="progress-value">
+                                        <span id="protein">0</span>g / <span id="proteinTarget">0</span>g
+                                    </div>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="proteinProgress" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="progress-item">
+                                <div class="progress-header">
+                                    <div class="progress-label">
+                                        <span>🍞</span>
+                                        <span>Carbohydrates</span>
+                                    </div>
+                                    <div class="progress-value">
+                                        <span id="carbs">0</span>g / <span id="carbsTarget">0</span>g
+                                    </div>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="carbsProgress" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="progress-item">
+                                <div class="progress-header">
+                                    <div class="progress-label">
+                                        <span>🥑</span>
+                                        <span>Fats</span>
+                                    </div>
+                                    <div class="progress-value">
+                                        <span id="fats">0</span>g / <span id="fatsTarget">0</span>g
+                                    </div>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="fatsProgress" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Meals per day:</span>
+                                <span class="detail-value" id="mealsPerDay">0</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Water intake:</span>
+                                <span class="detail-value" id="water">0L</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Meal Plan -->
+                    <div class="card">
+                        <div class="card-title">
+                            <span class="icon">🍽️</span>
+                            <span>Daily Meal Plan</span>
+                        </div>
+                        <div class="meal-plan" id="mealPlanContainer">
+                            <!-- Meal items will be inserted here -->
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" id="savePlanBtn">
+                            💾 Save This Plan
+                        </button>
+                        <button class="btn btn-danger" id="resetBtn">
+                            🔄 Create New Plan
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <a href="home.html" class="nav-link">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-label">Home</span>
+            </a>
+            <a href="nutrition.html" class="nav-link active">
+                <span class="nav-icon">🍎</span>
+                <span class="nav-label">Nutrition</span>
+            </a>
+            <a href="meals.html" class="nav-link">
+                <span class="nav-icon">🥗</span>
+                <span class="nav-label">Meals</span>
+            </a>
+            <a href="profile.html" class="nav-link">
+                <span class="nav-icon">👤</span>
+                <span class="nav-label">Profile</span>
+            </a>
+        </nav>
+    </div>
+
+    <script>
+        // Navigation and UI functions
+        let touchStartX = 0;
+        let touchEndX = 0;
+        let sidebarOpen = false;
+        let selectedDietPlan = 'keto';
+        
+        // User data
+        let userData = {
+            name: "User",
+            email: "user@example.com"
+        };
+        
+        // Current plan tracking
+        let currentPlan = null;
+        let mealTracking = {
+            completedMeals: [],
+            skippedMeals: [],
+            consumedCalories: 0,
+            consumedProtein: 0,
+            consumedCarbs: 0,
+            consumedFats: 0
+        };
+        
+        // Motivational quotes
+        const nutritionQuotes = [
+            "You are what you eat, so don't be fast, cheap, easy, or fake.",
+            "Good nutrition is a responsibility, not a restriction.",
+            "Your diet is a bank account. Good food choices are good investments.",
+            "Eat to live, don't live to eat.",
+            "The food you eat can be either the safest and most powerful form of medicine or the slowest form of poison.",
+            "Let food be thy medicine and medicine be thy food.",
+            "Take care of your body. It's the only place you have to live.",
+            "Healthy eating is a way of life, so it's important to establish routines that are simple, realistically, and ultimately livable.",
+            "Don't eat less, eat right.",
+            "Nutrition is the only remedy that can bring full recovery and can be used with any treatment."
+        ];
+        
+        // Diet plan descriptions
+        const dietPlans = {
+            'balanced': {
+                name: 'Balanced Diet',
+                description: 'A well-rounded approach including all food groups',
+                icon: '⚖️',
+                color: '#00ff00',
+                meals: {
+                    loss: [
+                        { name: "Breakfast", time: "7:00 AM", items: "Oatmeal with berries (1 cup), 2 boiled eggs, Green tea", calories: 320, protein: 22, carbs: 40, fats: 10 },
+                        { name: "Morning Snack", time: "10:30 AM", items: "Greek yogurt (150g) with almonds (10g)", calories: 150, protein: 15, carbs: 8, fats: 8 },
+                        { name: "Lunch", time: "1:00 PM", items: "Grilled chicken breast (150g), Brown rice (1/2 cup), Steamed broccoli (1 cup)", calories: 420, protein: 35, carbs: 45, fats: 12 },
+                        { name: "Afternoon Snack", time: "4:00 PM", items: "Apple with 1 tbsp peanut butter", calories: 180, protein: 5, carbs: 25, fats: 8 },
+                        { name: "Dinner", time: "7:00 PM", items: "Baked salmon (120g), Quinoa (1/2 cup), Mixed vegetables (1 cup)", calories: 380, protein: 30, carbs: 35, fats: 15 }
+                    ],
+                    gain: [
+                        { name: "Breakfast", time: "7:00 AM", items: "3-egg omelet with cheese, 2 slices whole grain toast, Protein smoothie", calories: 580, protein: 40, carbs: 55, fats: 20 },
+                        { name: "Morning Snack", time: "10:00 AM", items: "Cottage cheese (200g) with honey (1 tbsp), Walnuts (15g)", calories: 320, protein: 25, carbs: 20, fats: 18 },
+                        { name: "Lunch", time: "1:00 PM", items: "Lean beef (200g) with sweet potato (150g), Green salad with olive oil", calories: 620, protein: 45, carbs: 65, fats: 22 },
+                        { name: "Pre-workout", time: "4:00 PM", items: "Banana, Greek yogurt (200g), Oats (30g)", calories: 380, protein: 30, carbs: 60, fats: 5 },
+                        { name: "Dinner", time: "7:30 PM", items: "Grilled chicken (200g), Brown rice (1 cup), Steamed vegetables", calories: 550, protein: 50, carbs: 70, fats: 12 },
+                        { name: "Evening Snack", time: "9:30 PM", items: "Casein protein shake with almond milk", calories: 250, protein: 30, carbs: 15, fats: 8 }
+                    ],
+                    maintain: [
+                        { name: "Breakfast", time: "7:30 AM", items: "Scrambled eggs (2) with spinach, Whole grain toast, Avocado (1/2)", calories: 420, protein: 25, carbs: 35, fats: 22 },
+                        { name: "Morning Snack", time: "10:30 AM", items: "Mixed nuts (30g), Greek yogurt (150g)", calories: 240, protein: 18, carbs: 15, fats: 15 },
+                        { name: "Lunch", time: "1:00 PM", items: "Turkey sandwich on whole wheat, Side salad with olive oil", calories: 480, protein: 35, carbs: 45, fats: 20 },
+                        { name: "Afternoon Snack", time: "4:00 PM", items: "Protein smoothie (whey, banana, spinach)", calories: 260, protein: 25, carbs: 30, fats: 5 },
+                        { name: "Dinner", time: "7:00 PM", items: "Grilled fish (150g), Quinoa (2/3 cup), Roasted vegetables", calories: 460, protein: 40, carbs: 50, fats: 18 }
+                    ]
+                }
+            },
+            'keto': {
+                name: 'Keto Diet',
+                description: 'High fat, moderate protein, very low carbohydrate',
+                icon: '🥩',
+                color: '#ff9900',
+                meals: {
+                    loss: [
+                        { name: "Breakfast", time: "7:00 AM", items: "Keto coffee (coffee + MCT oil + butter), 3 scrambled eggs with spinach", calories: 450, protein: 25, carbs: 3, fats: 38 },
+                        { name: "Lunch", time: "12:30 PM", items: "Large salad with grilled chicken (150g), avocado, olive oil dressing", calories: 520, protein: 40, carbs: 8, fats: 38 },
+                        { name: "Dinner", time: "7:00 PM", items: "Salmon (180g) with asparagus cooked in butter, side of cauliflower mash", calories: 480, protein: 35, carbs: 6, fats: 36 },
+                        { name: "Snack", time: "3:00 PM", items: "Celery sticks with almond butter, handful of macadamia nuts", calories: 280, protein: 8, carbs: 5, fats: 26 }
+                    ],
+                    gain: [
+                        { name: "Breakfast", time: "7:00 AM", items: "6 scrambled eggs with cheese, bacon (4 strips), avocado (1 whole)", calories: 850, protein: 55, carbs: 8, fats: 68 },
+                        { name: "Lunch", time: "1:00 PM", items: "Large beef steak (250g) with broccoli cooked in butter, side salad", calories: 780, protein: 60, carbs: 10, fats: 58 },
+                        { name: "Dinner", time: "7:30 PM", items: "Pork chops (220g) with zucchini noodles and pesto sauce", calories: 720, protein: 50, carbs: 6, fats: 56 },
+                        { name: "Snacks", time: "Various", items: "Bulletproof coffee, cheese slices, keto fat bombs", calories: 650, protein: 20, carbs: 4, fats: 62 }
+                    ],
+                    maintain: [
+                        { name: "Breakfast", time: "8:00 AM", items: "Avocado & eggs (2 eggs cooked in avocado halves)", calories: 420, protein: 20, carbs: 6, fats: 36 },
+                        { name: "Lunch", time: "1:00 PM", items: "Chicken Caesar salad (no croutons, extra olive oil)", calories: 580, protein: 45, carbs: 7, fats: 42 },
+                        { name: "Dinner", time: "7:00 PM", items: "Baked cod (200g) with lemon butter sauce, side of green beans", calories: 460, protein: 42, carbs: 5, fats: 32 },
+                        { name: "Snack", time: "4:00 PM", items: "Keto protein shake (low carb)", calories: 220, protein: 25, carbs: 3, fats: 12 }
+                    ]
+                }
+            },
+            'vegan': {
+                name: 'Vegan Diet',
+                description: '100% plant-based nutrition',
+                icon: '🌱',
+                color: '#00cc66',
+                meals: {
+                    loss: [
+                        { name: "Breakfast", time: "7:00 AM", items: "Chia pudding with almond milk and berries", calories: 280, protein: 12, carbs: 35, fats: 14 },
+                        { name: "Lunch", time: "12:30 PM", items: "Large lentil salad with tahini dressing, mixed greens", calories: 380, protein: 22, carbs: 45, fats: 15 },
+                        { name: "Dinner", time: "7:00 PM", items: "Tofu stir-fry with broccoli, bell peppers, and brown rice (1/2 cup)", calories: 420, protein: 28, carbs: 48, fats: 18 },
+                        { name: "Snack", time: "3:30 PM", items: "Hummus with carrot and cucumber sticks", calories: 180, protein: 6, carbs: 20, fats: 10 }
+                    ],
+                    gain: [
+                        { name: "Breakfast", time: "7:00 AM", items: "Vegan protein smoothie with banana, peanut butter, oats, pea protein", calories: 550, protein: 35, carbs: 65, fats: 22 },
+                        { name: "Lunch", time: "1:00 PM", items: "Chickpea curry with quinoa (1 cup), side of avocado", calories: 620, protein: 28, carbs: 85, fats: 20 },
+                        { name: "Dinner", time: "7:30 PM", items: "Tempeh with sweet potato (200g) and steamed greens", calories: 580, protein: 40, carbs: 75, fats: 18 },
+                        { name: "Snacks", time: "Various", items: "Trail mix, protein bars, nut butters", calories: 450, protein: 25, carbs: 35, fats: 28 }
+                    ],
+                    maintain: [
+                        { name: "Breakfast", time: "8:00 AM", items: "Oatmeal with almond milk, walnuts, and maple syrup", calories: 380, protein: 15, carbs: 55, fats: 14 },
+                        { name: "Lunch", time: "1:00 PM", items: "Vegan wrap with hummus, roasted veggies, and tahini", calories: 420, protein: 18, carbs: 58, fats: 16 },
+                        { name: "Dinner", time: "7:00 PM", items: "Black bean burgers (2) with sweet potato fries", calories: 480, protein: 32, carbs: 62, fats: 18 },
+                        { name: "Snack", time: "4:00 PM", items: "Apple with almond butter", calories: 220, protein: 6, carbs: 25, fats: 12 }
+                    ]
+                }
+            },
+            'mediterranean': {
+                name: 'Mediterranean Diet',
+                description: 'Heart-healthy with olive oil, fish, and vegetables',
+                icon: '🐟',
+                color: '#0066cc',
+                meals: {
+                    loss: [
+                        { name: "Breakfast", time: "7:00 AM", items: "Greek yogurt with honey, walnuts, and fresh fruit", calories: 280, protein: 20, carbs: 30, fats: 12 },
+                        { name: "Lunch", time: "1:00 PM", items: "Greek salad with feta, olives, olive oil, whole grain pita", calories: 420, protein: 18, carbs: 35, fats: 25 },
+                        { name: "Dinner", time: "7:00 PM", items: "Grilled fish with lemon, roasted vegetables, quinoa salad", calories: 450, protein: 35, carbs: 40, fats: 22 },
+                        { name: "Snack", time: "4:00 PM", items: "Handful of almonds, fresh fruit", calories: 180, protein: 6, carbs: 15, fats: 12 }
+                    ],
+                    gain: [
+                        { name: "Breakfast", time: "7:00 AM", items: "Mediterranean omelet (3 eggs, tomatoes, olives, feta), whole grain bread", calories: 520, protein: 35, carbs: 45, fats: 25 },
+                        { name: "Lunch", time: "1:00 PM", items: "Chicken souvlaki with tzatziki, Greek salad, pita bread", calories: 680, protein: 48, carbs: 55, fats: 32 },
+                        { name: "Dinner", time: "7:30 PM", items: "Lamb kebabs with tabbouleh, hummus, roasted vegetables", calories: 720, protein: 52, carbs: 60, fats: 35 },
+                        { name: "Snack", time: "Various", items: "Nuts, olives, cheese, dried fruits", calories: 380, protein: 15, carbs: 25, fats: 28 }
+                    ],
+                    maintain: [
+                        { name: "Breakfast", time: "8:00 AM", items: "Whole grain toast with avocado, poached eggs, side of tomatoes", calories: 420, protein: 22, carbs: 35, fats: 25 },
+                        { name: "Lunch", time: "1:00 PM", items: "Mediterranean bowl with chickpeas, quinoa, roasted veggies, tahini", calories: 480, protein: 25, carbs: 55, fats: 20 },
+                        { name: "Dinner", time: "7:00 PM", items: "Baked salmon with herb crust, Greek lemon potatoes, salad", calories: 520, protein: 42, carbs: 45, fats: 28 },
+                        { name: "Snack", time: "4:00 PM", items: "Greek yogurt with honey and walnuts", calories: 220, protein: 15, carbs: 20, fats: 12 }
+                    ]
+                }
+            },
+            'paleo': {
+                name: 'Paleo Diet',
+                description: 'Focus on whole foods, no processed items',
+                icon: '🥓',
+                color: '#cc6600',
+                meals: {
+                    loss: [
+                        { name: "Breakfast", time: "7:00 AM", items: "3 scrambled eggs with spinach and mushrooms cooked in coconut oil", calories: 320, protein: 25, carbs: 8, fats: 22 },
+                        { name: "Lunch", time: "12:30 PM", items: "Large salad with grilled chicken, avocado, nuts, olive oil dressing", calories: 450, protein: 35, carbs: 12, fats: 30 },
+                        { name: "Dinner", time: "7:00 PM", items: "Grilled steak (150g) with sweet potato (100g) and asparagus", calories: 480, protein: 40, carbs: 25, fats: 28 },
+                        { name: "Snack", time: "3:30 PM", items: "Apple with almond butter", calories: 200, protein: 5, carbs: 20, fats: 12 }
+                    ],
+                    gain: [
+                        { name: "Breakfast", time: "7:00 AM", items: "Paleo breakfast skillet: eggs, sausage, sweet potato, peppers", calories: 620, protein: 42, carbs: 35, fats: 38 },
+                        { name: "Lunch", time: "1:00 PM", items: "Large portion of pulled pork with coleslaw (no sugar) and plantains", calories: 780, protein: 55, carbs: 45, fats: 45 },
+                        { name: "Dinner", time: "7:30 PM", items: "Grilled salmon (250g) with roasted root vegetables and side salad", calories: 680, protein: 52, carbs: 40, fats: 42 },
+                        { name: "Snack", time: "Various", items: "Hard boiled eggs, beef jerky, nuts, fruit", calories: 420, protein: 30, carbs: 25, fats: 28 }
+                    ],
+                    maintain: [
+                        { name: "Breakfast", time: "8:00 AM", items: "Paleo pancakes (almond flour) with berries and almond butter", calories: 420, protein: 20, carbs: 30, fats: 28 },
+                        { name: "Lunch", time: "1:00 PM", items: "Bunless burger with sweet potato fries and side salad", calories: 580, protein: 45, carbs: 35, fats: 32 },
+                        { name: "Dinner", time: "7:00 PM", items: "Roasted chicken with Brussels sprouts and butternut squash", calories: 520, protein: 48, carbs: 25, fats: 30 },
+                        { name: "Snack", time: "4:00 PM", items: "Paleo trail mix (nuts, seeds, dried fruit no sugar)", calories: 280, protein: 12, carbs: 15, fats: 22 }
+                    ]
+                }
+            },
+            'intermittent': {
+                name: 'Intermittent Fasting',
+                description: 'Time-restricted eating windows',
+                icon: '⏰',
+                color: '#9933cc',
+                meals: {
+                    loss: [
+                        { name: "First Meal", time: "12:00 PM", items: "Large salad with protein (chicken/tuna), avocado, nuts, olive oil", calories: 550, protein: 45, carbs: 20, fats: 35 },
+                        { name: "Snack", time: "3:00 PM", items: "Protein shake or Greek yogurt with berries", calories: 200, protein: 25, carbs: 15, fats: 8 },
+                        { name: "Main Meal", time: "6:00 PM", items: "Lean protein (fish/chicken), large portion of vegetables, healthy fats", calories: 650, protein: 50, carbs: 30, fats: 38 }
+                    ],
+                    gain: [
+                        { name: "First Meal", time: "12:00 PM", items: "High-calorie smoothie: protein powder, banana, peanut butter, oats", calories: 750, protein: 55, carbs: 85, fats: 25 },
+                        { name: "Second Meal", time: "3:00 PM", items: "Rice bowl with double protein, avocado, vegetables", calories: 850, protein: 60, carbs: 95, fats: 30 },
+                        { name: "Third Meal", time: "6:00 PM", items: "Large portion of meat/fish with carbs and vegetables", calories: 900, protein: 65, carbs: 80, fats: 40 }
+                    ],
+                    maintain: [
+                        { name: "First Meal", time: "1:00 PM", items: "Balanced plate: protein, complex carbs, vegetables, healthy fats", calories: 650, protein: 45, carbs: 60, fats: 28 },
+                        { name: "Second Meal", time: "7:00 PM", items: "Similar balanced meal focusing on nutrient density", calories: 750, protein: 50, carbs: 65, fats: 35 }
+                    ]
+                }
+            }
+        };
+        
+        // Touch handling for sidebar
+        function handleTouchStart(e) {
+            touchStartX = e.changedTouches[0].clientX;
+            
+            if (touchStartX < 50 && !sidebarOpen) {
+                showSwipeIndicator();
+            }
+        }
+        
+        function handleTouchEnd(e) {
+            touchEndX = e.changedTouches[0].clientX;
+            const swipeDistance = touchEndX - touchStartX;
+            
+            hideSwipeIndicator();
+            
+            if (touchStartX < 50 && swipeDistance > 80) {
+                toggleSidebar();
+                simulateHaptic();
+                return;
+            }
+            
+            if (sidebarOpen && touchStartX - touchEndX > 80) {
+                closeSidebar();
+                simulateHaptic();
+                return;
+            }
+        }
+        
+        function showSwipeIndicator() {
+            const indicator = document.getElementById('swipeIndicator');
+            indicator.classList.add('visible');
+        }
+        
+        function hideSwipeIndicator() {
+            const indicator = document.getElementById('swipeIndicator');
+            indicator.classList.remove('visible');
+        }
+        
+        function toggleSidebar() {
+            const sideNav = document.getElementById('sideNav');
+            const overlay = document.getElementById('overlay');
+            
+            if (!sidebarOpen) {
+                sideNav.classList.add('open');
+                overlay.classList.add('active');
+            } else {
+                sideNav.classList.remove('open');
+                overlay.classList.remove('active');
+            }
+            
+            sidebarOpen = !sidebarOpen;
+            simulateHaptic();
+        }
+        
+        function closeSidebar() {
+            const sideNav = document.getElementById('sideNav');
+            const overlay = document.getElementById('overlay');
+            
+            sideNav.classList.remove('open');
+            overlay.classList.remove('active');
+            sidebarOpen = false;
+            simulateHaptic();
+        }
+        
+        function simulateHaptic() {
+            if (navigator.vibrate) {
+                navigator.vibrate(10);
+            }
+        }
+        
+        function showLoading(message) {
+            const loader = document.getElementById('loadingOverlay');
+            if (loader) {
+                const text = loader.querySelector('.loading-text');
+                if (text) text.textContent = message || 'Loading...';
+                loader.style.display = 'flex';
+            }
+        }
+        
+        function hideLoading() {
+            const loader = document.getElementById('loadingOverlay');
+            if (loader) {
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                }, 300);
+            }
+        }
+        
+        function selectDietPlan(planType) {
+            selectedDietPlan = planType;
+            
+            // Update UI
+            document.querySelectorAll('.plan-card').forEach(card => {
+                card.classList.remove('active');
+            });
+            
+            document.querySelector(`.plan-card[data-plan="${planType}"]`).classList.add('active');
+            
+            simulateHaptic();
+        }
+        
+        // Meal tracking functions
+        function markMealComplete(mealIndex) {
+            const meal = currentPlan.meals[mealIndex];
+            
+            if (mealTracking.completedMeals.includes(mealIndex)) {
+                // Already completed, remove it
+                mealTracking.completedMeals = mealTracking.completedMeals.filter(i => i !== mealIndex);
+                if (meal.calories) {
+                    mealTracking.consumedCalories -= meal.calories;
+                    mealTracking.consumedProtein -= meal.protein || 0;
+                    mealTracking.consumedCarbs -= meal.carbs || 0;
+                    mealTracking.consumedFats -= meal.fats || 0;
+                }
+            } else {
+                // Mark as completed
+                mealTracking.completedMeals.push(mealIndex);
+                // Remove from skipped if it was skipped
+                mealTracking.skippedMeals = mealTracking.skippedMeals.filter(i => i !== mealIndex);
+                if (meal.calories) {
+                    mealTracking.consumedCalories += meal.calories;
+                    mealTracking.consumedProtein += meal.protein || 0;
+                    mealTracking.consumedCarbs += meal.carbs || 0;
+                    mealTracking.consumedFats += meal.fats || 0;
+                }
+            }
+            
+            updateMealUI(mealIndex);
+            updateProgressBars();
+            saveTrackingData();
+            simulateHaptic();
+        }
+        
+        function markMealSkipped(mealIndex) {
+            const meal = currentPlan.meals[mealIndex];
+            
+            if (mealTracking.skippedMeals.includes(mealIndex)) {
+                // Already skipped, remove it
+                mealTracking.skippedMeals = mealTracking.skippedMeals.filter(i => i !== mealIndex);
+                if (meal.calories) {
+                    // No calorie adjustment for skipped meals
+                }
+            } else {
+                // Mark as skipped
+                mealTracking.skippedMeals.push(mealIndex);
+                // Remove from completed if it was completed
+                mealTracking.completedMeals = mealTracking.completedMeals.filter(i => i !== mealIndex);
+                if (meal.calories) {
+                    mealTracking.consumedCalories -= meal.calories;
+                    mealTracking.consumedProtein -= meal.protein || 0;
+                    mealTracking.consumedCarbs -= meal.carbs || 0;
+                    mealTracking.consumedFats -= meal.fats || 0;
+                }
+            }
+            
+            updateMealUI(mealIndex);
+            updateProgressBars();
+            saveTrackingData();
+            simulateHaptic();
+        }
+        
+        function updateMealUI(mealIndex) {
+            const mealElement = document.getElementById(`meal-${mealIndex}`);
+            if (!mealElement) return;
+            
+            const isCompleted = mealTracking.completedMeals.includes(mealIndex);
+            const isSkipped = mealTracking.skippedMeals.includes(mealIndex);
+            
+            // Update meal card
+            if (isCompleted) {
+                mealElement.classList.add('completed');
+                mealElement.classList.remove('skipped');
+            } else if (isSkipped) {
+                mealElement.classList.add('skipped');
+                mealElement.classList.remove('completed');
+            } else {
+                mealElement.classList.remove('completed', 'skipped');
+            }
+            
+            // Update buttons
+            const completeBtn = mealElement.querySelector('.meal-btn.complete');
+            const skipBtn = mealElement.querySelector('.meal-btn.skip');
+            
+            if (completeBtn) {
+                completeBtn.classList.toggle('active', isCompleted);
+                completeBtn.innerHTML = isCompleted ? '✓ Completed' : '✓ Complete';
+            }
+            
+            if (skipBtn) {
+                skipBtn.classList.toggle('active', isSkipped);
+                skipBtn.innerHTML = isSkipped ? '✗ Skipped' : '✗ Skip';
+            }
+            
+            // Update status badge
+            let statusBadge = mealElement.querySelector('.meal-status');
+            if (!statusBadge) {
+                statusBadge = document.createElement('div');
+                statusBadge.className = 'meal-status';
+                mealElement.appendChild(statusBadge);
+            }
+            
+            if (isCompleted) {
+                statusBadge.className = 'meal-status completed';
+                statusBadge.innerHTML = '✓';
+                statusBadge.style.display = 'flex';
+            } else if (isSkipped) {
+                statusBadge.className = 'meal-status skipped';
+                statusBadge.innerHTML = '✗';
+                statusBadge.style.display = 'flex';
+            } else {
+                statusBadge.style.display = 'none';
+            }
+        }
+        
+        function updateProgressBars() {
+            if (!currentPlan) return;
+            
+            const totalMeals = currentPlan.meals.length;
+            const completedMeals = mealTracking.completedMeals.length;
+            const progressPercentage = totalMeals > 0 ? Math.round((completedMeals / totalMeals) * 100) : 0;
+            
+            // Update daily progress
+            document.getElementById('progressPercentage').textContent = `${progressPercentage}%`;
+            document.getElementById('dailyProgressBar').style.width = `${progressPercentage}%`;
+            document.getElementById('mealsCompleted').textContent = `${completedMeals}/${totalMeals} meals completed`;
+            document.getElementById('caloriesConsumed').textContent = `${mealTracking.consumedCalories}/${currentPlan.calories} calories`;
+            
+            // Update macro progress bars
+            const proteinPercentage = Math.min(Math.round((mealTracking.consumedProtein / currentPlan.protein) * 100), 100);
+            const carbsPercentage = Math.min(Math.round((mealTracking.consumedCarbs / currentPlan.carbs) * 100), 100);
+            const fatsPercentage = Math.min(Math.round((mealTracking.consumedFats / currentPlan.fats) * 100), 100);
+            
+            document.getElementById('proteinProgress').style.width = `${proteinPercentage}%`;
+            document.getElementById('carbsProgress').style.width = `${carbsPercentage}%`;
+            document.getElementById('fatsProgress').style.width = `${fatsPercentage}%`;
+            
+            // Update macro values
+            document.getElementById('protein').textContent = `${mealTracking.consumedProtein}g`;
+            document.getElementById('carbs').textContent = `${mealTracking.consumedCarbs}g`;
+            document.getElementById('fats').textContent = `${mealTracking.consumedFats}g`;
+        }
+        
+        function saveTrackingData() {
+            if (!currentPlan) return;
+            
+            const trackingData = {
+                planId: currentPlan.planId,
+                date: new Date().toLocaleDateString(),
+                mealTracking: mealTracking
+            };
+            
+            localStorage.setItem('fitcareMealTracking', JSON.stringify(trackingData));
+        }
+        
+        function loadTrackingData() {
+            const savedData = localStorage.getItem('fitcareMealTracking');
+            if (savedData && currentPlan) {
+                try {
+                    const data = JSON.parse(savedData);
+                    if (data.planId === currentPlan.planId && data.date === new Date().toLocaleDateString()) {
+                        mealTracking = data.mealTracking;
+                        return true;
+                    }
+                } catch (error) {
+                    console.error('Error loading tracking data:', error);
+                }
+            }
+            return false;
+        }
+        
+        // Nutrition plan functions
+        function generatePlan() {
+            // Get user input values
+            const weight = parseFloat(document.getElementById('weight').value);
+            const height = parseFloat(document.getElementById('height').value);
+            const age = parseInt(document.getElementById('age').value);
+            const gender = document.getElementById('gender').value;
+            const activity = document.getElementById('activity').value;
+            const goal = document.querySelector('input[name="goal"]:checked').value;
+            
+            // Validate inputs
+            if (!weight || !height || !age) {
+                alert('Please fill in all required fields');
+                return;
+            }
+            
+            if (weight < 30 || weight > 200) {
+                alert('Please enter a valid weight between 30 and 200 kg');
+                return;
+            }
+            
+            if (height < 100 || height > 250) {
+                alert('Please enter a valid height between 100 and 250 cm');
+                return;
+            }
+            
+            // Show loading
+            showLoading(`Generating your ${dietPlans[selectedDietPlan].name}...`);
+            
+            // Simulate processing delay
+            setTimeout(() => {
+                // Calculate nutrition plan
+                currentPlan = calculateNutritionPlan(weight, height, age, gender, activity, goal);
+                
+                // Reset tracking
+                resetMealTracking();
+                
+                // Try to load saved tracking data
+                loadTrackingData();
+                
+                // Display the plan
+                displayPlan(currentPlan);
+                
+                // Hide loading
+                hideLoading();
+            }, 1500);
+        }
+        
+        function resetMealTracking() {
+            mealTracking = {
+                completedMeals: [],
+                skippedMeals: [],
+                consumedCalories: 0,
+                consumedProtein: 0,
+                consumedCarbs: 0,
+                consumedFats: 0
+            };
+        }
+        
+        function calculateNutritionPlan(weight, height, age, gender, activity, goal) {
+            // Calculate BMR using Mifflin-St Jeor Equation
+            let bmr;
+            if (gender === 'male') {
+                bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+            } else {
+                bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+            }
+            
+            // Apply activity multiplier
+            const activityMultipliers = {
+                'sedentary': 1.2,
+                'light': 1.375,
+                'moderate': 1.55,
+                'active': 1.725,
+                'very-active': 1.9
+            };
+            
+            let maintenanceCalories = bmr * activityMultipliers[activity];
+            
+            // Adjust calories based on goal
+            let targetCalories;
+            let planDescription;
+            
+            if (goal === 'loss') {
+                targetCalories = maintenanceCalories * 0.85; // 15% deficit
+                planDescription = 'Weight Loss Plan';
+            } else if (goal === 'gain') {
+                targetCalories = maintenanceCalories * 1.15; // 15% surplus
+                planDescription = 'Weight Gain Plan';
+            } else {
+                targetCalories = maintenanceCalories; // Maintenance
+                planDescription = 'Weight Maintenance Plan';
+            }
+            
+            // Round to nearest 10
+            targetCalories = Math.round(targetCalories / 10) * 10;
+            
+            // Calculate macronutrients based on diet plan
+            let proteinRatio, carbRatio, fatRatio;
+            
+            // Adjust ratios based on diet plan
+            switch(selectedDietPlan) {
+                case 'keto':
+                    proteinRatio = 0.25;
+                    carbRatio = 0.05;
+                    fatRatio = 0.70;
+                    break;
+                case 'vegan':
+                    proteinRatio = 0.25;
+                    carbRatio = 0.55;
+                    fatRatio = 0.20;
+                    break;
+                case 'mediterranean':
+                    proteinRatio = 0.20;
+                    carbRatio = 0.45;
+                    fatRatio = 0.35;
+                    break;
+                case 'paleo':
+                    proteinRatio = 0.30;
+                    carbRatio = 0.30;
+                    fatRatio = 0.40;
+                    break;
+                case 'intermittent':
+                    proteinRatio = 0.30;
+                    carbRatio = 0.40;
+                    fatRatio = 0.30;
+                    break;
+                default: // balanced
+                    if (goal === 'loss') {
+                        proteinRatio = 0.35;
+                        carbRatio = 0.40;
+                        fatRatio = 0.25;
+                    } else if (goal === 'gain') {
+                        proteinRatio = 0.30;
+                        carbRatio = 0.50;
+                        fatRatio = 0.20;
+                    } else {
+                        proteinRatio = 0.30;
+                        carbRatio = 0.45;
+                        fatRatio = 0.25;
+                    }
+            }
+            
+            // Calculate grams
+            const proteinGrams = Math.round((targetCalories * proteinRatio) / 4);
+            const carbGrams = Math.round((targetCalories * carbRatio) / 4);
+            const fatGrams = Math.round((targetCalories * fatRatio) / 9);
+            
+            // Determine meals per day
+            let mealsPerDay;
+            if (selectedDietPlan === 'intermittent') {
+                mealsPerDay = goal === 'loss' ? 3 : goal === 'gain' ? 3 : 2;
+            } else if (targetCalories < 1800) {
+                mealsPerDay = 3;
+            } else if (targetCalories < 2500) {
+                mealsPerDay = 4;
+            } else {
+                mealsPerDay = 5;
+            }
+            
+            // Calculate water intake
+            const waterIntake = Math.round((weight * 35) / 100) / 10; // Liters
+            
+            // Get meal plan from selected diet
+            const mealPlan = dietPlans[selectedDietPlan].meals[goal] || dietPlans['balanced'].meals[goal];
+            
+            // Adjust meal quantities based on calories
+            const adjustedMealPlan = adjustMealCalories(mealPlan, targetCalories, goal);
+            
+            return {
+                description: `${dietPlans[selectedDietPlan].name} - ${planDescription}`,
+                dietType: dietPlans[selectedDietPlan].name,
+                calories: targetCalories,
+                protein: proteinGrams,
+                carbs: carbGrams,
+                fats: fatGrams,
+                mealsPerDay: mealsPerDay,
+                water: waterIntake,
+                meals: adjustedMealPlan,
+                planColor: dietPlans[selectedDietPlan].color,
+                planId: Date.now().toString() + '-' + selectedDietPlan + '-' + goal
+            };
+        }
+        
+        function adjustMealCalories(mealPlan, targetCalories, goal) {
+            // Calculate total calories in meal plan
+            let totalPlanCalories = mealPlan.reduce((sum, meal) => sum + (meal.calories || 0), 0);
+            
+            // If no calories data, return as is
+            if (totalPlanCalories === 0) return mealPlan;
+            
+            // Calculate adjustment factor
+            const adjustmentFactor = goal === 'loss' ? 0.9 : goal === 'gain' ? 1.1 : 1;
+            const targetPlanCalories = targetCalories * adjustmentFactor;
+            
+            // Adjust each meal proportionally
+            return mealPlan.map(meal => {
+                if (meal.calories) {
+                    const ratio = meal.calories / totalPlanCalories;
+                    const adjustedCalories = Math.round(ratio * targetPlanCalories);
+                    const adjustedProtein = Math.round((meal.protein || 0) * (adjustedCalories / meal.calories));
+                    const adjustedCarbs = Math.round((meal.carbs || 0) * (adjustedCalories / meal.calories));
+                    const adjustedFats = Math.round((meal.fats || 0) * (adjustedCalories / meal.calories));
+                    
+                    return {
+                        ...meal,
+                        calories: adjustedCalories,
+                        protein: adjustedProtein,
+                        carbs: adjustedCarbs,
+                        fats: adjustedFats
+                    };
+                }
+                return meal;
+            });
+        }
+        
+        function displayPlan(plan) {
+            // Update plan details
+            document.getElementById('calories').textContent = plan.calories + ' kcal';
+            document.getElementById('protein').textContent = `${mealTracking.consumedProtein}g`;
+            document.getElementById('carbs').textContent = `${mealTracking.consumedCarbs}g`;
+            document.getElementById('fats').textContent = `${mealTracking.consumedFats}g`;
+            document.getElementById('proteinTarget').textContent = `${plan.protein}g`;
+            document.getElementById('carbsTarget').textContent = `${plan.carbs}g`;
+            document.getElementById('fatsTarget').textContent = `${plan.fats}g`;
+            document.getElementById('mealsPerDay').textContent = plan.mealsPerDay;
+            document.getElementById('water').textContent = plan.water + 'L';
+            
+            // Update plan header with color
+            const planHeader = document.querySelector('.plan-header');
+            planHeader.style.background = `linear-gradient(135deg, ${plan.planColor}20, ${plan.planColor}40)`;
+            planHeader.style.borderColor = plan.planColor;
+            
+            document.getElementById('planTitle').textContent = plan.description;
+            document.getElementById('planDescription').textContent = `${plan.dietType} • ${plan.calories} kcal daily`;
+            
+            // Update progress bars
+            updateProgressBars();
+            
+            // Update meal plan
+            const mealPlanContainer = document.getElementById('mealPlanContainer');
+            mealPlanContainer.innerHTML = '';
+            
+            let totalDisplayCalories = 0;
+            let totalDisplayProtein = 0;
+            let totalDisplayCarbs = 0;
+            let totalDisplayFats = 0;
+            
+            plan.meals.forEach((meal, index) => {
+                const mealElement = document.createElement('div');
+                mealElement.className = 'meal';
+                mealElement.id = `meal-${index}`;
+                
+                // Add nutrition info if available
+                const nutritionHtml = meal.calories ? `
+                    <div class="meal-nutrition">
+                        <div class="nutrition-item">
+                            <span class="nutrition-value">${meal.calories}</span>
+                            <span>cal</span>
+                        </div>
+                        <div class="nutrition-item">
+                            <span class="nutrition-value">${meal.protein || 'N/A'}</span>
+                            <span>prot</span>
+                        </div>
+                        <div class="nutrition-item">
+                            <span class="nutrition-value">${meal.carbs || 'N/A'}</span>
+                            <span>carb</span>
+                        </div>
+                        <div class="nutrition-item">
+                            <span class="nutrition-value">${meal.fats || 'N/A'}</span>
+                            <span>fat</span>
+                        </div>
+                    </div>
+                ` : '';
+                
+                const isCompleted = mealTracking.completedMeals.includes(index);
+                const isSkipped = mealTracking.skippedMeals.includes(index);
+                
+                mealElement.innerHTML = `
+                    <div class="meal-title">
+                        <span class="meal-name">${meal.name}</span>
+                        <span class="meal-time">${meal.time}</span>
+                    </div>
+                    <div class="meal-items">${meal.items}</div>
+                    ${nutritionHtml}
+                    <div class="meal-actions">
+                        <button class="meal-btn complete ${isCompleted ? 'active' : ''}" onclick="markMealComplete(${index})">
+                            ${isCompleted ? '✓ Completed' : '✓ Complete'}
+                        </button>
+                        <button class="meal-btn skip ${isSkipped ? 'active' : ''}" onclick="markMealSkipped(${index})">
+                            ${isSkipped ? '✗ Skipped' : '✗ Skip'}
+                        </button>
+                    </div>
+                `;
+                
+                // Add status badge if completed or skipped
+                if (isCompleted || isSkipped) {
+                    const statusBadge = document.createElement('div');
+                    statusBadge.className = `meal-status ${isCompleted ? 'completed' : 'skipped'}`;
+                    statusBadge.innerHTML = isCompleted ? '✓' : '✗';
+                    mealElement.appendChild(statusBadge);
+                }
+                
+                mealPlanContainer.appendChild(mealElement);
+                
+                // Style based on status
+                if (isCompleted) {
+                    mealElement.classList.add('completed');
+                } else if (isSkipped) {
+                    mealElement.classList.add('skipped');
+                }
+                
+                // Add to totals for summary
+                if (meal.calories && mealTracking.completedMeals.includes(index)) {
+                    totalDisplayCalories += meal.calories;
+                    totalDisplayProtein += meal.protein || 0;
+                    totalDisplayCarbs += meal.carbs || 0;
+                    totalDisplayFats += meal.fats || 0;
+                }
+            });
+            
+            // Add summary if we have nutrition data
+            if (totalDisplayCalories > 0) {
+                const summaryElement = document.createElement('div');
+                summaryElement.className = 'meal';
+                summaryElement.style.backgroundColor = plan.planColor + '20';
+                summaryElement.style.borderLeftColor = plan.planColor;
+                summaryElement.innerHTML = `
+                    <div class="meal-title">
+                        <span class="meal-name">Daily Total (Completed)</span>
+                        <span class="meal-time">${mealTracking.completedMeals.length}/${plan.meals.length} meals</span>
+                    </div>
+                    <div class="meal-nutrition">
+                        <div class="nutrition-item">
+                            <span class="nutrition-value">${totalDisplayCalories}</span>
+                            <span>cal</span>
+                        </div>
+                        <div class="nutrition-item">
+                            <span class="nutrition-value">${totalDisplayProtein}g</span>
+                            <span>prot</span>
+                        </div>
+                        <div class="nutrition-item">
+                            <span class="nutrition-value">${totalDisplayCarbs}g</span>
+                            <span>carb</span>
+                        </div>
+                        <div class="nutrition-item">
+                            <span class="nutrition-value">${totalDisplayFats}g</span>
+                            <span>fat</span>
+                        </div>
+                    </div>
+                    <div class="meal-items" style="margin-top: 8px; font-size: 0.85em; color: #888;">
+                        <span style="color: ${plan.planColor}">📊</span> Daily target: ${plan.calories} calories
+                        ${totalDisplayCalories < plan.calories ? ` (${plan.calories - totalDisplayCalories} calories remaining)` : ''}
+                    </div>
+                `;
+                mealPlanContainer.appendChild(summaryElement);
+            }
+            
+            // Show plan result, hide input form
+            document.getElementById('inputForm').style.display = 'none';
+            document.getElementById('planResult').style.display = 'block';
+            
+            // Scroll to top
+            document.querySelector('.content').scrollTop = 0;
+            
+            // Haptic feedback
+            simulateHaptic();
+        }
+        
+        function resetForm() {
+            // Reset tracking
+            resetMealTracking();
+            
+            // Hide plan result, show input form
+            document.getElementById('planResult').style.display = 'none';
+            document.getElementById('inputForm').style.display = 'block';
+            
+            // Scroll to top
+            document.querySelector('.content').scrollTop = 0;
+            
+            simulateHaptic();
+        }
+        
+        function savePlan() {
+            showLoading('Saving your nutrition plan...');
+            
+            // Get current plan data
+            const planData = {
+                calories: currentPlan.calories,
+                protein: currentPlan.protein,
+                carbs: currentPlan.carbs,
+                fats: currentPlan.fats,
+                mealsPerDay: currentPlan.mealsPerDay,
+                water: currentPlan.water,
+                title: currentPlan.description,
+                dietType: selectedDietPlan,
+                date: new Date().toLocaleDateString(),
+                mealTracking: mealTracking
+            };
+            
+            // Save to localStorage
+            localStorage.setItem('fitcareSavedPlan', JSON.stringify(planData));
+            
+            setTimeout(() => {
+                hideLoading();
+                alert('✅ Nutrition plan saved successfully!');
+                simulateHaptic();
+            }, 800);
+        }
+        
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                showLoading('Logging out...');
+                setTimeout(() => {
+                    window.location.href = 'login3.html';
+                }, 1000);
+            }
+        }
+        
+        function updateTime() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            document.getElementById('currentTime').textContent = `${hours}:${minutes}`;
+        }
+        
+        function loadUserData() {
+            const storedData = localStorage.getItem('fitcareUserData');
+            
+            if (storedData) {
+                try {
+                    const data = JSON.parse(storedData);
+                    userData.name = data.name || "User";
+                    userData.email = data.email || "user@example.com";
+                    
+                    // Update UI
+                    document.getElementById('sidebarUserName').textContent = userData.name;
+                    document.getElementById('sidebarUserEmail').textContent = userData.email;
+                    document.getElementById('profileInitial').textContent = userData.name.charAt(0).toUpperCase();
+                    
+                } catch (error) {
+                    console.error('Error loading user data:', error);
+                }
+            }
+        }
+        
+        // Initialize the app
+        function init() {
+            // Set up event listeners
+            const mobileContainer = document.getElementById('mobileContainer');
+            mobileContainer.addEventListener('touchstart', handleTouchStart, { passive: true });
+            mobileContainer.addEventListener('touchend', handleTouchEnd, { passive: true });
+            
+            // Sidebar controls
+            document.getElementById('menuToggle').addEventListener('click', toggleSidebar);
+            document.getElementById('closeNav').addEventListener('click', closeSidebar);
+            document.getElementById('overlay').addEventListener('click', closeSidebar);
+            
+            // Diet plan selection
+            document.querySelectorAll('.plan-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    const planType = this.getAttribute('data-plan');
+                    selectDietPlan(planType);
+                });
+            });
+            
+            // Set up time
+            updateTime();
+            setInterval(updateTime, 60000);
+            
+            // Set random quote
+            const randomQuote = nutritionQuotes[Math.floor(Math.random() * nutritionQuotes.length)];
+            document.getElementById('motivationalQuote').textContent = `"${randomQuote}"`;
+            
+            // Load user data
+            loadUserData();
+            
+            // Set up form submission
+            document.getElementById('generateBtn').addEventListener('click', generatePlan);
+            document.getElementById('resetBtn').addEventListener('click', resetForm);
+            document.getElementById('savePlanBtn').addEventListener('click', savePlan);
+            
+            // Handle Enter key in form
+            document.querySelectorAll('.input-field').forEach(input => {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        generatePlan();
+                    }
+                });
+            });
+        }
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

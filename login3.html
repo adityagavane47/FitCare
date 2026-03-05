@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FITCARE | Onboarding</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* All your existing CSS remains the same */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            min-height: 100vh;
+            background: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            transition: background-color 0.3s ease;
+        }
+
+        body.dark-mode {
+            background: #0f172a;
+        }
+
+        /* Mobile Container */
+        .mobile-container {
+            width: 100%;
+            max-width: 428px;
+            height: 100vh;
+            max-height: 926px;
+            background: white;
+            border-radius: 24px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .dark-mode .mobile-container {
+            background: #1e293b;
+        }
+
+        @media (max-width: 428px) {
+            .mobile-container {
+                border-radius: 0;
+                max-width: 100%;
+                max-height: 100%;
+            }
+        }
+
+        /* Status Bar */
+        .status-bar {
+            padding: 12px 16px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85em;
+            color: #64748b;
+            background: white;
+            flex-shrink: 0;
+            padding-top: calc(12px + env(safe-area-inset-top, 0px));
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .dark-mode .status-bar {
+            background: #1e293b;
+            color: #cbd5e1;
+            border-bottom-color: #334155;
+        }
+
+        .time {
+            font-weight: 600;
+            font-size: 1em;
+        }
+
+        .status-icons {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Header */
+        .header {
+            padding: 20px 16px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .logo {
+            font-size: 2.5rem;
+            color: #10b981;
+            margin-bottom: 0.5rem;
+        }
+
+        .app-title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, #10b981, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .dark-mode .app-title {
+            background: linear-gradient(90deg, #34d399, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .tagline {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        .dark-mode .tagline {
+            color: #cbd5e1;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 0 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid #e2e8f0;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            color: #64748b;
+            cursor: pointer;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .dark-mode .theme-toggle {
+            background: rgba(30, 41, 59, 0.9);
+            border-color: #475569;
+            color: #cbd5e1;
+        }
+
+        /* Insight Box */
+        .insight-box {
+            background: rgba(16, 185, 129, 0.1);
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            border-left: 4px solid #10b981;
+        }
+
+        .dark-mode .insight-box {
+            background: rgba(16, 185, 129, 0.15);
+        }
+
+        .insight-title {
+            color: #10b981;
+            font-weight: 600;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+        }
+
+        #insightText {
+            font-size: 0.9rem;
+            line-height: 1.4;
+            color: #475569;
+        }
+
+        .dark-mode #insightText {
+            color: #cbd5e1;
+        }
+
+        /* Step Indicator */
+        .step-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            position: relative;
+            padding: 0 10px;
+        }
+
+        .step-indicator::before {
+            content: '';
+            position: absolute;
+            top: 19px;
+            left: 25px;
+            right: 25px;
+            height: 2px;
+            background: #e2e8f0;
+            z-index: 1;
+        }
+
+        .dark-mode .step-indicator::before {
+            background: #334155;
+        }
+
+        .step {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: #64748b;
+            position: relative;
+            z-index: 2;
+            font-size: 0.9rem;
+        }
+
+        .dark-mode .step {
+            background: #1e293b;
+            border-color: #334155;
+            color: #cbd5e1;
+        }
+
+        .step.active {
+            background: #10b981;
+            border-color: #10b981;
+            color: white;
+        }
+
+        .step.completed {
+            background: #10b981;
+            border-color: #10b981;
+            color: white;
+        }
+
+        /* Form Container */
+        .form-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Form Steps */
+        .form-step {
+            display: none;
+            flex: 1;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-step.active {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .step-title {
+            font-size: 1.4rem;
+            margin-bottom: 6px;
+            color: #1e293b;
+        }
+
+        .dark-mode .step-title {
+            color: #f1f5f9;
+        }
+
+        .step-desc {
+            color: #64748b;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        .dark-mode .step-desc {
+            color: #cbd5e1;
+        }
+
+        /* Input Fields */
+        .input-group {
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #64748b;
+            z-index: 2;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px 15px 15px 45px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 1rem;
+            background: white;
+            color: #1e293b;
+            transition: all 0.2s ease;
+        }
+
+        .dark-mode input {
+            background: #0f172a;
+            border-color: #334155;
+            color: #f1f5f9;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+
+        input[type="date"] {
+            padding-right: 15px;
+        }
+
+        .error {
+            color: #ef4444;
+            font-size: 0.8rem;
+            margin-top: 4px;
+            display: none;
+            padding-left: 5px;
+        }
+
+        /* Option Groups */
+        .option-group {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            margin: 12px 0;
+        }
+
+        .option {
+            padding: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: white;
+        }
+
+        .dark-mode .option {
+            background: #0f172a;
+            border-color: #334155;
+        }
+
+        .option.selected {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+        }
+
+        .dark-mode .option.selected {
+            background: rgba(16, 185, 129, 0.2);
+        }
+
+        .option i {
+            font-size: 1.8rem;
+            color: #10b981;
+            margin-bottom: 8px;
+        }
+
+        .option div {
+            font-weight: 500;
+            color: #475569;
+        }
+
+        .dark-mode .option div {
+            color: #cbd5e1;
+        }
+
+        /* Continue Button */
+        .continue-section {
+            margin-top: auto;
+            padding: 16px 0;
+            flex-shrink: 0;
+        }
+
+        .btn-continue {
+            width: 100%;
+            padding: 16px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+            min-height: 52px;
+        }
+
+        .btn-continue:hover:not(:disabled) {
+            background: #059669;
+        }
+
+        .btn-continue:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        .btn-continue:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        .dark-mode .btn-continue:disabled {
+            background: #475569;
+        }
+
+        /* Bottom Spacer for Safe Area */
+        .bottom-spacer {
+            height: env(safe-area-inset-bottom, 0px);
+            flex-shrink: 0;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 16px;
+            background: #10b981;
+            color: white;
+            border-radius: 8px;
+            animation: slideIn 0.3s ease;
+            z-index: 1000;
+            max-width: calc(100% - 40px);
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Loading Overlay */
+        #loadingOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            border-radius: 24px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #333;
+            border-top-color: #10b981;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        .loading-text {
+            color: #10b981;
+            font-size: 0.9rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Scrollbar */
+        .main-content::-webkit-scrollbar {
+            width: 3px;
+        }
+
+        .main-content::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .main-content::-webkit-scrollbar-thumb {
+            background: #10b981;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="light-mode">
+    <div class="mobile-container" id="mobileContainer">
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="time" id="currentTime">9:41</div>
+            <div class="status-icons">
+                <span>📶</span>
+                <span>🔋</span>
+            </div>
+        </div>
+
+        <!-- Theme Toggle -->
+        <div class="theme-toggle" id="themeToggle">
+            <i class="fas fa-moon"></i>
+        </div>
+
+        <!-- Header -->
+        <div class="header">
+            <div class="logo">
+                <i class="fas fa-heartbeat"></i>
+            </div>
+            <h1 class="app-title">FITCARE</h1>
+            <p class="tagline">Your Personal Health & Fitness Journey</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Insight Box -->
+            <div class="insight-box">
+                <div class="insight-title">
+                    <i class="fas fa-lightbulb"></i> WHY WE ASK
+                </div>
+                <p id="insightText">
+                    We ask for your email to create a secure account and send personalized health insights.
+                </p>
+            </div>
+
+            <!-- Step Indicator -->
+            <div class="step-indicator">
+                <div class="step completed">1</div>
+                <div class="step">2</div>
+                <div class="step">3</div>
+                <div class="step">4</div>
+                <div class="step">5</div>
+                <div class="step">6</div>
+                <div class="step">7</div>
+                <div class="step">8</div>
+            </div>
+
+            <!-- Form Container -->
+            <div class="form-container">
+                <!-- Step 1: Email -->
+                <div class="form-step active" id="step1">
+                    <h2 class="step-title">Email Address</h2>
+                    <p class="step-desc">For account creation and health updates</p>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-envelope input-icon"></i>
+                        <input type="email" id="email" placeholder="name@example.com" autocapitalize="off" autocomplete="email">
+                        <span class="error" id="emailError">Invalid email</span>
+                    </div>
+                </div>
+
+                <!-- Step 2: Phone -->
+                <div class="form-step" id="step2">
+                    <h2 class="step-title">Phone Number</h2>
+                    <p class="step-desc">Enter Indian mobile number</p>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-phone input-icon"></i>
+                        <input type="tel" id="phone" placeholder="9876543210" inputmode="numeric">
+                        <span class="error" id="phoneError">Enter 10-digit Indian number</span>
+                    </div>
+                </div>
+
+                <!-- Step 3: Date of Birth -->
+                <div class="form-step" id="step3">
+                    <h2 class="step-title">Date of Birth</h2>
+                    <p class="step-desc">For age-appropriate recommendations</p>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-calendar input-icon"></i>
+                        <input type="date" id="dob" max="2010-12-31" min="1900-01-01">
+                        <span class="error" id="dobError">Age 13-120 required</span>
+                    </div>
+                </div>
+
+                <!-- Step 4: Gender -->
+                <div class="form-step" id="step4">
+                    <h2 class="step-title">Gender</h2>
+                    <p class="step-desc">For personalized health metrics</p>
+                    
+                    <div class="option-group" id="genderGroup">
+                        <div class="option" data-value="male">
+                            <i class="fas fa-mars"></i>
+                            <div>Male</div>
+                        </div>
+                        <div class="option" data-value="female">
+                            <i class="fas fa-venus"></i>
+                            <div>Female</div>
+                        </div>
+                        <div class="option" data-value="other">
+                            <i class="fas fa-transgender-alt"></i>
+                            <div>Other</div>
+                        </div>
+                    </div>
+                    <span class="error" id="genderError">Please select gender</span>
+                </div>
+
+                <!-- Step 5: Height -->
+                <div class="form-step" id="step5">
+                    <h2 class="step-title">Height</h2>
+                    <p class="step-desc">For BMI calculation</p>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-ruler-vertical input-icon"></i>
+                        <input type="number" id="height" placeholder="Height in cm" inputmode="decimal">
+                        <span class="error" id="heightError">50-250 cm required</span>
+                    </div>
+                </div>
+
+                <!-- Step 6: Weight -->
+                <div class="form-step" id="step6">
+                    <h2 class="step-title">Weight</h2>
+                    <p class="step-desc">For progress tracking</p>
+                    
+                    <div class="input-group">
+                        <i class="fas fa-weight input-icon"></i>
+                        <input type="number" id="weight" placeholder="Weight in kg" inputmode="decimal">
+                        <span class="error" id="weightError">20-300 kg required</span>
+                    </div>
+                </div>
+
+                <!-- Step 7: Activity Level -->
+                <div class="form-step" id="step7">
+                    <h2 class="step-title">Daily Activity</h2>
+                    <p class="step-desc">To customize workout intensity</p>
+                    
+                    <div class="option-group" id="activityGroup">
+                        <div class="option" data-value="beginner">
+                            <i class="fas fa-walking"></i>
+                            <div>Beginner</div>
+                        </div>
+                        <div class="option" data-value="intermediate">
+                            <i class="fas fa-running"></i>
+                            <div>Intermediate</div>
+                        </div>
+                        <div class="option" data-value="advanced">
+                            <i class="fas fa-bolt"></i>
+                            <div>Advanced</div>
+                        </div>
+                    </div>
+                    <span class="error" id="activityError">Please select activity level</span>
+                </div>
+
+                <!-- Step 8: Fitness Goal -->
+                <div class="form-step" id="step8">
+                    <h2 class="step-title">Fitness Goal</h2>
+                    <p class="step-desc">To personalize your plan</p>
+                    
+                    <div class="option-group" id="goalGroup">
+                        <div class="option" data-value="lose">
+                            <i class="fas fa-fire"></i>
+                            <div>Lose Weight</div>
+                        </div>
+                        <div class="option" data-value="gain">
+                            <i class="fas fa-dumbbell"></i>
+                            <div>Gain Muscle</div>
+                        </div>
+                        <div class="option" data-value="maintain">
+                            <i class="fas fa-balance-scale"></i>
+                            <div>Maintain</div>
+                        </div>
+                    </div>
+                    <span class="error" id="goalError">Please select goal</span>
+                </div>
+
+                <!-- Continue Button -->
+                <div class="continue-section">
+                    <button class="btn-continue" id="continueBtn" disabled>
+                        Continue <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bottom Spacer -->
+            <div class="bottom-spacer"></div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay">
+            <div class="spinner"></div>
+            <div class="loading-text">Saving...</div>
+        </div>
+    </div>
+
+    <script>
+        // FIXED User Data Management System
+        const UserManager = {
+            saveUserData: function(userData) {
+                try {
+                    // Save to localStorage using the key that home page expects
+                    localStorage.setItem('fitcareUserData', JSON.stringify(userData));
+                    
+                    // Also save to fitcare_user for this page's login check
+                    localStorage.setItem('fitcare_user', JSON.stringify(userData));
+                    
+                    // Set a global variable
+                    window.fitcareUser = userData;
+                    
+                    console.log('User data saved successfully:', userData);
+                    return true;
+                } catch (error) {
+                    console.error('Error saving user data:', error);
+                    return false;
+                }
+            },
+
+            getUserData: function() {
+                try {
+                    // Check both possible storage keys
+                    const userData1 = localStorage.getItem('fitcareUserData');
+                    const userData2 = localStorage.getItem('fitcare_user');
+                    
+                    if (userData1) {
+                        return JSON.parse(userData1);
+                    } else if (userData2) {
+                        return JSON.parse(userData2);
+                    }
+                    return null;
+                } catch (error) {
+                    console.error('Error getting user data:', error);
+                    return null;
+                }
+            },
+
+            isLoggedIn: function() {
+                const userData = this.getUserData();
+                return userData && userData.email;
+            },
+
+            clearUserData: function() {
+                localStorage.removeItem('fitcareUserData');
+                localStorage.removeItem('fitcare_user');
+                localStorage.removeItem('fitcare_user_id');
+                sessionStorage.removeItem('current_user');
+                delete window.fitcareUser;
+                document.cookie = "fitcare_user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            }
+        };
+
+        // App State
+        let currentStep = 1;
+        const insights = [
+            "We ask for your email to create a secure account and send personalized health insights.",
+            "Your phone number helps us send important health reminders and secure your account.",
+            "Your age helps us provide age-appropriate health and fitness recommendations.",
+            "Gender information helps calculate accurate metabolic rates and nutritional needs.",
+            "Height is essential for calculating your BMI and customizing exercise plans.",
+            "Weight tracking helps us measure your progress and adjust recommendations.",
+            "Activity level determines workout intensity and calorie requirements.",
+            "Your fitness goal helps us create personalized workout and nutrition plans."
+        ];
+
+        // DOM Elements
+        const themeToggle = document.getElementById('themeToggle');
+        const insightText = document.getElementById('insightText');
+        const continueBtn = document.getElementById('continueBtn');
+        const steps = document.querySelectorAll('.step');
+        const formSteps = document.querySelectorAll('.form-step');
+        const currentTime = document.getElementById('currentTime');
+
+        // Store selected options
+        let selectedGender = null;
+        let selectedActivity = null;
+        let selectedGoal = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded successfully');
+            
+            // Check if user already exists
+            const userData = UserManager.getUserData();
+            if (userData && userData.email) {
+                console.log('User already logged in:', userData.email);
+                showRedirectMessage(userData);
+            } else {
+                console.log('No user found, starting fresh onboarding');
+                setupEventListeners();
+                updateInsight();
+                updateContinueButton();
+                updateTime();
+                setInterval(updateTime, 60000);
+            }
+        });
+
+        function showRedirectMessage(userData) {
+            const mainContent = document.querySelector('.main-content');
+            const header = document.querySelector('.header');
+            
+            mainContent.innerHTML = '';
+            
+            const welcomeDiv = document.createElement('div');
+            welcomeDiv.style.cssText = `
+                text-align: center;
+                padding: 40px 20px;
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            `;
+            
+            welcomeDiv.innerHTML = `
+                <div style="font-size: 4rem; color: #10b981; margin-bottom: 20px;">
+                    <i class="fas fa-user-check"></i>
+                </div>
+                <h2 style="color: #10b981; margin-bottom: 10px;">Welcome Back!</h2>
+                <p style="color: #64748b; margin-bottom: 10px;">You're already logged in as:</p>
+                <p style="font-weight: bold; color: #1e293b; font-size: 1.1rem; margin-bottom: 30px; padding: 10px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
+                    ${userData.email}
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 20px;">
+                    <button id="goToDashboard" style="background: #10b981; color: white; border: none; padding: 16px 30px; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease;">
+                        Go to Dashboard <i class="fas fa-chart-line"></i>
+                    </button>
+                    <button id="logoutBtn" style="background: transparent; color: #ef4444; border: 2px solid #ef4444; padding: 16px 30px; border-radius: 12px; font-size: 1rem; font-weight: 600; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease;">
+                        Logout & Register New <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            `;
+            
+            mainContent.appendChild(welcomeDiv);
+            
+            // Add event listeners to buttons
+            document.getElementById('goToDashboard').addEventListener('click', () => {
+                window.location.href = 'home.html';
+            });
+            
+            document.getElementById('logoutBtn').addEventListener('click', () => {
+                UserManager.clearUserData();
+                showToast('Logged out successfully');
+                setTimeout(() => {
+                    location.reload();
+                }, 1000);
+            });
+        }
+
+        function setupEventListeners() {
+            console.log('Setting up event listeners');
+            
+            // Theme toggle
+            themeToggle.addEventListener('click', () => {
+                const body = document.body;
+                const icon = themeToggle.querySelector('i');
+                
+                if (body.classList.contains('light-mode')) {
+                    body.classList.remove('light-mode');
+                    body.classList.add('dark-mode');
+                    icon.classList.remove('fa-moon');
+                    icon.classList.add('fa-sun');
+                    showToast('Dark mode activated');
+                } else {
+                    body.classList.remove('dark-mode');
+                    body.classList.add('light-mode');
+                    icon.classList.remove('fa-sun');
+                    icon.classList.add('fa-moon');
+                    showToast('Light mode activated');
+                }
+            });
+
+            // Continue button
+            continueBtn.addEventListener('click', handleContinue);
+
+            // Input validation listeners
+            document.getElementById('email').addEventListener('input', updateContinueButton);
+            
+            document.getElementById('phone').addEventListener('input', function(e) {
+                this.value = this.value.replace(/\D/g, '').slice(0, 10);
+                updateContinueButton();
+            });
+
+            document.getElementById('dob').addEventListener('input', updateContinueButton);
+            document.getElementById('height').addEventListener('input', updateContinueButton);
+            document.getElementById('weight').addEventListener('input', updateContinueButton);
+
+            // Option selection
+            setupOptionGroup('genderGroup', 'gender');
+            setupOptionGroup('activityGroup', 'activity');
+            setupOptionGroup('goalGroup', 'goal');
+
+            // Enter key support
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !continueBtn.disabled) {
+                    handleContinue();
+                }
+            });
+        }
+
+        function setupOptionGroup(groupId, type) {
+            const options = document.querySelectorAll(`#${groupId} .option`);
+            
+            options.forEach(option => {
+                option.addEventListener('click', function() {
+                    // Remove selection from all options in group
+                    options.forEach(opt => {
+                        opt.classList.remove('selected');
+                    });
+                    
+                    // Add selection to clicked option
+                    this.classList.add('selected');
+                    
+                    // Store selection
+                    if (type === 'gender') {
+                        selectedGender = this.dataset.value;
+                        document.getElementById('genderError').style.display = 'none';
+                    } else if (type === 'activity') {
+                        selectedActivity = this.dataset.value;
+                        document.getElementById('activityError').style.display = 'none';
+                    } else if (type === 'goal') {
+                        selectedGoal = this.dataset.value;
+                        document.getElementById('goalError').style.display = 'none';
+                    }
+                    
+                    updateContinueButton();
+                });
+            });
+        }
+
+        function updateInsight() {
+            insightText.textContent = insights[currentStep - 1];
+        }
+
+        function updateTime() {
+            const now = new Date();
+            const hours = now.getHours().toString().padStart(2, '0');
+            const minutes = now.getMinutes().toString().padStart(2, '0');
+            currentTime.textContent = `${hours}:${minutes}`;
+        }
+
+        function showStep(step) {
+            // Update current step
+            currentStep = step;
+            
+            // Hide all steps
+            formSteps.forEach(s => s.classList.remove('active'));
+            
+            // Show current step
+            const currentStepElement = document.getElementById(`step${step}`);
+            if (currentStepElement) {
+                currentStepElement.classList.add('active');
+            }
+            
+            // Update step indicator
+            steps.forEach((s, index) => {
+                s.classList.remove('active', 'completed');
+                if (index + 1 < step) {
+                    s.classList.add('completed');
+                } else if (index + 1 === step) {
+                    s.classList.add('active');
+                }
+            });
+            
+            // Update insight
+            updateInsight();
+            
+            // Focus on first input in step
+            setTimeout(() => {
+                const stepElement = document.getElementById(`step${step}`);
+                if (stepElement) {
+                    const input = stepElement.querySelector('input, .option');
+                    if (input && input.type !== 'date') {
+                        input.focus();
+                    }
+                }
+            }, 300);
+            
+            // Update button
+            updateContinueButton();
+        }
+
+        function handleContinue() {
+            if (continueBtn.disabled) {
+                showToast('Please complete this step first');
+                return;
+            }
+            
+            if (currentStep < 8) {
+                currentStep++;
+                showStep(currentStep);
+            } else {
+                submitForm();
+            }
+        }
+
+        function updateContinueButton() {
+            let isValid = false;
+            
+            switch(currentStep) {
+                case 1:
+                    isValid = validateEmail();
+                    break;
+                case 2:
+                    isValid = validatePhone();
+                    break;
+                case 3:
+                    isValid = validateDOB();
+                    break;
+                case 4:
+                    isValid = validateGender();
+                    break;
+                case 5:
+                    isValid = validateHeight();
+                    break;
+                case 6:
+                    isValid = validateWeight();
+                    break;
+                case 7:
+                    isValid = validateActivity();
+                    break;
+                case 8:
+                    isValid = validateGoal();
+                    break;
+            }
+            
+            continueBtn.disabled = !isValid;
+            
+            // Update button text for last step
+            if (currentStep === 8 && isValid) {
+                continueBtn.innerHTML = 'Submit <i class="fas fa-check"></i>';
+            } else {
+                continueBtn.innerHTML = 'Continue <i class="fas fa-arrow-right"></i>';
+            }
+        }
+
+        // Validation Functions
+        function validateEmail() {
+            const email = document.getElementById('email').value.trim();
+            const error = document.getElementById('emailError');
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            
+            if (email === '') {
+                error.style.display = 'none';
+                return false;
+            }
+            
+            if (emailRegex.test(email)) {
+                error.style.display = 'none';
+                return true;
+            } else {
+                error.style.display = 'block';
+                return false;
+            }
+        }
+
+        function validatePhone() {
+            const phone = document.getElementById('phone').value;
+            const error = document.getElementById('phoneError');
+            
+            if (phone.length === 10) {
+                error.style.display = 'none';
+                return true;
+            } else {
+                if (phone.length > 0) {
+                    error.style.display = 'block';
+                } else {
+                    error.style.display = 'none';
+                }
+                return false;
+            }
+        }
+
+        function validateDOB() {
+            const dob = document.getElementById('dob').value;
+            const error = document.getElementById('dobError');
+            
+            if (!dob) {
+                error.style.display = 'none';
+                return false;
+            }
+            
+            const birthDate = new Date(dob);
+            const today = new Date();
+            let age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                age--;
+            }
+            
+            if (age >= 13 && age <= 120) {
+                error.style.display = 'none';
+                return true;
+            } else {
+                error.style.display = 'block';
+                return false;
+            }
+        }
+
+        function validateGender() {
+            const error = document.getElementById('genderError');
+            
+            if (selectedGender) {
+                error.style.display = 'none';
+                return true;
+            } else {
+                error.style.display = 'block';
+                return false;
+            }
+        }
+
+        function validateHeight() {
+            const height = parseFloat(document.getElementById('height').value);
+            const error = document.getElementById('heightError');
+            
+            if (height && height >= 50 && height <= 250) {
+                error.style.display = 'none';
+                return true;
+            } else {
+                if (document.getElementById('height').value) {
+                    error.style.display = 'block';
+                } else {
+                    error.style.display = 'none';
+                }
+                return false;
+            }
+        }
+
+        function validateWeight() {
+            const weight = parseFloat(document.getElementById('weight').value);
+            const error = document.getElementById('weightError');
+            
+            if (weight && weight >= 20 && weight <= 300) {
+                error.style.display = 'none';
+                return true;
+            } else {
+                if (document.getElementById('weight').value) {
+                    error.style.display = 'block';
+                } else {
+                    error.style.display = 'none';
+                }
+                return false;
+            }
+        }
+
+        function validateActivity() {
+            const error = document.getElementById('activityError');
+            
+            if (selectedActivity) {
+                error.style.display = 'none';
+                return true;
+            } else {
+                error.style.display = 'block';
+                return false;
+            }
+        }
+
+        function validateGoal() {
+            const error = document.getElementById('goalError');
+            
+            if (selectedGoal) {
+                error.style.display = 'none';
+                return true;
+            } else {
+                error.style.display = 'block';
+                return false;
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.remove();
+            }, 3000);
+        }
+
+        function showLoading(show) {
+            const loader = document.getElementById('loadingOverlay');
+            if (loader) {
+                loader.style.display = show ? 'flex' : 'none';
+            }
+        }
+
+        function getFormData() {
+            // Calculate BMI
+            const height = parseFloat(document.getElementById('height').value) || 0;
+            const weight = parseFloat(document.getElementById('weight').value) || 0;
+            let bmi = 0;
+            let bmiCategory = '';
+            
+            if (height && weight && height > 0) {
+                const heightM = height / 100;
+                bmi = (weight / (heightM * heightM)).toFixed(1);
+                
+                if (bmi < 18.5) bmiCategory = 'Underweight';
+                else if (bmi < 25) bmiCategory = 'Normal';
+                else if (bmi < 30) bmiCategory = 'Overweight';
+                else bmiCategory = 'Obese';
+            }
+            
+            // Calculate age
+            const dob = document.getElementById('dob').value;
+            let age = 0;
+            if (dob) {
+                const birthDate = new Date(dob);
+                const today = new Date();
+                age = today.getFullYear() - birthDate.getFullYear();
+                const monthDiff = today.getMonth() - birthDate.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+                    age--;
+                }
+            }
+            
+            // Get current theme
+            const currentTheme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+            
+            // Generate a username from email
+            const email = document.getElementById('email').value.trim();
+            const name = email.split('@')[0];
+            
+            return {
+                name: name || 'User',
+                email: email,
+                phone: document.getElementById('phone').value,
+                countryCode: '91',
+                dob: dob,
+                age: age,
+                gender: selectedGender || '',
+                height: height,
+                weight: weight,
+                bmi: bmi,
+                bmiCategory: bmiCategory,
+                activity: selectedActivity || '',
+                goal: selectedGoal || '',
+                theme: currentTheme,
+                timestamp: new Date().toISOString(),
+                completedAt: new Date().toLocaleString()
+            };
+        }
+
+        async function submitForm() {
+            continueBtn.disabled = true;
+            continueBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            showLoading(true);
+            
+            try {
+                const formData = getFormData();
+                
+                console.log('Saving user data:', formData);
+                
+                // Save user data
+                const success = UserManager.saveUserData(formData);
+                
+                if (success) {
+                    showToast('✅ Profile saved successfully!');
+                    
+                    // Redirect to home page after success
+                    setTimeout(() => {
+                        window.location.href = 'home.html';
+                    }, 1500);
+                } else {
+                    throw new Error('Failed to save user data');
+                }
+                
+            } catch (error) {
+                console.error('Submission error:', error);
+                showLoading(false);
+                showToast('❌ Error saving data. Please try again.');
+                continueBtn.disabled = false;
+                continueBtn.innerHTML = 'Submit <i class="fas fa-check"></i>';
+            }
+        }
+
+        // Make UserManager available globally
+        window.UserManager = UserManager;
+    </script>
+</body>
+</html>

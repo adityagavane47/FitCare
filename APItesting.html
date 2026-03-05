@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nutrition Plan Generator with API</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f9ff;
+            color: #333;
+            line-height: 1.6;
+            padding-bottom: 30px;
+        }
+        
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 0 15px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #4b6cb7 0%, #182848 100%);
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            border-radius: 0 0 20px 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 25px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        
+        .logo i {
+            font-size: 28px;
+            margin-right: 10px;
+            color: #6dd5ed;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        }
+        
+        .card-title {
+            font-size: 1.3rem;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .card-title i {
+            margin-right: 10px;
+            color: #4b6cb7;
+        }
+        
+        .form-group {
+            margin-bottom: 18px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e1e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #4b6cb7;
+            box-shadow: 0 0 0 3px rgba(75, 108, 183, 0.1);
+        }
+        
+        .radio-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        
+        .radio-option {
+            flex: 1;
+            text-align: center;
+        }
+        
+        .radio-option input {
+            display: none;
+        }
+        
+        .radio-option label {
+            display: block;
+            padding: 12px 10px;
+            background-color: #f0f5ff;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: normal;
+        }
+        
+        .radio-option input:checked + label {
+            background-color: #4b6cb7;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .btn {
+            background: linear-gradient(to right, #4b6cb7, #182848);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .btn i {
+            margin-right: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 14px rgba(75, 108, 183, 0.2);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading-spinner {
+            border: 5px solid #f0f5ff;
+            border-top: 5px solid #4b6cb7;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .plan-result {
+            display: none;
+        }
+        
+        .plan-header {
+            background: linear-gradient(135deg, #2ecc71, #1abc9c);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .plan-header h3 {
+            font-size: 1.4rem;
+            margin-bottom: 5px;
+        }
+        
+        .plan-details {
+            margin-bottom: 20px;
+        }
+        
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .detail-item:last-child {
+            border-bottom: none;
+        }
+        
+        .detail-label {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .detail-value {
+            color: #4b6cb7;
+            font-weight: 600;
+        }
+        
+        .meal-plan {
+            margin-top: 20px;
+        }
+        
+        .meal {
+            background-color: #f9fbfe;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #4b6cb7;
+        }
+        
+        .meal-title {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+        
+        .meal-time {
+            color: #4b6cb7;
+            font-size: 0.9rem;
+        }
+        
+        .meal-items {
+            color: #555;
+            font-size: 0.95rem;
+        }
+        
+        .reset-btn {
+            background: linear-gradient(to right, #e74c3c, #c0392b);
+            margin-top: 20px;
+        }
+        
+        .api-info {
+            background-color: #fff8e1;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .api-info a {
+            color: #4b6cb7;
+            font-weight: 600;
+            text-decoration: none;
+        }
+        
+        .api-info a:hover {
+            text-decoration: underline;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 25px;
+            color: #7f8c8d;
+            font-size: 0.85rem;
+        }
+        
+        .error-message {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            display: none;
+        }
+        
+        @media (min-width: 768px) {
+            .container {
+                max-width: 700px;
+            }
+            
+            h1 {
+                font-size: 2.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="logo">
+                <i class="fas fa-apple-alt"></i>
+                <h1>Nutrition Plan Generator with API</h1>
+            </div>
+            <p class="subtitle">Get a personalized meal plan using real nutrition data from Spoonacular API</p>
+        </div>
+    </header>
+    
+    <div class="container">
+        <!-- API Info -->
+        <div class="api-info">
+            <p><i class="fas fa-info-circle"></i> This app uses the <a href="https://spoonacular.com/food-api" target="_blank">Spoonacular API</a> for nutrition data. You need an API key to use it. <a href="https://spoonacular.com/food-api/console#Dashboard" target="_blank">Get a free API key here</a>.</p>
+        </div>
+        
+        <!-- API Key Input -->
+        <div class="card">
+            <h2 class="card-title"><i class="fas fa-key"></i> API Configuration</h2>
+            <div class="form-group">
+                <label for="apiKey">Spoonacular API Key</label>
+                <input type="text" id="apiKey" placeholder="Enter your Spoonacular API key">
+                <small>Your API key is stored locally in your browser and never sent to our servers.</small>
+            </div>
+            <div class="form-group">
+                <label for="apiMode">API Mode</label>
+                <select id="apiMode">
+                    <option value="demo">Demo Mode (No API needed)</option>
+                    <option value="real">Real API Mode (Requires API key)</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- User Input Form -->
+        <div class="card" id="inputForm">
+            <h2 class="card-title"><i class="fas fa-user-edit"></i> Personal Details</h2>
+            
+            <div class="form-group">
+                <label for="weight">Weight (kg)</label>
+                <input type="number" id="weight" min="30" max="200" placeholder="Enter your weight in kilograms" value="70">
+            </div>
+            
+            <div class="form-group">
+                <label for="height">Height (cm)</label>
+                <input type="number" id="height" min="100" max="250" placeholder="Enter your height in centimeters" value="175">
+            </div>
+            
+            <div class="form-group">
+                <label for="age">Age</label>
+                <input type="number" id="age" min="15" max="100" placeholder="Enter your age" value="30">
+            </div>
+            
+            <div class="form-group">
+                <label for="gender">Gender</label>
+                <select id="gender">
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Activity Level</label>
+                <select id="activity">
+                    <option value="sedentary">Sedentary (little or no exercise)</option>
+                    <option value="light">Lightly active (light exercise 1-3 days/week)</option>
+                    <option value="moderate" selected>Moderately active (moderate exercise 3-5 days/week)</option>
+                    <option value="active">Very active (hard exercise 6-7 days/week)</option>
+                    <option value="very-active">Extremely active (very hard exercise & physical job)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Goal</label>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" id="loss" name="goal" value="loss" checked>
+                        <label for="loss">Weight Loss</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" id="gain" name="goal" value="gain">
+                        <label for="gain">Weight Gain</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" id="maintain" name="goal" value="maintain">
+                        <label for="maintain">Maintain</label>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn" id="generateBtn">
+                <i class="fas fa-bolt"></i> Generate Nutrition Plan
+            </button>
+        </div>
+        
+        <!-- Error Message -->
+        <div class="error-message" id="errorMessage">
+            <i class="fas fa-exclamation-triangle"></i> <span id="errorText">An error occurred. Please try again.</span>
+        </div>
+        
+        <!-- Loading Indicator -->
+        <div class="loading" id="loadingIndicator">
+            <div class="loading-spinner"></div>
+            <p>Analyzing your data and creating a personalized nutrition plan...</p>
+        </div>
+        
+        <!-- Plan Result -->
+        <div class="card plan-result" id="planResult">
+            <div class="plan-header">
+                <h3>Your Personalized Nutrition Plan</h3>
+                <p>Designed specifically for your body and goals</p>
+            </div>
+            
+            <div class="plan-details">
+                <div class="detail-item">
+                    <span class="detail-label">Daily Calories:</span>
+                    <span class="detail-value" id="calories">0</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Protein:</span>
+                    <span class="detail-value" id="protein">0g</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Carbs:</span>
+                    <span class="detail-value" id="carbs">0g</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Fats:</span>
+                    <span class="detail-value" id="fats">0g</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Meals per day:</span>
+                    <span class="detail-value" id="mealsPerDay">0</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">Water intake:</span>
+                    <span class="detail-value" id="water">0L</span>
+                </div>
+            </div>
+            
+            <h3 class="card-title"><i class="fas fa-utensils"></i> Daily Meal Plan</h3>
+            <div class="meal-plan" id="mealPlan">
+                <!-- Meal items will be inserted here by JavaScript -->
+            </div>
+            
+            <button class="btn reset-btn" id="resetBtn">
+                <i class="fas fa-redo"></i> Create Another Plan
+            </button>
+        </div>
+    </div>
+    
+    <div class="footer container">
+        <p>Nutrition Plan Generator uses scientific formulas to calculate your needs. Consult a healthcare professional before making significant dietary changes.</p>
+        <p>This app uses the Spoonacular API for nutrition data. API calls may be limited based on your plan.</p>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const inputForm = document.getElementById('inputForm');
+            const loadingIndicator = document.getElementById('loadingIndicator');
+            const planResult = document.getElementById('planResult');
+            const generateBtn = document.getElementById('generateBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const errorMessage = document.getElementById('errorMessage');
+            const errorText = document.getElementById('errorText');
+            const apiKeyInput = document.getElementById('apiKey');
+            const apiModeSelect = document.getElementById('apiMode');
+            
+            // Load saved API key from localStorage
+            const savedApiKey = localStorage.getItem('nutritionApiKey');
+            if (savedApiKey) {
+                apiKeyInput.value = savedApiKey;
+            }
+            
+            // Save API key when changed
+            apiKeyInput.addEventListener('change', function() {
+                localStorage.setItem('nutritionApiKey', this.value);
+            });
+            
+            // Generate plan when button is clicked
+            generateBtn.addEventListener('click', generatePlan);
+            
+            // Reset form when reset button is clicked
+            resetBtn.addEventListener('click', resetForm);
+            
+            function showError(message) {
+                errorText.textContent = message;
+                errorMessage.style.display = 'block';
+                setTimeout(() => {
+                    errorMessage.style.display = 'none';
+                }, 5000);
+            }
+            
+            async function generatePlan() {
+                // Get user input values
+                const weight = parseFloat(document.getElementById('weight').value);
+                const height = parseFloat(document.getElementById('height').value);
+                const age = parseInt(document.getElementById('age').value);
+                const gender = document.getElementById('gender').value;
+                const activity = document.getElementById('activity').value;
+                const goal = document.querySelector('input[name="goal"]:checked').value;
+                const apiMode = apiModeSelect.value;
+                const apiKey = apiKeyInput.value;
+                
+                // Validate inputs
+                if (!weight || !height || !age) {
+                    showError('Please fill in all required fields');
+                    return;
+                }
+                
+                if (apiMode === 'real' && !apiKey) {
+                    showError('Please enter your Spoonacular API key for real API mode');
+                    return;
+                }
+                
+                // Show loading indicator, hide form and any previous error
+                inputForm.style.display = 'none';
+                errorMessage.style.display = 'none';
+                loadingIndicator.style.display = 'block';
+                planResult.style.display = 'none';
+                
+                try {
+                    let plan;
+                    
+                    if (apiMode === 'real') {
+                        // Use real API
+                        plan = await generatePlanWithAPI(weight, height, age, gender, activity, goal, apiKey);
+                    } else {
+                        // Use demo mode (calculations only)
+                        plan = calculateNutritionPlan(weight, height, age, gender, activity, goal);
+                    }
+                    
+                    // Display the plan
+                    displayPlan(plan);
+                    
+                    // Hide loading indicator, show result
+                    loadingIndicator.style.display = 'none';
+                    planResult.style.display = 'block';
+                    
+                } catch (error) {
+                    console.error('Error generating plan:', error);
+                    loadingIndicator.style.display = 'none';
+                    inputForm.style.display = 'block';
+                    showError(error.message || 'Failed to generate nutrition plan. Please try again.');
+                }
+            }
+            
+            async function generatePlanWithAPI(weight, height, age, gender, activity, goal, apiKey) {
+                // First, calculate basic nutrition needs
+                const basicPlan = calculateNutritionPlan(weight, height, age, gender, activity, goal);
+                
+                // Use Spoonacular API to get recipe suggestions based on the plan
+                const targetCalories = basicPlan.calories;
+                const dietType = goal === 'loss' ? 'ketogenic' : 'balanced';
+                
+                // Build API URL for meal plan
+                const timeFrame = 'day';
+                const apiUrl = `https://api.spoonacular.com/mealplanner/generate?apiKey=${apiKey}&timeFrame=${timeFrame}&targetCalories=${targetCalories}&diet=${dietType}`;
+                
+                try {
+                    const response = await fetch(apiUrl);
+                    
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            throw new Error('Invalid API key. Please check your Spoonacular API key.');
+                        } else if (response.status === 402) {
+                            throw new Error('API limit exceeded. The free tier allows only 150 requests per day.');
+                        } else {
+                            throw new Error(`API error: ${response.status}`);
+                        }
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Process API response and combine with our calculations
+                    const planWithRecipes = processAPIResponse(data, basicPlan);
+                    return planWithRecipes;
+                    
+                } catch (error) {
+                    // If API fails, fall back to demo mode
+                    console.warn('API call failed, falling back to demo mode:', error.message);
+                    return basicPlan;
+                }
+            }
+            
+            function processAPIResponse(apiData, basicPlan) {
+                // Extract meal information from API response
+                const meals = [];
+                
+                if (apiData.meals) {
+                    apiData.meals.forEach(meal => {
+                        meals.push({
+                            name: meal.title,
+                            time: meal.readyInMinutes ? `Ready in ${meal.readyInMinutes} min` : 'Meal time',
+                            items: `Servings: ${meal.servings || 1}. ID: ${meal.id}`,
+                            apiId: meal.id,
+                            image: meal.image
+                        });
+                    });
+                } else {
+                    // If no meals from API, use our default ones
+                    return basicPlan;
+                }
+                
+                // Update basic plan with API meal data
+                return {
+                    ...basicPlan,
+                    meals: meals,
+                    source: 'Spoonacular API'
+                };
+            }
+            
+            function calculateNutritionPlan(weight, height, age, gender, activity, goal) {
+                // Calculate BMR (Basal Metabolic Rate) using Mifflin-St Jeor Equation
+                let bmr;
+                if (gender === 'male') {
+                    bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+                } else {
+                    bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+                }
+                
+                // Apply activity multiplier
+                const activityMultipliers = {
+                    'sedentary': 1.2,
+                    'light': 1.375,
+                    'moderate': 1.55,
+                    'active': 1.725,
+                    'very-active': 1.9
+                };
+                
+                let maintenanceCalories = bmr * activityMultipliers[activity];
+                
+                // Adjust calories based on goal
+                let targetCalories;
+                let planDescription;
+                
+                if (goal === 'loss') {
+                    targetCalories = maintenanceCalories * 0.85; // 15% deficit for weight loss
+                    planDescription = 'Weight Loss Plan';
+                } else if (goal === 'gain') {
+                    targetCalories = maintenanceCalories * 1.15; // 15% surplus for weight gain
+                    planDescription = 'Weight Gain Plan';
+                } else {
+                    targetCalories = maintenanceCalories; // Maintain weight
+                    planDescription = 'Weight Maintenance Plan';
+                }
+                
+                // Round to nearest 10
+                targetCalories = Math.round(targetCalories / 10) * 10;
+                
+                // Calculate macronutrients (proteins, carbs, fats)
+                // Based on goal, adjust macronutrient ratios
+                let proteinRatio, carbRatio, fatRatio;
+                
+                if (goal === 'loss') {
+                    proteinRatio = 0.35; // Higher protein for satiety and muscle preservation
+                    carbRatio = 0.40;
+                    fatRatio = 0.25;
+                } else if (goal === 'gain') {
+                    proteinRatio = 0.30;
+                    carbRatio = 0.50; // Higher carbs for energy and weight gain
+                    fatRatio = 0.20;
+                } else {
+                    proteinRatio = 0.30;
+                    carbRatio = 0.45;
+                    fatRatio = 0.25;
+                }
+                
+                // Calculate grams (protein & carbs: 4 cal/g, fat: 9 cal/g)
+                const proteinGrams = Math.round((targetCalories * proteinRatio) / 4);
+                const carbGrams = Math.round((targetCalories * carbRatio) / 4);
+                const fatGrams = Math.round((targetCalories * fatRatio) / 9);
+                
+                // Determine meals per day based on goal and calories
+                let mealsPerDay;
+                if (targetCalories < 1800) {
+                    mealsPerDay = 3;
+                } else if (targetCalories < 2500) {
+                    mealsPerDay = 4;
+                } else {
+                    mealsPerDay = 5;
+                }
+                
+                // Calculate recommended water intake (approx 35ml per kg of body weight)
+                const waterIntake = Math.round((weight * 35) / 100) / 10; // Convert to liters
+                
+                // Generate meal plan based on goal and calories
+                const mealPlan = generateMealPlan(goal, targetCalories, mealsPerDay);
+                
+                return {
+                    description: planDescription,
+                    calories: targetCalories,
+                    protein: proteinGrams,
+                    carbs: carbGrams,
+                    fats: fatGrams,
+                    mealsPerDay: mealsPerDay,
+                    water: waterIntake,
+                    meals: mealPlan,
+                    source: 'Demo Calculations'
+                };
+            }
+            
+            function generateMealPlan(goal, calories, mealsPerDay) {
+                // Base meal templates for different goals
+                const weightLossMeals = [
+                    { name: "Breakfast", time: "7:00 AM", items: "Oatmeal with berries, Greek yogurt, 1 boiled egg" },
+                    { name: "Morning Snack", time: "10:30 AM", items: "Apple with almond butter, Green tea" },
+                    { name: "Lunch", time: "1:00 PM", items: "Grilled chicken salad with mixed greens, avocado, and olive oil dressing" },
+                    { name: "Afternoon Snack", time: "4:00 PM", items: "Protein shake or cottage cheese with cucumber" },
+                    { name: "Dinner", time: "7:00 PM", items: "Baked salmon with roasted vegetables and quinoa" }
+                ];
+                
+                const weightGainMeals = [
+                    { name: "Breakfast", time: "7:00 AM", items: "3-egg omelet with cheese, 2 slices whole grain toast, smoothie with banana and protein powder" },
+                    { name: "Morning Snack", time: "10:00 AM", items: "Handful of nuts, Protein bar, Glass of milk" },
+                    { name: "Lunch", time: "1:00 PM", items: "Grilled chicken breast, Brown rice, Steamed vegetables, Salad with olive oil" },
+                    { name: "Pre-workout", time: "4:00 PM", items: "Banana, Greek yogurt, Handful of almonds" },
+                    { name: "Dinner", time: "7:30 PM", items: "Lean steak or fish, Sweet potato, Steamed broccoli, Whole grain bread" },
+                    { name: "Evening Snack", time: "9:30 PM", items: "Cottage cheese with berries, Casein protein shake" }
+                ];
+                
+                const maintenanceMeals = [
+                    { name: "Breakfast", time: "7:30 AM", items: "Scrambled eggs with vegetables, Whole grain toast, Fresh fruit" },
+                    { name: "Morning Snack", time: "10:30 AM", items: "Greek yogurt with honey and walnuts" },
+                    { name: "Lunch", time: "1:00 PM", items: "Turkey sandwich on whole grain bread, Side salad, Fruit" },
+                    { name: "Afternoon Snack", time: "4:00 PM", items: "Protein smoothie or handful of trail mix" },
+                    { name: "Dinner", time: "7:00 PM", items: "Grilled fish, Quinoa or brown rice, Steamed vegetables" }
+                ];
+                
+                // Select appropriate meal template based on goal
+                let baseMeals;
+                if (goal === 'loss') {
+                    baseMeals = weightLossMeals;
+                } else if (goal === 'gain') {
+                    baseMeals = weightGainMeals;
+                } else {
+                    baseMeals = maintenanceMeals;
+                }
+                
+                // Adjust the number of meals based on mealsPerDay
+                return baseMeals.slice(0, mealsPerDay);
+            }
+            
+            function displayPlan(plan) {
+                // Update plan details
+                document.getElementById('calories').textContent = plan.calories + ' kcal';
+                document.getElementById('protein').textContent = plan.protein + 'g';
+                document.getElementById('carbs').textContent = plan.carbs + 'g';
+                document.getElementById('fats').textContent = plan.fats + 'g';
+                document.getElementById('mealsPerDay').textContent = plan.mealsPerDay;
+                document.getElementById('water').textContent = plan.water + 'L';
+                
+                // Update plan header
+                const header = document.querySelector('.plan-header h3');
+                header.textContent = plan.description;
+                
+                // Add source info if available
+                if (plan.source) {
+                    const subtitle = document.querySelector('.plan-header p');
+                    subtitle.textContent = `Generated using ${plan.source}`;
+                }
+                
+                // Clear and populate meal plan
+                const mealPlanContainer = document.getElementById('mealPlan');
+                mealPlanContainer.innerHTML = '';
+                
+                plan.meals.forEach(meal => {
+                    const mealElement = document.createElement('div');
+                    mealElement.className = 'meal';
+                    
+                    // Add image if available from API
+                    let imageHtml = '';
+                    if (meal.image) {
+                        imageHtml = `<div style="margin-top: 10px;"><img src="https://img.spoonacular.com/recipes/${meal.image}" alt="${meal.name}" style="width: 100%; border-radius: 8px; max-height: 150px; object-fit: cover;"></div>`;
+                    }
+                    
+                    mealElement.innerHTML = `
+                        <div class="meal-title">
+                            <span>${meal.name}</span>
+                            <span class="meal-time">${meal.time}</span>
+                        </div>
+                        <div class="meal-items">${meal.items}</div>
+                        ${imageHtml}
+                    `;
+                    mealPlanContainer.appendChild(mealElement);
+                });
+            }
+            
+            function resetForm() {
+                // Hide plan result, show input form
+                planResult.style.display = 'none';
+                inputForm.style.display = 'block';
+                errorMessage.style.display = 'none';
+            }
+            
+            // Make the form responsive to keyboard input (Enter key)
+            document.querySelectorAll('input').forEach(input => {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        generatePlan();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
