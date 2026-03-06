@@ -12,11 +12,24 @@ load_dotenv(dotenv_path=env_path)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+CHAT_SYSTEM_PROMPT = """You are FitCare AI Trainer — a professional fitness coach and sports nutritionist.
+
+STRICT RULES:
+1. You ONLY answer questions about: workouts, exercises, fitness routines, diet, nutrition, meal plans, supplements, recovery, stretching, weight loss, muscle gain, and general health/wellness.
+2. If the user asks about ANYTHING outside fitness and diet (e.g., politics, coding, math, history, entertainment), reply ONLY with: "I'm your FitCare AI Coach! I can only help with diet, nutrition, and workout questions. Try asking me about meal plans, exercises, or fitness tips! 💪"
+3. Keep responses SHORT and in BULLET POINTS. Maximum 4-6 bullet points.
+4. Each bullet point should be clear and actionable.
+5. Always tailor advice to the user's fitness goal when provided.
+6. Be motivating and encouraging.
+7. Do NOT write long paragraphs."""
+
 SYSTEM_PROMPT = """You are FitCare AI Trainer — a professional fitness coach and sports nutritionist.
 You give precise, motivating advice on workouts, recovery, and nutrition.
 Always tailor your advice to the user's stated fitness goal: lose weight, gain muscle, or maintain.
 When asked for structured data, output ONLY valid JSON.
 Keep responses concise, action-oriented, and encouraging."""
+
+OLLAMA_CHAT_URL = "http://localhost:11434/api/generate"
 
 try:
     client = AzureOpenAI(
@@ -32,26 +45,53 @@ except Exception as e:
 
 def get_fitness_advice(user_message: str, user_goal: str = "maintain") -> str:
     """
-    Sends a message to the AI Trainer and returns a plain-text reply.
-    Falls back gracefully if Azure OpenAI is not configured.
+    Sends a message to the AI Trainer. Uses Ollama phi3 as primary engine,
+    Azure OpenAI as secondary, and a static fallback as last resort.
     """
-    if not client:
-        return get_fallback_response(user_message)
+    # Primary: Ollama phi3 (local)
+    ollama_reply = _chat_via_ollama(user_message, user_goal)
+    if ollama_reply:
+        return ollama_reply
 
+    # Secondary: Azure OpenAI
+    if client:
+        try:
+            response = client.chat.completions.create(
+                model=DEPLOYMENT_NAME,
+                messages=[
+                    {"role": "system", "content": CHAT_SYSTEM_PROMPT},
+                    {"role": "user", "content": f"[User Goal: {user_goal}] {user_message}"}
+                ],
+                temperature=0.7,
+                max_tokens=300
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error(f"Azure AI Trainer chat failed: {e}")
+
+    # Last resort: static fallback
+    return get_fallback_response(user_message)
+
+
+def _chat_via_ollama(user_message: str, user_goal: str) -> str:
+    """Sends a chat message to local Ollama phi3 and returns the reply."""
+    payload = {
+        "model": "phi3",
+        "prompt": f"[User's Fitness Goal: {user_goal}]\n\nUser Question: {user_message}",
+        "stream": False,
+        "system": CHAT_SYSTEM_PROMPT
+    }
     try:
-        response = client.chat.completions.create(
-            model=DEPLOYMENT_NAME,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": f"[User Goal: {user_goal}] {user_message}"}
-            ],
-            temperature=0.7,
-            max_tokens=400
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        logger.error(f"AI Trainer chat failed: {e}")
-        return get_fallback_response(user_message)
+        logger.info("Sending chat to Ollama phi3...")
+        response = requests.post(OLLAMA_CHAT_URL, json=payload, timeout=60)
+        if response.status_code == 200:
+            return response.json().get("response", "").strip()
+        else:
+            logger.error(f"Ollama chat error [{response.status_code}]: {response.text}")
+            return None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Ollama chat connection failed: {e}")
+        return None
 
 
 def get_workout_plan_json(user_goal: str, activity_level: str, duration_minutes: int = 45) -> dict:
@@ -97,9 +137,11 @@ def get_workout_plan_json(user_goal: str, activity_level: str, duration_minutes:
 
 def get_fallback_response(message: str) -> str:
     return (
-        "Your AI Trainer is offline right now, but here's a universal tip: "
-        "Stay consistent, prioritise sleep, and drink enough water. "
-        "You've got this! 💪"
+        "Your AI Trainer is offline right now, but here's a universal tip:\n\n"
+        "• Stay consistent with your workouts\n"
+        "• Prioritise 7-8 hours of sleep\n"
+        "• Drink at least 3L of water daily\n"
+        "• You've got this! 💪"
     )
 
 
@@ -141,7 +183,7 @@ def generate_meal_plan_ollama(user_goal: str, calories: float, protein: float, c
 
     try:
         logger.info(f"Sending meal plan request to Ollama phi3...")
-        response = requests.post(OLLAMA_URL, json=payload, timeout=20)
+        response = requests.post(OLLAMA_URL, json=payload, timeout=120)
         
         if response.status_code == 200:
             data = response.json()

@@ -6,6 +6,7 @@ import { Colors } from '../constants/Colors';
 import HomeScreen from '../screens/HomeScreen';
 import ProgressDashboard from '../screens/ProgressDashboard';
 import DietPlanner from '../screens/DietPlanner';
+import AIChatScreen from '../screens/AIChatScreen';
 import WorkoutScreen from '../screens/WorkoutScreen';
 import VideoLibraryScreen from '../screens/VideoLibraryScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -57,6 +58,11 @@ export default function BottomTabs({ route }) {
                 name="Diet" component={DietPlanner}
                 initialParams={makeInitialParams()}
                 options={{ tabBarIcon: ({ focused }) => <TabIcon icon="🥗" label="Diet" focused={focused} /> }}
+            />
+            <Tab.Screen
+                name="AICoach" component={AIChatScreen}
+                initialParams={makeInitialParams()}
+                options={{ tabBarIcon: ({ focused }) => <TabIcon icon="🤖" label="AI Coach" focused={focused} /> }}
             />
             <Tab.Screen
                 name="Workout" component={WorkoutScreen}
