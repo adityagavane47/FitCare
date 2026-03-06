@@ -1,0 +1,21 @@
+{
+    "expo": {
+        "name": "FitCare",
+        "slug": "fitcare-mobile",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "scheme": "fitcare",
+        "userInterfaceStyle": "dark",
+        "newArchEnabled": true,
+        "android": {
+            "adaptiveIcon": {
+                "backgroundColor": "#000000"
+            },
+            "package": "com.fitcare.mobile"
+        },
+        "ios": {
+            "supportsTablet": true,
+            "bundleIdentifier": "com.fitcare.mobile"
+        }
+    }
+}

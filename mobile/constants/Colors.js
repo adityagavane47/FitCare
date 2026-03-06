@@ -1,0 +1,16 @@
+export const Colors = {
+  background: '#000000',
+  card: '#0A0A0A',
+  border: 'rgba(0, 255, 0, 0.2)',
+  borderBright: '#00FF00',
+  primary: '#00FF00',
+  primaryDim: 'rgba(0, 255, 0, 0.1)',
+  primaryGlow: 'rgba(0, 255, 0, 0.3)',
+  text: '#FFFFFF',
+  textMuted: '#888888',
+  textDim: '#555555',
+  danger: '#FF4444',
+  warning: '#FF9900',
+  cardBorder: 'rgba(0, 255, 0, 0.15)',
+  inputBg: '#111111',
+};
