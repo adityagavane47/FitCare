@@ -306,10 +306,44 @@ def get_latest_nutrition_plan(user_id: int, db: Session = Depends(get_db)):
 def chat_with_trainer(req: schemas.TrainerChatRequest, db: Session = Depends(get_db)):
     """
     Sends a message to the AI Trainer.
-    The trainer response is personalised using the user's fitness goal.
+    The trainer response is personalised using the user's fitness goal and body metrics.
     """
     user = db.query(models.UserDB).filter(models.UserDB.id == req.user_id).first()
-    user_goal = user.fitness_goal if user else "maintain"
+    
+    user_context = {
+        "goal": user.fitness_goal if user else "maintain",
+        "age": user.age if user else "unknown",
+        "gender": user.gender if user else "unknown",
+        "weight": user.weight_kg if user else "unknown",
+        "height": user.height_cm if user else "unknown",
+        "activity_level": user.activity_level if user else "unknown"
+    }
 
-    reply = ai_trainer.get_fitness_advice(req.message, user_goal)
+    reply = ai_trainer.get_fitness_advice(req.message, user_context)
     return {"reply": reply}
+
+
+@app.get("/api/trainer/status")
+def get_trainer_status():
+    """
+    Checks if the local Ollama instance is awake and responding.
+    """
+    import requests
+    OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    try:
+        res = requests.get(OLLAMA_URL, timeout=2)
+        if res.status_code == 200:
+            return {"status": "online", "message": "Ollama is running locally."}
+    except Exception:
+        pass
+    return {"status": "offline", "message": "Ollama is not reachable. Run 'ollama run phi3'."}
+
+
+@app.post("/api/workout/analysis", response_model=schemas.WorkoutAnalysisResponse)
+def analyze_workout_form(req: schemas.WorkoutAnalysisRequest, db: Session = Depends(get_db)):
+    """
+    Takes form flags (e.g. ['hips_sagging', 'not_deep_enough']) detected by BlazePose
+    and uses local Ollama Phi-3 to return an encouraging coaching summary.
+    """
+    summary = ai_trainer.analyze_form_flags(req.exercise_type, req.form_flags)
+    return {"feedback": summary}

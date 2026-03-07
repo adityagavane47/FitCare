@@ -10,17 +10,24 @@ const EXERCISE_ICONS = { general: '🏋️', running: '🏃', cycling: '🚴', s
 const ProgressDashboard = ({ route }) => {
     const { userId } = route.params;
     const [history, setHistory] = useState([]);
+    const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const fetchHistory = () => {
+    const fetchData = async () => {
         setLoading(true);
-        fitcareAPI.getWorkoutHistory(userId)
-            .then(setHistory)
-            .catch(() => setHistory([]))
-            .finally(() => setLoading(false));
+        try {
+            const [hData, uData] = await Promise.all([
+                fitcareAPI.getWorkoutHistory(userId).catch(() => []),
+                fitcareAPI.getUser(userId).catch(() => null)
+            ]);
+            setHistory(hData);
+            setUser(uData);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    useEffect(() => { fetchHistory(); }, [userId]);
+    useEffect(() => { fetchData(); }, [userId]);
 
     // Derive summary stats from history
     const totalWorkouts = history.length;
@@ -50,10 +57,33 @@ const ProgressDashboard = ({ route }) => {
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             <View style={styles.pageHeader}>
                 <Text style={styles.pageTitle}>📊 Progress</Text>
-                <TouchableOpacity onPress={fetchHistory}>
+                <TouchableOpacity onPress={fetchData}>
                     <Text style={styles.refreshBtn}>↻ Refresh</Text>
                 </TouchableOpacity>
             </View>
+
+            {/* Weight Progress (Mock Target for Visual) */}
+            {user && user.weight_kg && (
+                <View style={[styles.card, styles.weightCard]}>
+                    <Text style={styles.cardTitle}>⚖️ Weight Progress</Text>
+                    <View style={styles.weightRow}>
+                        <View style={styles.weightCol}>
+                            <Text style={styles.weightLabel}>Current</Text>
+                            <Text style={styles.weightValue}>{user.weight_kg} kg</Text>
+                        </View>
+                        <View style={styles.weightDivider} />
+                        <View style={styles.weightCol}>
+                            <Text style={styles.weightLabel}>Goal ({user.fitness_goal})</Text>
+                            <Text style={styles.weightValue}>
+                                {user.fitness_goal === 'lose' ? user.weight_kg - 5 : user.fitness_goal === 'gain' ? user.weight_kg + 5 : user.weight_kg} kg
+                            </Text>
+                        </View>
+                    </View>
+                    <View style={styles.weightBarBg}>
+                        <View style={[styles.weightBarFill, { width: user.fitness_goal === 'lose' ? '60%' : '100%', backgroundColor: Colors.primary }]} />
+                    </View>
+                </View>
+            )}
 
             {/* Summary Stats */}
             <View style={styles.statsGrid}>
@@ -138,6 +168,16 @@ const styles = StyleSheet.create({
     statLabel: { color: Colors.textMuted, fontSize: 11, marginTop: 4 },
     card: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 16, padding: 16, marginBottom: 12 },
     cardTitle: { color: Colors.primary, fontWeight: '700', fontSize: 14, marginBottom: 16 },
+
+    weightCard: { borderColor: Colors.primary, borderWidth: 1 },
+    weightRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginBottom: 16 },
+    weightCol: { alignItems: 'center' },
+    weightLabel: { color: Colors.textMuted, fontSize: 12, marginBottom: 4 },
+    weightValue: { color: Colors.text, fontSize: 24, fontWeight: '900' },
+    weightDivider: { width: 1, height: 30, backgroundColor: Colors.border },
+    weightBarBg: { height: 8, backgroundColor: '#1A1A1A', borderRadius: 4, overflow: 'hidden' },
+    weightBarFill: { height: '100%', borderRadius: 4 },
+
     chart: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 100 },
     chartCol: { flex: 1, alignItems: 'center' },
     chartBarBg: { width: 20, height: 80, backgroundColor: '#1A1A1A', borderRadius: 4, justifyContent: 'flex-end', marginBottom: 4 },

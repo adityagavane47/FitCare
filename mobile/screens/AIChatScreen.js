@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, FlatList,
     StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator
@@ -22,7 +22,23 @@ const AIChatScreen = ({ route }) => {
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [aiStatus, setAiStatus] = useState('checking'); // 'checking', 'online', 'offline'
     const flatListRef = useRef(null);
+
+    useEffect(() => {
+        const checkStatus = async () => {
+            try {
+                const res = await fitcareAPI.getTrainerStatus();
+                setAiStatus(res.status === 'online' ? 'online' : 'offline');
+            } catch (err) {
+                setAiStatus('offline');
+            }
+        };
+        checkStatus();
+        // optionally poll every 30s
+        const interval = setInterval(checkStatus, 30000);
+        return () => clearInterval(interval);
+    }, []);
 
     const sendMessage = async (text) => {
         const userMsg = text || input.trim();
@@ -67,7 +83,15 @@ const AIChatScreen = ({ route }) => {
             keyboardVerticalOffset={90}
         >
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>🤖 AI Coach</Text>
+                <View style={styles.headerTop}>
+                    <Text style={styles.headerTitle}>🤖 AI Coach</Text>
+                    <View style={styles.statusBadge}>
+                        <View style={[styles.statusDot, aiStatus === 'online' ? styles.dotOnline : aiStatus === 'offline' ? styles.dotOffline : styles.dotChecking]} />
+                        <Text style={styles.statusText}>
+                            {aiStatus === 'online' ? 'Phi-3 Online' : aiStatus === 'offline' ? 'Offline (Run Ollama)' : 'Checking...'}
+                        </Text>
+                    </View>
+                </View>
                 <Text style={styles.headerSub}>Diet & Workout Assistant</Text>
             </View>
 
@@ -141,7 +165,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#0A0A0A',
         borderBottomWidth: 1,
         borderBottomColor: Colors.border,
+    },
+    headerTop: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
+        width: '100%',
     },
     headerTitle: {
         fontSize: 22,
@@ -149,6 +178,21 @@ const styles = StyleSheet.create({
         color: Colors.primary,
         letterSpacing: 1,
     },
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#111',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+    dotOnline: { backgroundColor: Colors.primary, shadowColor: Colors.primary, shadowOpacity: 0.8, shadowRadius: 4, shadowOffset: { width: 0, height: 0 } },
+    dotOffline: { backgroundColor: Colors.danger },
+    dotChecking: { backgroundColor: Colors.warning },
+    statusText: { fontSize: 10, color: Colors.textMuted, fontWeight: '700' },
     headerSub: {
         fontSize: 12,
         color: Colors.textMuted,

@@ -127,3 +127,17 @@ class TrainerChatRequest(BaseModel):
 
 class TrainerChatResponse(BaseModel):
     reply: str
+
+
+# ===========================
+# FORM ANALYSIS SCHEMAS
+# ===========================
+
+class WorkoutAnalysisRequest(BaseModel):
+    user_id: int
+    exercise_type: str
+    form_flags: list[str]
+
+
+class WorkoutAnalysisResponse(BaseModel):
+    feedback: str

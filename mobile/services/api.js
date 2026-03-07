@@ -52,4 +52,11 @@ export const fitcareAPI = {
     // --- AI TRAINER ---
     chatWithTrainer: (userId, message) =>
         request('/api/trainer/chat', { method: 'POST', body: { user_id: userId, message } }),
+
+    getTrainerStatus: () =>
+        request('/api/trainer/status'),
+
+    // --- WORKOUT ANALYSIS ---
+    analyzeWorkoutForm: (userId, exerciseType, formFlags) =>
+        request('/api/workout/analysis', { method: 'POST', body: { user_id: userId, exercise_type: exerciseType, form_flags: formFlags } }),
 };

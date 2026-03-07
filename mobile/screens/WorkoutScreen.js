@@ -18,7 +18,7 @@ const EXERCISE_TYPES = [
     { value: 'swimming', label: 'Swimming', icon: '🏊' },
 ];
 
-const WorkoutScreen = ({ route }) => {
+const WorkoutScreen = ({ route, navigation }) => {
     const { userId } = route.params;
     const [selectedType, setSelectedType] = useState('general');
     const [connected, setConnected] = useState(false);
@@ -183,6 +183,15 @@ const WorkoutScreen = ({ route }) => {
             {!connected && !active && (
                 <TouchableOpacity style={styles.connectBtn} onPress={handleConnect}>
                     <Text style={styles.connectBtnText}>📡 Connect Wearable</Text>
+                </TouchableOpacity>
+            )}
+
+            {!active && (selectedType === 'general' || selectedType === 'yoga') && (
+                <TouchableOpacity
+                    style={[styles.connectBtn, { marginTop: 12, borderColor: Colors.primary }]}
+                    onPress={() => navigation.navigate('FormCorrection', { userId, exerciseType: selectedType === 'general' ? 'pushup' : 'squat' })}
+                >
+                    <Text style={[styles.connectBtnText, { color: Colors.primary }]}>📸 Let AI Coach Watch Form</Text>
                 </TouchableOpacity>
             )}
 

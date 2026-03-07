@@ -3,8 +3,8 @@ import json
 import logging
 import requests
 from pathlib import Path
-from openai import AzureOpenAI
 from dotenv import load_dotenv
+import re
 
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -12,127 +12,181 @@ load_dotenv(dotenv_path=env_path)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-CHAT_SYSTEM_PROMPT = """You are FitCare AI Trainer — a professional fitness coach and sports nutritionist.
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_CHAT_URL = f"{OLLAMA_BASE_URL}/api/generate"
 
+CHAT_SYSTEM_PROMPT = """You are FitCare AI Trainer, a professional but friendly fitness coach and sports nutritionist.
 STRICT RULES:
-1. You ONLY answer questions about: workouts, exercises, fitness routines, diet, nutrition, meal plans, supplements, recovery, stretching, weight loss, muscle gain, and general health/wellness.
-2. If the user asks about ANYTHING outside fitness and diet (e.g., politics, coding, math, history, entertainment), reply ONLY with: "I'm your FitCare AI Coach! I can only help with diet, nutrition, and workout questions. Try asking me about meal plans, exercises, or fitness tips! 💪"
-3. Keep responses SHORT and in BULLET POINTS. Maximum 4-6 bullet points.
-4. Each bullet point should be clear and actionable.
-5. Always tailor advice to the user's fitness goal when provided.
-6. Be motivating and encouraging.
-7. Do NOT write long paragraphs."""
+1. ONLY answer questions about workouts, diet, and fitness.
+2. If asked about anything else, reply: "I'm your FitCare AI Coach! I can only help with diet, nutrition, and workout questions."
+3. Provide DETAILED, thorough answers, but explain things in VERY SIMPLE WORDS. Do not use overly complex medical or scientific jargon without explaining it simply.
+4. Always tailor your advice specifically to the user's personal body metrics (height, weight, age, etc.) and fitness goal. Mention their specific context if relevant to the answer.
+5. Use bullet points or numbered lists to make your detailed advice easy to read. Be encouraging and motivating!"""
 
-SYSTEM_PROMPT = """You are FitCare AI Trainer — a professional fitness coach and sports nutritionist.
-You give precise, motivating advice on workouts, recovery, and nutrition.
-Always tailor your advice to the user's stated fitness goal: lose weight, gain muscle, or maintain.
-When asked for structured data, output ONLY valid JSON.
-Keep responses concise, action-oriented, and encouraging."""
+JSON_SYSTEM_PROMPT = """You are FitCare AI Trainer. You output ONLY valid JSON.
+Do not wrap your response in markdown blocks. Do not include introductory text.
+Output raw JSON only."""
 
-OLLAMA_CHAT_URL = "http://localhost:11434/api/generate"
-
-try:
-    client = AzureOpenAI(
-        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-        api_key=os.getenv("AZURE_OPENAI_KEY"),
-        api_version=os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
+def get_fitness_advice(user_message: str, user_context: dict = None) -> str:
+    """
+    Sends a message to the local Ollama AI Trainer (Phi-3).
+    """
+    if user_context is None:
+        user_context = {"goal": "maintain"}
+        
+    context_str = (
+        f"User Profile:\n"
+        f"- Goal: {user_context.get('goal')}\n"
+        f"- Age: {user_context.get('age')}\n"
+        f"- Gender: {user_context.get('gender')}\n"
+        f"- Weight: {user_context.get('weight')} kg\n"
+        f"- Height: {user_context.get('height')} cm\n"
+        f"- Activity Level: {user_context.get('activity_level')}"
     )
-    DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
-except Exception as e:
-    logger.error(f"Azure Client Init Failed: {e}")
-    client = None
-
-
-def get_fitness_advice(user_message: str, user_goal: str = "maintain") -> str:
-    """
-    Sends a message to the AI Trainer. Uses Ollama phi3 as primary engine,
-    Azure OpenAI as secondary, and a static fallback as last resort.
-    """
-    # Primary: Ollama phi3 (local)
-    ollama_reply = _chat_via_ollama(user_message, user_goal)
-    if ollama_reply:
-        return ollama_reply
-
-    # Secondary: Azure OpenAI
-    if client:
-        try:
-            response = client.chat.completions.create(
-                model=DEPLOYMENT_NAME,
-                messages=[
-                    {"role": "system", "content": CHAT_SYSTEM_PROMPT},
-                    {"role": "user", "content": f"[User Goal: {user_goal}] {user_message}"}
-                ],
-                temperature=0.7,
-                max_tokens=300
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            logger.error(f"Azure AI Trainer chat failed: {e}")
-
-    # Last resort: static fallback
-    return get_fallback_response(user_message)
-
-
-def _chat_via_ollama(user_message: str, user_goal: str) -> str:
-    """Sends a chat message to local Ollama phi3 and returns the reply."""
+    
+    prompt = f"{context_str}\n\nUser Question: {user_message}"
+    
     payload = {
         "model": "phi3",
-        "prompt": f"[User's Fitness Goal: {user_goal}]\n\nUser Question: {user_message}",
+        "prompt": prompt,
         "stream": False,
         "system": CHAT_SYSTEM_PROMPT
     }
+    
     try:
-        logger.info("Sending chat to Ollama phi3...")
+        logger.info("Sending chat to local Ollama phi3...")
         response = requests.post(OLLAMA_CHAT_URL, json=payload, timeout=60)
         if response.status_code == 200:
             return response.json().get("response", "").strip()
         else:
             logger.error(f"Ollama chat error [{response.status_code}]: {response.text}")
-            return None
     except requests.exceptions.RequestException as e:
         logger.error(f"Ollama chat connection failed: {e}")
-        return None
+        
+    return get_fallback_response(user_message)
 
 
 def get_workout_plan_json(user_goal: str, activity_level: str, duration_minutes: int = 45) -> dict:
     """
-    Asks the AI Trainer to generate a structured workout plan as JSON.
+    Asks the local Ollama AI Trainer (Phi-3) to generate a structured workout plan as JSON.
     """
-    if not client:
-        return get_fallback_workout()
-
     prompt = f"""
-    Generate a {duration_minutes}-minute workout plan.
-    - Goal: {user_goal}
-    - Fitness level: {activity_level}
-
-    RETURN JSON EXACTLY LIKE THIS:
-    {{
-        "plan_title": "...",
-        "warm_up": ["Exercise 1 - 5 min", "Exercise 2 - 3 min"],
-        "main_workout": [
-            {{"exercise": "Push-ups", "sets": 3, "reps": "12", "rest_seconds": 60}},
-            {{"exercise": "Squats", "sets": 4, "reps": "15", "rest_seconds": 45}}
-        ],
-        "cool_down": ["Stretch 1 - 3 min", "Stretch 2 - 2 min"],
-        "estimated_calories": 250,
-        "trainer_tip": "..."
-    }}
-    """
+Generate a {duration_minutes}-minute workout plan for a {activity_level} user with the goal to {user_goal}.
+Respond with ONLY a raw JSON object matching this exact structure:
+{{
+  "plan_title": "A short, motivating title",
+  "warm_up": ["Exercise 1 - 5 min", "Exercise 2 - 3 min"],
+  "main_workout": [
+    {{"exercise": "Push-ups", "sets": 3, "reps": "12", "rest_seconds": 60}},
+    {{"exercise": "Squats", "sets": 4, "reps": "15", "rest_seconds": 45}}
+  ],
+  "cool_down": ["Stretch 1 - 3 min", "Stretch 2 - 2 min"],
+  "estimated_calories": 250,
+  "trainer_tip": "A short motivating tip"
+}}
+"""
+    
+    payload = {
+        "model": "phi3",
+        "prompt": prompt,
+        "stream": False,
+        "format": "json",
+        "system": JSON_SYSTEM_PROMPT
+    }
+    
     try:
-        response = client.chat.completions.create(
-            model=DEPLOYMENT_NAME,
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.6,
-            response_format={"type": "json_object"}
-        )
-        return json.loads(response.choices[0].message.content)
-    except Exception as e:
-        logger.error(f"Workout plan generation failed: {e}")
-        return get_fallback_workout()
+        logger.info("Sending JSON workout request to local Ollama phi3...")
+        response = requests.post(OLLAMA_CHAT_URL, json=payload, timeout=120)
+        if response.status_code == 200:
+            raw_response = response.json().get("response", "").strip()
+            # Clean up potential markdown formatting that Phi-3 might still include
+            raw_response = re.sub(r'```json\s*', '', raw_response)
+            raw_response = re.sub(r'```\s*', '', raw_response)
+            return json.loads(raw_response)
+        else:
+            logger.error(f"Ollama JSON error [{response.status_code}]: {response.text}")
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse JSON from Ollama: {e} - Raw Output: {raw_response}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Ollama JSON connection failed: {e}")
+        
+    return get_fallback_workout()
+
+
+def generate_meal_plan_ollama(user_goal: str, calories: float, protein: float, carbs: float, fats: float) -> str:
+    """
+    Calls the local Ollama API (phi3) to generate a personalised 1-day meal plan based on calculated macros.
+    """
+    prompt = f"""
+Goal: {user_goal}
+Target: {int(calories)} kcal
+Macros: {int(protein)}g Protein, {int(carbs)}g Carbs, {int(fats)}g Fat
+
+Provide a 1-day meal plan with:
+- Breakfast
+- Lunch
+- Dinner
+- Snack
+
+Keep it extremely concise and realistic. Do not use generic placeholders.
+"""
+    
+    payload = {
+        "model": "phi3",
+        "prompt": prompt,
+        "stream": False,
+        "system": "You are a professional sports nutritionist. Provide straightforward, practical meal plans very concisely."
+    }
+
+    try:
+        logger.info("Sending meal plan request to local Ollama phi3...")
+        response = requests.post(OLLAMA_CHAT_URL, json=payload, timeout=120)
+        
+        if response.status_code == 200:
+            return response.json().get("response", "").strip()
+        else:
+            logger.error(f"Ollama Error [{response.status_code}]: {response.text}")
+            
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Ollama Connection Failed: {e}. Is Ollama running?")
+        
+    return get_fallback_meal_plan(calories, protein, carbs, fats)
+
+
+def analyze_form_flags(exercise_type: str, form_flags: list[str]) -> str:
+    """
+    Evaluates form flags from BlazePose and uses Ollama to provide encouraging, actionable advice.
+    """
+    if not form_flags:
+        return f"Great job on those {exercise_type}s! Your form looked solid."
+
+    flags_str = ", ".join(form_flags)
+    prompt = f"""
+The user just completed a set of {exercise_type}s. 
+The AI vision system detected the following form issues: {flags_str}
+
+Provide a very short, encouraging 2-sentence feedback telling them how to fix this for their next set.
+Do not use markdown formatting.
+    """
+    
+    payload = {
+        "model": "phi3",
+        "prompt": prompt,
+        "stream": False,
+        "system": CHAT_SYSTEM_PROMPT
+    }
+    
+    try:
+        logger.info(f"Sending form analysis request to local Ollama phi3 for {exercise_type}...")
+        response = requests.post(OLLAMA_CHAT_URL, json=payload, timeout=60)
+        if response.status_code == 200:
+            return response.json().get("response", "").strip()
+        else:
+            logger.error(f"Ollama form analysis error [{response.status_code}]: {response.text}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Ollama form analysis connection failed: {e}")
+        
+    return f"We noticed some issues with your {exercise_type} form (e.g. {flags_str}). Try focusing on keeping your core engaged!"
 
 
 def get_fallback_response(message: str) -> str:
@@ -141,9 +195,9 @@ def get_fallback_response(message: str) -> str:
         "• Stay consistent with your workouts\n"
         "• Prioritise 7-8 hours of sleep\n"
         "• Drink at least 3L of water daily\n"
-        "• You've got this! 💪"
+        "• You've got this! 💪\n\n"
+        "(Make sure Ollama is running locally for personalised AI generation!)"
     )
-
 
 def get_fallback_workout() -> dict:
     return {
@@ -156,45 +210,8 @@ def get_fallback_workout() -> dict:
         ],
         "cool_down": ["Standing quad stretch - 30 sec each leg", "Shoulder cross-body stretch - 30 sec each"],
         "estimated_calories": 180,
-        "trainer_tip": "Focus on form over speed."
+        "trainer_tip": "Focus on form over speed. (Ensure Ollama is running for custom workouts!)"
     }
-
-def generate_meal_plan_ollama(user_goal: str, calories: float, protein: float, carbs: float, fats: float) -> str:
-    """
-    Calls the local Ollama API (phi3) to generate a personalised 1-day meal plan based on calculated macros.
-    """
-    OLLAMA_URL = "http://localhost:11434/api/generate"
-    
-    prompt = f"""
-    Create a practical, high-quality 1-day sample meal plan (Breakfast, Lunch, Dinner, Snack).
-    Goal: {user_goal}
-    Target Daily Calories: {int(calories)} kcal
-    Macros: {int(protein)}g Protein, {int(carbs)}g Carbs, {int(fats)}g Fat
-
-    Keep it concise, realistic, and formatted nicely. Do not use generic placeholders.
-    """
-    
-    payload = {
-        "model": "phi3",
-        "prompt": prompt,
-        "stream": False,
-        "system": "You are a professional sports nutritionist providing straightforward, practical meal plans."
-    }
-
-    try:
-        logger.info(f"Sending meal plan request to Ollama phi3...")
-        response = requests.post(OLLAMA_URL, json=payload, timeout=120)
-        
-        if response.status_code == 200:
-            data = response.json()
-            return data.get("response", "").strip()
-        else:
-            logger.error(f"Ollama Error [{response.status_code}]: {response.text}")
-            return get_fallback_meal_plan(calories, protein, carbs, fats)
-            
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Ollama Connection Failed: {e}. Is Ollama running?")
-        return get_fallback_meal_plan(calories, protein, carbs, fats)
 
 def get_fallback_meal_plan(cal: float, p: float, c: float, f: float) -> str:
     return (
