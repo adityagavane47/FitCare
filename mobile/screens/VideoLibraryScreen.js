@@ -3,6 +3,7 @@ import {
     View, Text, ScrollView, StyleSheet, TouchableOpacity, FlatList
 } from 'react-native';
 import { Colors } from '../constants/Colors';
+import CustomHeader from '../components/CustomHeader';
 
 const BODY_PARTS = ['All', 'Chest', 'Back', 'Arms', 'Legs', 'Core', 'Shoulders', 'Cardio'];
 const DIFFICULTIES = ['All', 'Beginner', 'Intermediate', 'Advanced'];
@@ -48,9 +49,11 @@ const VideoLibraryScreen = () => {
 
     return (
         <View style={styles.container}>
+            <CustomHeader title="Vault" />
+
             <View style={styles.pageHeader}>
-                <Text style={styles.pageTitle}>🎬 Video Library</Text>
-                <Text style={styles.pageCount}>{filtered.length} videos</Text>
+                <Text style={styles.pageTitle}>🎬 VIDEO_VAULT</Text>
+                <Text style={styles.pageCount}>{filtered.length} units</Text>
             </View>
 
             {/* Body Part Filter */}
@@ -109,10 +112,10 @@ const VideoLibraryScreen = () => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background, paddingHorizontal: 16 },
-    pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 48, marginBottom: 16 },
+    container: { flex: 1, backgroundColor: Colors.background },
+    pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 16, marginTop: 20, marginBottom: 16 },
     pageTitle: { color: Colors.text, fontSize: 24, fontWeight: '800' },
-    pageCount: { color: Colors.textMuted, fontSize: 13 },
+    pageCount: { color: Colors.textMuted, fontSize: 13, marginBottom: 4 },
     filterLabel: { color: Colors.textMuted, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8, marginTop: 4 },
     filterScroll: { marginBottom: 10 },
     chip: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8 },

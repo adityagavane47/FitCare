@@ -16,6 +16,23 @@
         "ios": {
             "supportsTablet": true,
             "bundleIdentifier": "com.fitcare.mobile"
+        },
+        "plugins": [
+            [
+                "react-native-health-connect",
+                {
+                    "permissions": [
+                        "HeartRate",
+                        "ActiveCaloriesBurned"
+                    ]
+                }
+            ],
+            "react-native-ble-plx"
+        ],
+        "extra": {
+            "eas": {
+                "projectId": "1698c1db-f1d2-4255-b1dc-d59735079859"
+            }
         }
     }
 }

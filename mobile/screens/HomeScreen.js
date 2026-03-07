@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { fitcareAPI } from '../services/api';
+import CustomHeader from '../components/CustomHeader';
 
 const QUOTES = [
     '"The pain you feel today will be the strength you feel tomorrow."',
@@ -47,8 +48,10 @@ const HomeScreen = ({ route }) => {
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-            {/* Header */}
-            <View style={styles.header}>
+            <CustomHeader title="FitCare Hub" />
+
+            {/* Header Summary */}
+            <View style={styles.headerSummary}>
                 <View>
                     <Text style={styles.greeting}>Good day,</Text>
                     <Text style={styles.name}>
@@ -132,9 +135,9 @@ const HomeScreen = ({ route }) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background, padding: 16 },
+    container: { flex: 1, backgroundColor: Colors.background },
     centered: { flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: 48, marginBottom: 20 },
+    headerSummary: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 16, marginTop: 20, marginBottom: 20 },
     greeting: { color: Colors.textMuted, fontSize: 14 },
     name: { color: Colors.text, fontSize: 26, fontWeight: '800', marginTop: 2 },
     nameAccent: { color: Colors.primary },

@@ -9,7 +9,14 @@ import { StatusBar } from 'expo-status-bar';
 // Import Screens
 import LoginScreen from './screens/LoginScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
-import BottomTabs from './components/BottomTabs';
+import HomeScreen from './screens/HomeScreen';
+import ProgressDashboard from './screens/ProgressDashboard';
+import DietPlanner from './screens/DietPlanner';
+import AIChatScreen from './screens/AIChatScreen';
+import WorkoutScreen from './screens/WorkoutScreen';
+import AIVisionScreen from './screens/AIVisionScreen';
+import VideoLibraryScreen from './screens/VideoLibraryScreen';
+import ProfileScreen from './screens/ProfileScreen';
 import FormCorrectionScreen from './screens/FormCorrectionScreen';
 
 // --- GLOBAL MONKEY-PATCH FOR TENSORFLOW.JS COMPATIBILITY ---
@@ -39,7 +46,78 @@ if (!patchTarget.Constants) {
 }
 // ---------------------------------------------------------
 
+import { createDrawerNavigator } from '@react-navigation/drawer';
+import { Colors } from './constants/Colors';
+import CustomDrawerContent from './components/CustomDrawerContent';
+
 const Stack = createStackNavigator();
+const Drawer = createDrawerNavigator();
+
+function MainDrawer({ route }) {
+    const { userId } = route.params;
+    return (
+        <Drawer.Navigator
+            drawerContent={(props) => <CustomDrawerContent {...props} />}
+            screenOptions={{
+                headerShown: false,
+                drawerStyle: { backgroundColor: '#0A0A0A', width: 280 },
+                drawerActiveTintColor: '#39FF14',
+                drawerInactiveTintColor: '#6d6d80',
+                drawerLabelStyle: { fontWeight: '900', letterSpacing: 1, fontSize: 13 },
+                drawerItemStyle: { marginVertical: 5, borderRadius: 8 },
+            }}
+        >
+            <Drawer.Screen
+                name="Home"
+                component={HomeScreen}
+                initialParams={{ userId }}
+                options={{ title: '🏠 HOME_BASE' }}
+            />
+            <Drawer.Screen
+                name="Workout"
+                component={WorkoutScreen}
+                initialParams={{ userId }}
+                options={{ title: '⚡ WORKOUT_PROTOCOL' }}
+            />
+            <Drawer.Screen
+                name="Vision"
+                component={AIVisionScreen}
+                initialParams={{ userId }}
+                options={{ title: '👁️ VISION_SYSTEM' }}
+            />
+            <Drawer.Screen
+                name="Diet"
+                component={DietPlanner}
+                initialParams={{ userId }}
+                options={{ title: '🥗 DIET_ARCHITECT' }}
+            />
+            <Drawer.Screen
+                name="Progress"
+                component={ProgressDashboard}
+                initialParams={{ userId }}
+                options={{ title: '📊 PROGRESS_STATS' }}
+            />
+            <Drawer.Screen
+                name="AICoach"
+                component={AIChatScreen}
+                initialParams={{ userId }}
+                options={{ title: '🤖 AI_COACH' }}
+            />
+            <Drawer.Screen
+                name="Videos"
+                component={VideoLibraryScreen}
+                initialParams={{ userId }}
+                options={{ title: '🎬 VIDEO_VAULT' }}
+            />
+            <Drawer.Screen
+                name="Settings"
+                component={ProfileScreen}
+                initialParams={{ userId }}
+                options={{ title: '⚙️ SYSTEM_SETTINGS' }}
+            />
+        </Drawer.Navigator>
+    );
+}
 
 export default function App() {
     return (
@@ -52,7 +130,7 @@ export default function App() {
                 >
                     <Stack.Screen name="Login" component={LoginScreen} />
                     <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-                    <Stack.Screen name="Main" component={BottomTabs} />
+                    <Stack.Screen name="Main" component={MainDrawer} />
                     <Stack.Screen name="FormCorrection" component={FormCorrectionScreen} />
                 </Stack.Navigator>
             </NavigationContainer>

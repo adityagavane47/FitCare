@@ -1,91 +1,81 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, ScrollView,
-    Alert, ActivityIndicator
+    Alert, ActivityIndicator, Dimensions
 } from 'react-native';
 import { Colors } from '../constants/Colors';
-import {
-    connectBluetooth, startHeartRateStream,
-    stopHeartRateStream, sendWorkoutToBackend
-} from '../services/wearable';
+import { sendWorkoutToBackend } from '../services/wearable';
+import CustomHeader from '../components/CustomHeader';
 
-const EXERCISE_TYPES = [
-    { value: 'general', label: 'General', icon: '🏋️' },
-    { value: 'running', label: 'Running', icon: '🏃' },
-    { value: 'cycling', label: 'Cycling', icon: '🚴' },
-    { value: 'yoga', label: 'Yoga', icon: '🧘' },
-    { value: 'boxing', label: 'Boxing', icon: '🥊' },
-    { value: 'swimming', label: 'Swimming', icon: '🏊' },
-];
+const { width } = Dimensions.get('window');
 
-const WorkoutScreen = ({ route, navigation }) => {
-    const { userId } = route.params;
-    const [selectedType, setSelectedType] = useState('general');
-    const [connected, setConnected] = useState(false);
-    const [active, setActive] = useState(false);
-    const [heartRate, setHeartRate] = useState(null);
-    const [heartRateMax, setHeartRateMax] = useState(0);
-    const [heartRates, setHeartRates] = useState([]);
-    const [elapsed, setElapsed] = useState(0);
+const CATEGORIES = {
+    'Strength': ['Dumbbells', 'Barbell', 'Bodyweight', 'Machines'],
+    'Cardio': ['Treadmill', 'Cycling', 'Elliptical', 'Rowing', 'Running'],
+    'Yoga': ['Hatha', 'Vinyasa', 'Ashtanga', 'Restorative'],
+    'Combat': ['Boxing', 'Kickboxing', 'MMA'],
+};
+
+const WorkoutScreen = ({ route }) => {
+    const { userId } = route.params || { userId: 1 };
+
+    // Selection State
+    const [selectedCategory, setSelectedCategory] = useState('Strength');
+    const [selectedExercise, setSelectedExercise] = useState('Dumbbells');
+
+    // Timer State
+    const [timer, setTimer] = useState(0);
+    const [isActive, setIsActive] = useState(false);
     const [saving, setSaving] = useState(false);
-    const timerRef = useRef(null);
+
+    const intervalRef = useRef(null);
 
     useEffect(() => {
-        return () => {
-            stopHeartRateStream();
-            if (timerRef.current) clearInterval(timerRef.current);
-        };
-    }, []);
-
-    const handleConnect = async () => {
-        const result = await connectBluetooth();
-        setConnected(result.connected);
-    };
-
-    const handleStart = async () => {
-        if (!connected) await handleConnect();
-        setActive(true);
-        setElapsed(0);
-        setHeartRates([]);
-        setHeartRateMax(0);
-
-        timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
-
-        startHeartRateStream(({ heartRate: hr }) => {
-            setHeartRate(hr);
-            setHeartRates((prev) => {
-                const updated = [...prev, hr];
-                setHeartRateMax((m) => Math.max(m, hr));
-                return updated;
-            });
-        });
-    };
-
-    const handleStop = async () => {
-        setActive(false);
-        stopHeartRateStream();
-        if (timerRef.current) clearInterval(timerRef.current);
-
-        if (elapsed < 10) {
-            Alert.alert('Too short', 'Workout too short to log. Minimum 10 seconds.');
-            setElapsed(0);
-            return;
+        if (isActive) {
+            intervalRef.current = setInterval(() => {
+                setTimer((t) => t + 1);
+            }, 1000);
+        } else {
+            clearInterval(intervalRef.current);
         }
+        return () => clearInterval(intervalRef.current);
+    }, [isActive]);
 
-        const avgHR = heartRates.length > 0
-            ? Math.round(heartRates.reduce((a, b) => a + b, 0) / heartRates.length)
-            : null;
+    const handleStartStop = async () => {
+        if (isActive) {
+            // Stop and Save
+            setIsActive(false);
+            if (timer < 5) {
+                Alert.alert('Protocol Error', 'Session too short for uplink. (Min 5s)');
+                setTimer(0);
+                return;
+            }
+            saveWorkout();
+        } else {
+            // Start
+            setIsActive(true);
+        }
+    };
 
+    const saveWorkout = async () => {
         setSaving(true);
         try {
-            await sendWorkoutToBackend(userId, selectedType, elapsed / 60, avgHR, heartRateMax);
-            Alert.alert('Workout Logged! 💪', `${Math.round(elapsed / 60)} min ${selectedType} session saved.`);
-        } catch (err) {
-            Alert.alert('Save Error', 'Could not log workout. Check backend connection.');
+            const durationMin = timer / 60;
+            await sendWorkoutToBackend(
+                userId,
+                selectedExercise.toLowerCase(),
+                durationMin,
+                null, // No wearable HR for manual log
+                null,
+                selectedCategory,
+                selectedExercise
+            );
+            Alert.alert('UPLINK_SUCCESS', `Protocol [${selectedExercise}] synced successfully.`);
+            setTimer(0);
+        } catch (error) {
+            Alert.alert('UPLINK_FAILED', 'Connection to core lost. Check backend status.');
         } finally {
             setSaving(false);
-            setElapsed(0);
-            setHeartRate(null);
         }
     };
 
@@ -95,143 +85,112 @@ const WorkoutScreen = ({ route, navigation }) => {
         return `${m}:${sec}`;
     };
 
-    const hrZoneColor = () => {
-        if (!heartRate) return Colors.textDim;
-        if (heartRate < 100) return '#3B82F6';
-        if (heartRate < 130) return Colors.primary;
-        if (heartRate < 160) return Colors.warning;
-        return Colors.danger;
-    };
-
     return (
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-            <View style={styles.pageHeader}>
-                <Text style={styles.pageTitle}>⚡ Workout</Text>
-                <View style={[styles.statusDot, { backgroundColor: connected ? Colors.primary : Colors.textDim }]} />
+        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+            <CustomHeader title="Manual Sync" />
+
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>V2.0_UPLINK</Text>
+                <View style={[styles.statusDot, { backgroundColor: isActive ? '#39FF14' : '#555' }]} />
             </View>
 
-            {/* Exercise Type Selector */}
-            <Text style={styles.sectionLabel}>Select Exercise</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeScroll}>
-                {EXERCISE_TYPES.map((t) => (
+            {/* Category Selector */}
+            <Text style={styles.label}>SELECT_CATEGORY</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillScroll}>
+                {Object.keys(CATEGORIES).map((cat) => (
                     <TouchableOpacity
-                        key={t.value}
-                        style={[styles.typeChip, selectedType === t.value && styles.typeChipSelected]}
-                        onPress={() => !active && setSelectedType(t.value)}
-                        disabled={active}
+                        key={cat}
+                        style={[styles.pill, selectedCategory === cat && styles.pillActive]}
+                        onPress={() => {
+                            if (!isActive) {
+                                setSelectedCategory(cat);
+                                setSelectedExercise(CATEGORIES[cat][0]);
+                            }
+                        }}
                     >
-                        <Text style={styles.typeIcon}>{t.icon}</Text>
-                        <Text style={[styles.typeLabel, selectedType === t.value && styles.typeLabelSelected]}>
-                            {t.label}
-                        </Text>
+                        <Text style={[styles.pillText, selectedCategory === cat && styles.pillTextActive]}>{cat.toUpperCase()}</Text>
                     </TouchableOpacity>
                 ))}
             </ScrollView>
 
-            {/* Timer Display */}
-            <View style={styles.timerCard}>
-                <Text style={styles.timerLabel}>Elapsed Time</Text>
-                <Text style={[styles.timer, active && styles.timerActive]}>{formatTime(elapsed)}</Text>
+            {/* Exercise Selector */}
+            <Text style={styles.label}>SELECT_EXERCISE</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillScroll}>
+                {CATEGORIES[selectedCategory].map((ex) => (
+                    <TouchableOpacity
+                        key={ex}
+                        style={[styles.smallPill, selectedExercise === ex && styles.smallPillActive]}
+                        onPress={() => !isActive && setSelectedExercise(ex)}
+                    >
+                        <Text style={[styles.smallPillText, selectedExercise === ex && styles.smallPillTextActive]}>{ex}</Text>
+                    </TouchableOpacity>
+                ))}
+            </ScrollView>
 
-                {/* Heart Rate Display */}
-                <View style={styles.hrDisplay}>
-                    <Text style={[styles.hrValue, { color: hrZoneColor() }]}>
-                        {heartRate ?? '—'}
-                    </Text>
-                    <Text style={styles.hrUnit}>bpm</Text>
+            {/* Stopwatch Display */}
+            <View style={styles.timerContainer}>
+                <Text style={styles.timerLabel}>SESSION_ELAPSED</Text>
+                <Text style={[styles.timerText, isActive && styles.timerTextActive]}>{formatTime(timer)}</Text>
+
+                <View style={styles.glitchBox}>
+                    <Text style={styles.glitchText}>PROTOCOL: {selectedExercise.toUpperCase()}</Text>
                 </View>
+            </View>
 
-                {heartRateMax > 0 && (
-                    <Text style={styles.hrMax}>Peak: {heartRateMax} bpm</Text>
+            {/* Main Action Button */}
+            <View style={styles.actionSection}>
+                {saving ? (
+                    <ActivityIndicator color="#39FF14" size="large" />
+                ) : (
+                    <TouchableOpacity
+                        style={[styles.mainBtn, isActive ? styles.stopBtn : styles.startBtn]}
+                        onPress={handleStartStop}
+                    >
+                        <Text style={styles.mainBtnText}>
+                            {isActive ? 'TERMINATE & SYNC' : 'INITIATE_WORKOUT'}
+                        </Text>
+                    </TouchableOpacity>
                 )}
             </View>
 
-            {/* HR Zone Guide */}
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>❤️ Heart Rate Zones</Text>
-                {[
-                    { zone: 'Rest', range: '< 100', color: '#3B82F6' },
-                    { zone: 'Fat Burn', range: '100–130', color: Colors.primary },
-                    { zone: 'Cardio', range: '130–160', color: Colors.warning },
-                    { zone: 'Peak', range: '> 160', color: Colors.danger },
-                ].map((z) => (
-                    <View key={z.zone} style={styles.zoneRow}>
-                        <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
-                        <Text style={styles.zoneName}>{z.zone}</Text>
-                        <Text style={styles.zoneRange}>{z.range} bpm</Text>
-                    </View>
-                ))}
+            <View style={styles.footerInfo}>
+                <Text style={styles.footerText}>
+                    {isActive ? 'SYSTEM_LOCKED: Timer active. Complete session to unlock selectors.' : 'BYPASS_ACTIVE: Selectors available for protocol adjustment.'}
+                </Text>
             </View>
-
-            {/* Action Buttons */}
-            {saving ? (
-                <ActivityIndicator color={Colors.primary} style={{ marginVertical: 20 }} />
-            ) : (
-                <>
-                    {!active ? (
-                        <TouchableOpacity style={styles.startBtn} onPress={handleStart}>
-                            <Text style={styles.startBtnText}>▶ Start Workout</Text>
-                        </TouchableOpacity>
-                    ) : (
-                        <TouchableOpacity style={styles.stopBtn} onPress={handleStop}>
-                            <Text style={styles.stopBtnText}>⏹ Stop & Save</Text>
-                        </TouchableOpacity>
-                    )}
-                </>
-            )}
-
-            {!connected && !active && (
-                <TouchableOpacity style={styles.connectBtn} onPress={handleConnect}>
-                    <Text style={styles.connectBtnText}>📡 Connect Wearable</Text>
-                </TouchableOpacity>
-            )}
-
-            {!active && (selectedType === 'general' || selectedType === 'yoga') && (
-                <TouchableOpacity
-                    style={[styles.connectBtn, { marginTop: 12, borderColor: Colors.primary }]}
-                    onPress={() => navigation.navigate('FormCorrection', { userId, exerciseType: selectedType === 'general' ? 'pushup' : 'squat' })}
-                >
-                    <Text style={[styles.connectBtnText, { color: Colors.primary }]}>📸 Let AI Coach Watch Form</Text>
-                </TouchableOpacity>
-            )}
-
-            <View style={{ height: 30 }} />
         </ScrollView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background, padding: 16 },
-    pageHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 48, marginBottom: 20 },
-    pageTitle: { color: Colors.text, fontSize: 24, fontWeight: '800' },
-    statusDot: { width: 10, height: 10, borderRadius: 5 },
-    sectionLabel: { color: Colors.textMuted, fontSize: 12, fontWeight: '600', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
-    typeScroll: { marginBottom: 20 },
-    typeChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10, marginRight: 10 },
-    typeChipSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryDim },
-    typeIcon: { fontSize: 16 },
-    typeLabel: { color: Colors.textMuted, fontWeight: '600' },
-    typeLabelSelected: { color: Colors.primary },
-    timerCard: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 20, padding: 24, alignItems: 'center', marginBottom: 16 },
-    timerLabel: { color: Colors.textMuted, fontSize: 12, marginBottom: 8 },
-    timer: { color: Colors.text, fontSize: 64, fontWeight: '900', fontVariant: ['tabular-nums'] },
-    timerActive: { color: Colors.primary, textShadowColor: Colors.primaryGlow, textShadowRadius: 12 },
-    hrDisplay: { flexDirection: 'row', alignItems: 'baseline', marginTop: 16, gap: 6 },
-    hrValue: { fontSize: 48, fontWeight: '900' },
-    hrUnit: { color: Colors.textMuted, fontSize: 16 },
-    hrMax: { color: Colors.danger, fontSize: 12, marginTop: 4 },
-    card: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 16, padding: 16, marginBottom: 12 },
-    cardTitle: { color: Colors.primary, fontWeight: '700', fontSize: 14, marginBottom: 12 },
-    zoneRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border, gap: 10 },
-    zoneDot: { width: 10, height: 10, borderRadius: 5 },
-    zoneName: { flex: 1, color: Colors.text, fontSize: 14 },
-    zoneRange: { color: Colors.textMuted, fontSize: 13 },
-    startBtn: { backgroundColor: Colors.primary, borderRadius: 14, padding: 18, alignItems: 'center', marginBottom: 12 },
-    startBtnText: { color: '#000', fontWeight: '800', fontSize: 18 },
-    stopBtn: { backgroundColor: Colors.danger, borderRadius: 14, padding: 18, alignItems: 'center', marginBottom: 12 },
-    stopBtnText: { color: '#fff', fontWeight: '800', fontSize: 18 },
-    connectBtn: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, padding: 14, alignItems: 'center' },
-    connectBtnText: { color: Colors.textMuted, fontWeight: '600' },
+    container: { flex: 1, backgroundColor: '#121212' },
+    content: { paddingBottom: 50 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 25, marginTop: 30, marginBottom: 40 },
+    headerTitle: { color: '#39FF14', fontSize: 22, fontWeight: '900', letterSpacing: 3 },
+    statusDot: { width: 10, height: 10, borderRadius: 5, shadowColor: '#39FF14', shadowRadius: 10, shadowOpacity: 1 },
+    label: { color: '#666', fontSize: 10, fontWeight: '800', marginBottom: 15, letterSpacing: 4 },
+    pillScroll: { marginBottom: 30 },
+    pill: { backgroundColor: '#1a1a1a', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 4, marginRight: 10, borderWidth: 1, borderColor: '#333' },
+    pillActive: { borderColor: '#39FF14', backgroundColor: '#39FF1422' },
+    pillText: { color: '#6d6d80', fontWeight: '800', fontSize: 12 },
+    pillTextActive: { color: '#39FF14' },
+    smallPill: { backgroundColor: '#1a1a1a', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 2, marginRight: 8, borderWidth: 1, borderColor: '#222' },
+    smallPillActive: { borderColor: '#39FF14' },
+    smallPillText: { color: '#555', fontWeight: '700', fontSize: 11 },
+    smallPillTextActive: { color: '#FFF' },
+    timerContainer: { backgroundColor: '#181818', borderRadius: 8, padding: 40, alignItems: 'center', marginBottom: 40, borderBottomWidth: 4, borderBottomColor: '#39FF14' },
+    timerLabel: { color: '#39FF14', fontSize: 10, fontWeight: '900', letterSpacing: 5, marginBottom: 10, opacity: 0.7 },
+    timerText: { color: '#FFF', fontSize: 84, fontWeight: '900', fontVariant: ['tabular-nums'] },
+    timerTextActive: { color: '#39FF14', textShadowColor: '#39FF14', textShadowRadius: 15 },
+    glitchBox: { marginTop: 20, backgroundColor: '#000', paddingHorizontal: 15, paddingVertical: 5 },
+    glitchText: { color: '#39FF14', fontSize: 12, fontWeight: '900' },
+    actionSection: { alignItems: 'center' },
+    mainBtn: { width: width - 50, padding: 20, borderRadius: 4, alignItems: 'center', borderWidth: 2 },
+    startBtn: { borderColor: '#39FF14' },
+    stopBtn: { borderColor: '#FF0042' },
+    mainBtnText: { color: '#FFF', fontWeight: '900', fontSize: 16, letterSpacing: 5 },
+    footerInfo: { marginTop: 30, opacity: 0.5 },
+    footerText: { color: '#888', fontSize: 10, textAlign: 'center', fontWeight: 'bold' }
 });
 
 export default WorkoutScreen;

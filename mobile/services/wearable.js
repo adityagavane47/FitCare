@@ -1,89 +1,82 @@
 /**
- * wearable.js — FitCare Wearable Bridge Service
- *
- * This service is the integration point for heart rate and activity data.
- * Currently runs in MOCK MODE — replace the stub functions with real
- * Web Bluetooth or Google Fit SDK calls when targeting physical devices.
- *
- * Phase 1: Mock data  ✅
- * Phase 2: Web Bluetooth (Chrome/Android) — TODO
- * Phase 3: Google Fit REST API — TODO
+ * Initializes Health Connect, checks availability, and requests permissions.
+ * @returns {Promise<boolean>} True if initialized and permissions granted.
  */
+export const initializeWearable = async () => {
+    try {
+        const { HealthConnect } = require('react-native-health-connect');
+        const isAvailable = await HealthConnect.isAvailable();
+        if (!isAvailable) {
+            console.log('Health Connect is not available on this device');
+            return false;
+        }
 
-import { fitcareAPI } from './api';
+        await HealthConnect.initialize();
 
-let _heartRateInterval = null;
-let _mockHeartRate = 72;
+        const permissions = [
+            { accessType: 'read', recordType: 'HeartRate' },
+            { accessType: 'read', recordType: 'ActiveCaloriesBurned' },
+        ];
 
-/**
- * Simulates a Bluetooth device connection.
- * Replace with: navigator.bluetooth.requestDevice({ filters: [{ services: ['heart_rate'] }] })
- */
-export async function connectBluetooth() {
-    console.log('[Wearable] Connecting to Bluetooth device...');
-    await new Promise((res) => setTimeout(res, 1000));
-    console.log('[Wearable] Connected (mock).');
-    return { deviceName: 'FitCare Band (Mock)', connected: true };
-}
-
-/**
- * Starts a Google Fit session.
- * Replace with: OAuth 2.0 flow + Google Fit REST API session start.
- */
-export async function startGoogleFitSession() {
-    console.log('[Wearable] Starting Google Fit session...');
-    return { session_id: `gfit_${Date.now()}`, started: true };
-}
-
-/**
- * Simulates a live heart rate stream.
- * Calls `onData` callback every 2 seconds with { heartRate, timestamp }.
- * Replace with: BLE characteristic notifications from the heart_rate service.
- */
-export function startHeartRateStream(onData) {
-    _heartRateInterval = setInterval(() => {
-        // Simulate realistic heart rate fluctuation
-        _mockHeartRate += Math.floor((Math.random() - 0.5) * 6);
-        _mockHeartRate = Math.max(55, Math.min(185, _mockHeartRate));
-        onData({ heartRate: _mockHeartRate, timestamp: new Date().toISOString() });
-    }, 2000);
-}
-
-/**
- * Stops the heart rate stream.
- */
-export function stopHeartRateStream() {
-    if (_heartRateInterval) {
-        clearInterval(_heartRateInterval);
-        _heartRateInterval = null;
+        const grantedPermissions = await HealthConnect.requestPermission(permissions);
+        return grantedPermissions.length > 0;
+    } catch (error) {
+        console.log('Wearable initialization failed (This is expected in Expo Go):', error.message);
+        return false;
     }
-}
+};
 
 /**
- * Sends a completed workout session to the backend.
- * This is the primary integration point between the wearable and the API.
- *
- * @param {number} userId
- * @param {string} exerciseType
- * @param {number} durationMinutes
- * @param {number} heartRateAvg
- * @param {number} heartRateMax
+ * Fetches heart rate samples between startTime and endTime and returns the average.
+ * @param {string} startTime ISO timestamp
+ * @param {string} endTime ISO timestamp
+ * @returns {Promise<number|null>} Average heart rate or null if failed.
  */
-export async function sendWorkoutToBackend(
-    userId,
-    exerciseType,
-    durationMinutes,
-    heartRateAvg,
-    heartRateMax
-) {
-    const caloriesBurned = Math.round(durationMinutes * (heartRateAvg || 100) * 0.048);
+export const fetchWorkoutHeartRateData = async (startTime, endTime) => {
+    try {
+        const { HealthConnect } = require('react-native-health-connect');
+        const records = await HealthConnect.readRecords('HeartRate', {
+            timeRangeFilter: {
+                operator: 'between',
+                startTime,
+                endTime,
+            },
+        });
 
-    return fitcareAPI.logWorkout({
-        user_id: userId,
-        exercise_type: exerciseType,
-        duration_minutes: durationMinutes,
-        heart_rate_avg: heartRateAvg,
-        heart_rate_max: heartRateMax,
-        calories_burned: caloriesBurned,
+        if (!records || records.length === 0) return null;
+
+        // HeartRate records often contain multiple samples
+        const allSamples = records.flatMap(record => record.samples);
+        if (allSamples.length === 0) return null;
+
+        const sum = allSamples.reduce((acc, sample) => acc + sample.beatsPerMinute, 0);
+        return Math.round(sum / allSamples.length);
+    } catch (error) {
+        // Logging only, silent fail for user experience
+        return null;
+    }
+};
+
+/**
+ * Legacy support for existing WorkoutScreen.js calls.
+ * To be replaced by direct Health Connect calls or updated as needed.
+ */
+export const connectBluetooth = async () => ({ connected: true });
+export const startHeartRateStream = (callback) => { console.log('Legacy stream called'); };
+export const stopHeartRateStream = () => { console.log('Legacy stream stopped'); };
+export const sendWorkoutToBackend = async (userId, type, duration, avgHR, maxHR, exerciseCategory, exerciseName) => {
+    const response = await fetch('http://10.0.2.2:8000/api/workout/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            user_id: userId,
+            exercise_type: type,
+            duration_minutes: duration,
+            avg_heart_rate: avgHR,
+            heart_rate_max: maxHR,
+            exercise_category: exerciseCategory,
+            exercise_name: exerciseName
+        }),
     });
-}
+    return response.json();
+};

@@ -4,6 +4,7 @@ import {
 } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { fitcareAPI } from '../services/api';
+import CustomHeader from '../components/CustomHeader';
 
 const EXERCISE_ICONS = { general: '🏋️', running: '🏃', cycling: '🚴', swimming: '🏊', yoga: '🧘', boxing: '🥊' };
 
@@ -55,10 +56,12 @@ const ProgressDashboard = ({ route }) => {
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+            <CustomHeader title="Progress" />
+
             <View style={styles.pageHeader}>
-                <Text style={styles.pageTitle}>📊 Progress</Text>
+                <Text style={styles.pageTitle}>STATS_UPLINK</Text>
                 <TouchableOpacity onPress={fetchData}>
-                    <Text style={styles.refreshBtn}>↻ Refresh</Text>
+                    <Text style={styles.refreshBtn}>↻ REFRESH</Text>
                 </TouchableOpacity>
             </View>
 
@@ -157,9 +160,9 @@ const ProgressDashboard = ({ route }) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background, padding: 16 },
+    container: { flex: 1, backgroundColor: Colors.background },
     centered: { flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' },
-    pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 48, marginBottom: 20 },
+    pageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginTop: 20, marginBottom: 20 },
     pageTitle: { color: Colors.text, fontSize: 24, fontWeight: '800' },
     refreshBtn: { color: Colors.primary, fontWeight: '600' },
     statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },

@@ -72,20 +72,28 @@ class OTPResponse(BaseModel):
 class WorkoutLogCreate(BaseModel):
     user_id: int
     exercise_type: str = "general"
+    exercise_category: Optional[str] = None
+    exercise_name: Optional[str] = None
     duration_minutes: float
     heart_rate_avg: Optional[int] = None
     heart_rate_max: Optional[int] = None
+    avg_heart_rate: Optional[int] = None
     calories_burned: Optional[float] = None
+    dynamic_calories: Optional[float] = None
 
 
 class WorkoutLogResponse(BaseModel):
     id: int
     user_id: int
     exercise_type: str
+    exercise_category: Optional[str]
+    exercise_name: Optional[str]
     duration_minutes: float
     heart_rate_avg: Optional[int]
     heart_rate_max: Optional[int]
+    avg_heart_rate: Optional[int]
     calories_burned: Optional[float]
+    dynamic_calories: Optional[float]
     logged_at: datetime
 
     class Config:

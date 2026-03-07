@@ -57,10 +57,14 @@ class WorkoutLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
 
     exercise_type = Column(String, default="general")
-    duration_minutes = Column(Float)
+    exercise_category = Column(String, nullable=True)
+    exercise_name = Column(String, nullable=True)
+    duration_minutes = Column(Float, nullable=False)
     heart_rate_avg = Column(Integer, nullable=True)
     heart_rate_max = Column(Integer, nullable=True)
+    avg_heart_rate = Column(Integer, nullable=True)
     calories_burned = Column(Float, nullable=True)
+    dynamic_calories = Column(Float, nullable=True)
 
     logged_at = Column(DateTime, default=datetime.utcnow)
 

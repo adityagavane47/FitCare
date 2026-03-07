@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { fitcareAPI } from '../services/api';
+import CustomHeader from '../components/CustomHeader';
 
 const SUGGESTIONS = [
     "Best pre-workout meal?",
@@ -80,11 +81,12 @@ const AIChatScreen = ({ route }) => {
         <KeyboardAvoidingView
             style={styles.container}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={90}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
+            <CustomHeader title="AI Coach" />
             <View style={styles.header}>
                 <View style={styles.headerTop}>
-                    <Text style={styles.headerTitle}>🤖 AI Coach</Text>
+                    <Text style={styles.headerTitle}>System Intelligence</Text>
                     <View style={styles.statusBadge}>
                         <View style={[styles.statusDot, aiStatus === 'online' ? styles.dotOnline : aiStatus === 'offline' ? styles.dotOffline : styles.dotChecking]} />
                         <Text style={styles.statusText}>
@@ -92,7 +94,7 @@ const AIChatScreen = ({ route }) => {
                         </Text>
                     </View>
                 </View>
-                <Text style={styles.headerSub}>Diet & Workout Assistant</Text>
+                <Text style={styles.headerSub}>Active Protocol Assistant</Text>
             </View>
 
             <FlatList

@@ -170,6 +170,17 @@ def update_user(user_id: int, update: schemas.UserUpdate, db: Session = Depends(
 # 3. WORKOUT LOGGING
 # ==========================================
 
+def calculate_keytel_calories(age: int, weight: float, gender: str, avg_hr: int, duration_min: float) -> float:
+    """
+    Implements Keytel's Formula for dynamic calorie calculation.
+    """
+    if gender.lower() == "male":
+        calories = ((age * 0.2017) - (weight * 0.09036) + (avg_hr * 0.6309) - 55.0969) * duration_min / 4.184
+    else:  # female/other fallback to female
+        calories = ((age * 0.074) - (weight * 0.05741) + (avg_hr * 0.4472) - 20.4022) * duration_min / 4.184
+    return max(0, round(calories, 2))
+
+
 @app.post("/api/workout/log", response_model=schemas.WorkoutLogResponse)
 def log_workout(log: schemas.WorkoutLogCreate, db: Session = Depends(get_db)):
     """
@@ -180,7 +191,19 @@ def log_workout(log: schemas.WorkoutLogCreate, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
 
-    db_log = models.WorkoutLog(**log.model_dump())
+    log_data = log.model_dump()
+    
+    # Dynamic calorie calculation using Keytel's Formula
+    if log.avg_heart_rate and all([user.age, user.weight_kg, user.gender]):
+        log_data["dynamic_calories"] = calculate_keytel_calories(
+            age=user.age,
+            weight=user.weight_kg,
+            gender=user.gender,
+            avg_hr=log.avg_heart_rate,
+            duration_min=log.duration_minutes
+        )
+
+    db_log = models.WorkoutLog(**log_data)
     db.add(db_log)
     db.commit()
     db.refresh(db_log)

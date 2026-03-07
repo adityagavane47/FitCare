@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { fitcareAPI } from '../services/api';
+import CustomHeader from '../components/CustomHeader';
 
 const { width } = Dimensions.get('window');
 
@@ -54,9 +55,11 @@ const DietPlanner = ({ route }) => {
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+            <CustomHeader title="Nutrition" />
+
             <View style={styles.pageHeader}>
-                <Text style={styles.pageTitle}>🥗 Diet Planner</Text>
-                <Text style={styles.pageSubtitle}>Personalised via Mifflin-St Jeor equation</Text>
+                <Text style={styles.pageTitle}>🥗 DIET_SYNC</Text>
+                <Text style={styles.pageSubtitle}>Personalised via Mifflin-St Jeor engine</Text>
             </View>
 
             {plan ? (
@@ -153,9 +156,9 @@ const DietPlanner = ({ route }) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background, padding: 16 },
+    container: { flex: 1, backgroundColor: Colors.background },
     centered: { flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' },
-    pageHeader: { marginTop: 48, marginBottom: 20 },
+    pageHeader: { paddingHorizontal: 16, marginTop: 20, marginBottom: 20 },
     pageTitle: { color: Colors.text, fontSize: 24, fontWeight: '800' },
     pageSubtitle: { color: Colors.textMuted, fontSize: 13, marginTop: 4 },
 
