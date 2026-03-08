@@ -1,3 +1,5 @@
+import { fitcareAPI } from './api';
+
 /**
  * Initializes Health Connect, checks availability, and requests permissions.
  * @returns {Promise<boolean>} True if initialized and permissions granted.
@@ -65,18 +67,13 @@ export const connectBluetooth = async () => ({ connected: true });
 export const startHeartRateStream = (callback) => { console.log('Legacy stream called'); };
 export const stopHeartRateStream = () => { console.log('Legacy stream stopped'); };
 export const sendWorkoutToBackend = async (userId, type, duration, avgHR, maxHR, exerciseCategory, exerciseName) => {
-    const response = await fetch('http://10.0.2.2:8000/api/workout/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            user_id: userId,
-            exercise_type: type,
-            duration_minutes: duration,
-            avg_heart_rate: avgHR,
-            heart_rate_max: maxHR,
-            exercise_category: exerciseCategory,
-            exercise_name: exerciseName
-        }),
+    return await fitcareAPI.logWorkout({
+        user_id: userId,
+        exercise_type: type,
+        duration_minutes: duration,
+        avg_heart_rate: avgHR,
+        heart_rate_max: maxHR,
+        exercise_category: exerciseCategory,
+        exercise_name: exerciseName
     });
-    return response.json();
 };

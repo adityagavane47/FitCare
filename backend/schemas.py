@@ -65,6 +65,13 @@ class OTPResponse(BaseModel):
     otp: str  # Exposed only in dev/mock mode — remove in production
 
 
+class OTPVerifyResponse(BaseModel):
+    user_id: int
+    is_new_user: bool
+    phone: str
+    name: Optional[str] = None
+
+
 # ===========================
 # WORKOUT LOG SCHEMAS
 # ===========================
@@ -129,7 +136,7 @@ class NutritionPlanResponse(BaseModel):
 # ===========================
 
 class TrainerChatRequest(BaseModel):
-    user_id: int
+    user_id: Optional[int] = None
     message: str
 
 

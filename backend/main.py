@@ -10,10 +10,13 @@ import random
 import os
 import cv2
 import mediapipe as mp
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 import numpy as np
 import base64
 import math
 import json
+import traceback
 
 # Load .env before any os.getenv() calls
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
@@ -55,20 +58,32 @@ def get_db():
 #  MEDIAPIPE FORM TRACKER (WebSocket)
 # ====================================
 
-# Lazy initialization for MediaPipe Pose (initialized on first use)
-mp_pose = None
+# Lazy initialization for MediaPipe Pose Landmarker (initialized on first use)
+pose_landmarker = None
+
+# Landmark indices for pose analysis (MediaPipe Pose Landmarker)
+class PoseLandmark:
+    LEFT_SHOULDER = 11
+    RIGHT_SHOULDER = 12
+    LEFT_HIP = 23
+    RIGHT_HIP = 24
+    LEFT_ANKLE = 27
+    RIGHT_ANKLE = 28
 
 def get_pose_detector():
-    """Get or create the MediaPipe Pose detector (lazy initialization)."""
-    global mp_pose
-    if mp_pose is None:
-        mp_pose = mp.solutions.pose.Pose(
-            static_image_mode=False,
-            model_complexity=1,
-            min_detection_confidence=0.5,
+    """Get or create the MediaPipe Pose Landmarker (lazy initialization)."""
+    global pose_landmarker
+    if pose_landmarker is None:
+        model_path = Path(__file__).resolve().parent / "pose_landmarker.task"
+        base_options = python.BaseOptions(model_asset_path=str(model_path))
+        options = vision.PoseLandmarkerOptions(
+            base_options=base_options,
+            running_mode=vision.RunningMode.IMAGE,
+            min_pose_detection_confidence=0.5,
             min_tracking_confidence=0.5
         )
-    return mp_pose
+        pose_landmarker = vision.PoseLandmarker.create_from_options(options)
+    return pose_landmarker
 
 
 def calculate_angle(a, b, c):
@@ -137,11 +152,14 @@ async def form_tracker_websocket(websocket: WebSocket):
                 # Convert BGR to RGB for MediaPipe
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-                # Process frame with MediaPipe Pose
-                pose_detector = get_pose_detector()
-                results = pose_detector.process(frame_rgb)
+                # Create MediaPipe Image from numpy array
+                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
 
-                if results.pose_landmarks is None:
+                # Process frame with MediaPipe Pose Landmarker
+                detector = get_pose_detector()
+                results = detector.detect(mp_image)
+
+                if not results.pose_landmarks or len(results.pose_landmarks) == 0:
                     # No pose detected in frame
                     await websocket.send_text(json.dumps({
                         "status": "success",
@@ -149,22 +167,22 @@ async def form_tracker_websocket(websocket: WebSocket):
                     }))
                     continue
 
-                # Extract landmarks
-                landmarks = results.pose_landmarks.landmark
+                # Extract landmarks from first detected pose
+                landmarks = results.pose_landmarks[0]
 
                 # Get key points for back alignment check
                 # Using LEFT side landmarks (can also check RIGHT side)
                 left_shoulder = [
-                    landmarks[mp.solutions.pose.PoseLandmark.LEFT_SHOULDER.value].x,
-                    landmarks[mp.solutions.pose.PoseLandmark.LEFT_SHOULDER.value].y
+                    landmarks[PoseLandmark.LEFT_SHOULDER].x,
+                    landmarks[PoseLandmark.LEFT_SHOULDER].y
                 ]
                 left_hip = [
-                    landmarks[mp.solutions.pose.PoseLandmark.LEFT_HIP.value].x,
-                    landmarks[mp.solutions.pose.PoseLandmark.LEFT_HIP.value].y
+                    landmarks[PoseLandmark.LEFT_HIP].x,
+                    landmarks[PoseLandmark.LEFT_HIP].y
                 ]
                 left_ankle = [
-                    landmarks[mp.solutions.pose.PoseLandmark.LEFT_ANKLE.value].x,
-                    landmarks[mp.solutions.pose.PoseLandmark.LEFT_ANKLE.value].y
+                    landmarks[PoseLandmark.LEFT_ANKLE].x,
+                    landmarks[PoseLandmark.LEFT_ANKLE].y
                 ]
 
                 # Calculate the angle at the hip (shoulder-hip-ankle alignment)
@@ -188,12 +206,22 @@ async def form_tracker_websocket(websocket: WebSocket):
             except Exception as e:
                 # Frame processing error - log and continue (don't crash the server)
                 print(f"[WebSocket] Frame processing error: {e}")
+                traceback.print_exc()
+                # Try to send error response if connection is still open
+                try:
+                    await websocket.send_text(json.dumps({
+                        "status": "error",
+                        "feedback": "Processing error"
+                    }))
+                except:
+                    pass
                 continue
 
     except WebSocketDisconnect:
         print("[WebSocket] Client disconnected")
     except Exception as e:
         print(f"[WebSocket] Connection error: {e}")
+        traceback.print_exc()
 
 
 # ====================================
@@ -237,7 +265,7 @@ def request_otp(req: schemas.OTPRequest, db: Session = Depends(get_db)):
     return {"message": f"OTP sent to {req.phone}", "otp": otp}
 
 
-@app.post("/api/auth/verify-otp", response_model=schemas.UserResponse)
+@app.post("/api/auth/verify-otp", response_model=schemas.OTPVerifyResponse)
 def verify_otp(req: schemas.OTPVerify, db: Session = Depends(get_db)):
     """Verify OTP and return/create user."""
     # In production, verify OTP from cache
@@ -245,15 +273,22 @@ def verify_otp(req: schemas.OTPVerify, db: Session = Depends(get_db)):
     if len(req.otp) != 4:
         raise HTTPException(status_code=400, detail="Invalid OTP format.")
 
+    is_new_user = False
     user = db.query(models.UserDB).filter(models.UserDB.phone == req.phone).first()
     if not user:
         # Auto-register new user on first OTP verification
+        is_new_user = True
         user = models.UserDB(phone=req.phone)
         db.add(user)
         db.commit()
         db.refresh(user)
 
-    return user
+    return {
+        "user_id": user.id,
+        "is_new_user": is_new_user,
+        "phone": user.phone,
+        "name": user.name
+    }
 
 
 @app.post("/api/users/onboard", response_model=schemas.UserResponse)
@@ -435,7 +470,9 @@ def chat_with_trainer(req: schemas.TrainerChatRequest, db: Session = Depends(get
     Sends a message to the AI Trainer.
     The trainer response is personalised using the user's fitness goal and body metrics.
     """
-    user = db.query(models.UserDB).filter(models.UserDB.id == req.user_id).first()
+    user = None
+    if req.user_id:
+        user = db.query(models.UserDB).filter(models.UserDB.id == req.user_id).first()
 
     user_context = {
         "goal": user.fitness_goal if user else "maintain",

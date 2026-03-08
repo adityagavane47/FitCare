@@ -14,8 +14,8 @@ const COLORS = {
     overlay: 'rgba(57, 255, 20, 0.1)',
 };
 
-// REPLACE WITH YOUR LOCAL MACHINE IP ADDRESS
-const BACKEND_IP = 'YOUR_LOCAL_IP';
+// Your backend server IP address
+const BACKEND_IP = '192.168.1.7';
 
 export default function FormCorrectionScreen({ route, navigation }) {
     const { userId, exerciseType = 'pushup' } = route.params || { userId: 1 };
@@ -57,9 +57,9 @@ export default function FormCorrectionScreen({ route, navigation }) {
 
                     // Throttle Speech: Minimum 3 second interval to prevent overlap
                     const now = Date.now();
-                    const isWarning = msg !== 'Good form.' && msg !== 'No person detected';
+                    const shouldSpeak = msg !== 'No person detected';
 
-                    if (isWarning && now - lastSpokenRef.current > 3000) {
+                    if (shouldSpeak && now - lastSpokenRef.current > 3000) {
                         Speech.speak(msg, { rate: 0.9, pitch: 0.8 });
                         lastSpokenRef.current = now;
                     }
@@ -110,7 +110,8 @@ export default function FormCorrectionScreen({ route, navigation }) {
                     const photo = await cameraRef.current.takePictureAsync({
                         quality: 0.1,           // Low quality for speed
                         base64: true,           // Get base64 string
-                        skipProcessing: true    // Skip image processing for faster capture
+                        skipProcessing: true,   // Skip image processing for faster capture
+                        shutterSound: false     // Disable camera click sound
                     });
 
                     // Send base64 image data over WebSocket

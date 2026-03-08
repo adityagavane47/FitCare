@@ -1,4 +1,4 @@
-const BASE_URL = 'http://192.168.68.103:8000';
+const BASE_URL = 'http://192.168.1.7:8000';
 
 async function request(path, options = {}) {
     const url = `${BASE_URL}${path}`;
