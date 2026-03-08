@@ -228,7 +228,7 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 
-@app.post("/api/otp/request", response_model=schemas.OTPResponse)
+@app.post("/api/auth/request-otp", response_model=schemas.OTPResponse)
 def request_otp(req: schemas.OTPRequest, db: Session = Depends(get_db)):
     """Request OTP for phone-based authentication (mock implementation)."""
     # Generate a mock OTP (in production, integrate with SMS provider)
@@ -237,7 +237,7 @@ def request_otp(req: schemas.OTPRequest, db: Session = Depends(get_db)):
     return {"message": f"OTP sent to {req.phone}", "otp": otp}
 
 
-@app.post("/api/otp/verify", response_model=schemas.UserResponse)
+@app.post("/api/auth/verify-otp", response_model=schemas.UserResponse)
 def verify_otp(req: schemas.OTPVerify, db: Session = Depends(get_db)):
     """Verify OTP and return/create user."""
     # In production, verify OTP from cache
@@ -254,6 +254,27 @@ def verify_otp(req: schemas.OTPVerify, db: Session = Depends(get_db)):
         db.refresh(user)
 
     return user
+
+
+@app.post("/api/users/onboard", response_model=schemas.UserResponse)
+def onboard_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    """Onboard a new user with profile details after OTP verification."""
+    existing = db.query(models.UserDB).filter(models.UserDB.phone == user.phone).first()
+    if existing:
+        # Update existing user with onboarding data
+        for field, value in user.model_dump(exclude_unset=True).items():
+            if value is not None:
+                setattr(existing, field, value)
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    # Create new user
+    new_user = models.UserDB(**user.model_dump())
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
 
 
 @app.get("/api/users/{user_id}", response_model=schemas.UserResponse)
@@ -284,7 +305,7 @@ def update_user(user_id: int, updates: schemas.UserUpdate, db: Session = Depends
 #  WORKOUT LOGGING
 # ====================================
 
-@app.post("/api/workouts/log", response_model=schemas.WorkoutLogResponse)
+@app.post("/api/workout/log", response_model=schemas.WorkoutLogResponse)
 def log_workout(workout: schemas.WorkoutLogCreate, db: Session = Depends(get_db)):
     """Logs a completed workout session."""
     new_log = models.WorkoutLog(**workout.model_dump())
@@ -294,7 +315,7 @@ def log_workout(workout: schemas.WorkoutLogCreate, db: Session = Depends(get_db)
     return new_log
 
 
-@app.get("/api/workouts/{user_id}", response_model=List[schemas.WorkoutLogResponse])
+@app.get("/api/workout/history/{user_id}", response_model=List[schemas.WorkoutLogResponse])
 def get_user_workouts(user_id: int, db: Session = Depends(get_db)):
     """Returns all workout logs for a user, most recent first."""
     return db.query(models.WorkoutLog).filter(
