@@ -1,10 +1,12 @@
 import 'react-native-gesture-handler';
-import React from 'react';
-import { StyleSheet } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
+import * as Font from 'expo-font';
 
 // Import Screens
 import LoginScreen from './screens/LoginScreen';
@@ -49,6 +51,11 @@ if (!patchTarget.Constants) {
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { Colors } from './constants/Colors';
 import CustomDrawerContent from './components/CustomDrawerContent';
+
+// ====================================================
+//  ASSET PRELOADING — Keep splash screen until ready
+// ====================================================
+SplashScreen.preventAutoHideAsync();
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -120,8 +127,42 @@ function MainDrawer({ route }) {
 }
 
 export default function App() {
+    const [appIsReady, setAppIsReady] = useState(false);
+
+    useEffect(() => {
+        async function loadAssets() {
+            try {
+                // Load custom Cyberpunk fonts
+                await Font.loadAsync({
+                    'Orbitron': require('./assets/fonts/Orbitron-Regular.ttf'),
+                    'Orbitron-Bold': require('./assets/fonts/Orbitron-Bold.ttf'),
+                });
+            } catch (e) {
+                // Font loading failed — continue with system fonts
+                console.warn('[App] Font loading failed, using system fallbacks:', e.message);
+            } finally {
+                setAppIsReady(true);
+            }
+        }
+
+        loadAssets();
+    }, []);
+
+    const onLayoutRootView = useCallback(async () => {
+        if (appIsReady) {
+            // Hide the splash screen once fonts are loaded and
+            // the root view has performed its first layout.
+            await SplashScreen.hideAsync();
+        }
+    }, [appIsReady]);
+
+    // Don't render anything until assets are loaded — splash screen stays visible
+    if (!appIsReady) {
+        return null;
+    }
+
     return (
-        <GestureHandlerRootView style={styles.container}>
+        <GestureHandlerRootView style={styles.container} onLayout={onLayoutRootView}>
             <NavigationContainer>
                 <StatusBar style="light" backgroundColor="#000000" />
                 <Stack.Navigator

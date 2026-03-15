@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, ScrollView,
-    Alert, ActivityIndicator, Dimensions
+    Alert, ActivityIndicator, Dimensions, Modal
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../constants/Colors';
 import { sendWorkoutToBackend } from '../services/wearable';
 import CustomHeader from '../components/CustomHeader';
@@ -27,6 +28,11 @@ const WorkoutScreen = ({ route }) => {
     const [timer, setTimer] = useState(0);
     const [isActive, setIsActive] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    // Modal State for AI directive
+    const [showDirective, setShowDirective] = useState(false);
+    const [directiveText, setDirectiveText] = useState('');
+    const [estimatedCals, setEstimatedCals] = useState(0);
 
     const intervalRef = useRef(null);
 
@@ -61,7 +67,7 @@ const WorkoutScreen = ({ route }) => {
         setSaving(true);
         try {
             const durationMin = timer / 60;
-            await sendWorkoutToBackend(
+            const response = await sendWorkoutToBackend(
                 userId,
                 selectedExercise.toLowerCase(),
                 durationMin,
@@ -70,7 +76,25 @@ const WorkoutScreen = ({ route }) => {
                 selectedCategory,
                 selectedExercise
             );
-            Alert.alert('UPLINK_SUCCESS', `Protocol [${selectedExercise}] synced successfully.`);
+
+            // Parse AI macro adjustments from the new response format
+            if (response && response.macro_adjustments) {
+                const macros = response.macro_adjustments;
+
+                // Save macro override to AsyncStorage for DietPlanner
+                await AsyncStorage.setItem(
+                    '@daily_macro_override',
+                    JSON.stringify(macros)
+                );
+
+                // Show cyberpunk directive modal
+                setEstimatedCals(response.estimated_calories || 0);
+                setDirectiveText(macros.directive || 'SYSTEM OVERRIDE: Macro recalibration complete.');
+                setShowDirective(true);
+            } else {
+                Alert.alert('UPLINK_SUCCESS', `Protocol [${selectedExercise}] synced successfully.`);
+            }
+
             setTimer(0);
         } catch (error) {
             Alert.alert('UPLINK_FAILED', 'Connection to core lost. Check backend status.');
@@ -158,6 +182,30 @@ const WorkoutScreen = ({ route }) => {
                     {isActive ? 'SYSTEM_LOCKED: Timer active. Complete session to unlock selectors.' : 'BYPASS_ACTIVE: Selectors available for protocol adjustment.'}
                 </Text>
             </View>
+
+            {/* SYSTEM OVERRIDE Modal */}
+            <Modal
+                visible={showDirective}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowDirective(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalBox}>
+                        <View style={styles.modalHeaderBar}>
+                            <Text style={styles.modalHeaderText}>SYSTEM OVERRIDE</Text>
+                        </View>
+                        <Text style={styles.modalCals}>{estimatedCals} KCAL DEPLETED</Text>
+                        <Text style={styles.modalDirective}>{directiveText}</Text>
+                        <TouchableOpacity
+                            style={styles.modalBtn}
+                            onPress={() => setShowDirective(false)}
+                        >
+                            <Text style={styles.modalBtnText}>ACKNOWLEDGE</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </ScrollView>
     );
 };
@@ -190,7 +238,17 @@ const styles = StyleSheet.create({
     stopBtn: { borderColor: '#FF0042' },
     mainBtnText: { color: '#FFF', fontWeight: '900', fontSize: 16, letterSpacing: 5 },
     footerInfo: { marginTop: 30, opacity: 0.5 },
-    footerText: { color: '#888', fontSize: 10, textAlign: 'center', fontWeight: 'bold' }
+    footerText: { color: '#888', fontSize: 10, textAlign: 'center', fontWeight: 'bold' },
+
+    // SYSTEM OVERRIDE Modal
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+    modalBox: { backgroundColor: '#0A0A0A', borderWidth: 2, borderColor: '#39FF14', borderRadius: 8, width: '100%', maxWidth: 360, overflow: 'hidden' },
+    modalHeaderBar: { backgroundColor: '#39FF14', paddingVertical: 12, alignItems: 'center' },
+    modalHeaderText: { color: '#000', fontSize: 16, fontWeight: '900', letterSpacing: 4 },
+    modalCals: { color: '#39FF14', fontSize: 22, fontWeight: '900', textAlign: 'center', marginTop: 20, textShadowColor: '#39FF14', textShadowRadius: 10 },
+    modalDirective: { color: '#CCC', fontSize: 14, lineHeight: 22, textAlign: 'center', paddingHorizontal: 20, paddingVertical: 16 },
+    modalBtn: { borderTopWidth: 1, borderTopColor: '#222', paddingVertical: 16, alignItems: 'center' },
+    modalBtnText: { color: '#39FF14', fontWeight: '900', fontSize: 14, letterSpacing: 3 },
 });
 
 export default WorkoutScreen;

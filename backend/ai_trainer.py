@@ -3,10 +3,14 @@ AI Trainer Module - Interfaces with local Ollama (Phi-3) for fitness advice.
 """
 
 import os
+import time
 import requests
 
 OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-MODEL_NAME = "phi3"
+MODEL_NAME = os.getenv("OLLAMA_MODEL", "phi3")
+OLLAMA_CONNECT_TIMEOUT = float(os.getenv("OLLAMA_CONNECT_TIMEOUT", "5"))
+OLLAMA_READ_TIMEOUT = float(os.getenv("OLLAMA_READ_TIMEOUT", "120"))
+OLLAMA_RETRIES = int(os.getenv("OLLAMA_RETRIES", "1"))
 
 
 def _query_ollama(prompt: str) -> str:
@@ -14,20 +18,36 @@ def _query_ollama(prompt: str) -> str:
     Send a prompt to the local Ollama instance and return the response.
     Falls back to a default message if Ollama is unavailable.
     """
-    try:
-        response = requests.post(
-            f"{OLLAMA_URL}/api/generate",
-            json={
-                "model": MODEL_NAME,
-                "prompt": prompt,
-                "stream": False
-            },
-            timeout=30
-        )
-        if response.status_code == 200:
-            return response.json().get("response", "No response generated.")
-    except Exception as e:
-        print(f"[AI Trainer] Ollama error: {e}")
+    payload = {
+        "model": MODEL_NAME,
+        "prompt": prompt,
+        "stream": False,
+        # Keep model loaded briefly so repeated calls are less likely to cold-start timeout.
+        "keep_alive": "5m",
+    }
+
+    attempts = OLLAMA_RETRIES + 1
+    for attempt in range(1, attempts + 1):
+        try:
+            response = requests.post(
+                f"{OLLAMA_URL}/api/generate",
+                json=payload,
+                timeout=(OLLAMA_CONNECT_TIMEOUT, OLLAMA_READ_TIMEOUT)
+            )
+            if response.status_code == 200:
+                return response.json().get("response", "No response generated.")
+            print(f"[AI Trainer] Ollama non-200 [{response.status_code}]: {response.text}")
+        except requests.exceptions.ReadTimeout as e:
+            print(
+                f"[AI Trainer] Ollama read timeout (attempt {attempt}/{attempts}, "
+                f"read timeout={OLLAMA_READ_TIMEOUT}s): {e}"
+            )
+            if attempt < attempts:
+                time.sleep(1.5)
+                continue
+        except requests.exceptions.RequestException as e:
+            print(f"[AI Trainer] Ollama request error: {e}")
+            break
 
     return "AI trainer is currently offline. Please try again later."
 

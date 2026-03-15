@@ -19,7 +19,7 @@ CHAT_SYSTEM_PROMPT = """You are FitCare AI Trainer, a professional but friendly 
 STRICT RULES:
 1. ONLY answer questions about workouts, diet, and fitness.
 2. If asked about anything else, reply: "I'm your FitCare AI Coach! I can only help with diet, nutrition, and workout questions."
-3. Provide DETAILED, thorough answers, but explain things in VERY SIMPLE WORDS. Do not use overly complex medical or scientific jargon without explaining it simply.
+3. Provide DETAILED, thorough answers, but explain things in VERY SIMPLE WORDS. give answers in points, Do not use overly complex medical or scientific jargon without explaining it simply.
 4. Always tailor your advice specifically to the user's personal body metrics (height, weight, age, etc.) and fitness goal. Mention their specific context if relevant to the answer.
 5. Use bullet points or numbered lists to make your detailed advice easy to read. Be encouraging and motivating!"""
 
@@ -212,6 +212,155 @@ def get_fallback_workout() -> dict:
         "estimated_calories": 180,
         "trainer_tip": "Focus on form over speed. (Ensure Ollama is running for custom workouts!)"
     }
+
+def generate_daily_insights(age: int, weight: float, height: float, goal: str) -> dict:
+    """
+    Generates personalised daily insights (quote, fact, target) using local Ollama Phi-3.
+    Returns a JSON dict with keys: quote, fact, target.
+    """
+    bmi = round(weight / ((height / 100) ** 2), 1) if height and height > 0 else "unknown"
+
+    prompt = f"""You are a world-class fitness coach. Given the user stats below, generate personalised daily insights.
+
+User Stats:
+- Age: {age}
+- Weight: {weight} kg
+- Height: {height} cm
+- BMI: {bmi}
+- Fitness Goal: {goal}
+
+Generate EXACTLY this JSON (no markdown, no extra text):
+{{
+  "quote": "A short, hype-inducing motivational quote (1-2 sentences max)",
+  "fact": "A random, highly specific fitness fact relevant to their goal ({goal}) and body metrics",
+  "target": "A specific, actionable daily target (e.g. 'Burn 400 active calories today' or 'Complete 3 sets of 15 squats')"
+}}
+"""
+
+    payload = {
+        "model": "phi3",
+        "prompt": prompt,
+        "stream": False,
+        "format": "json",
+        "system": JSON_SYSTEM_PROMPT
+    }
+
+    try:
+        logger.info("Generating daily insights from local Ollama phi3...")
+        response = requests.post(OLLAMA_CHAT_URL, json=payload, timeout=120)
+        if response.status_code == 200:
+            raw = response.json().get("response", "").strip()
+            raw = re.sub(r'```json\s*', '', raw)
+            raw = re.sub(r'```\s*', '', raw)
+            result = json.loads(raw)
+            # Validate required keys exist
+            for key in ("quote", "fact", "target"):
+                if key not in result:
+                    result[key] = _get_fallback_insights(goal).get(key)
+            return result
+        else:
+            logger.error(f"Ollama insights error [{response.status_code}]: {response.text}")
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse insights JSON from Ollama: {e}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Ollama insights connection failed: {e}")
+
+    return _get_fallback_insights(goal)
+
+
+def _get_fallback_insights(goal: str) -> dict:
+    """Fallback insights when Ollama is unavailable."""
+    targets = {
+        "lose": "Burn 400 active calories today with a 30-minute HIIT session.",
+        "gain": "Complete 4 sets of 10 heavy compound lifts — squat, bench, deadlift.",
+        "maintain": "Hit 8,000 steps and do a 20-minute bodyweight circuit today.",
+    }
+    return {
+        "quote": "Discipline is choosing between what you want now and what you want most.",
+        "fact": "Consistent exercise boosts your resting metabolic rate by up to 7%, meaning you burn more calories even while sleeping.",
+        "target": targets.get(goal, targets["maintain"]),
+    }
+
+
+async def generate_post_workout_macros(exercise_category: str, duration_minutes: float, estimated_calories: int) -> dict:
+    """
+    Calls local Ollama Phi-3 as a cybernetic nutritionist to calculate
+    post-workout macro replenishments based on workout data.
+    Returns strict JSON: {extra_protein_g, extra_carbs_g, directive}
+    """
+    if exercise_category == "Strength":
+        priority_instruction = "Prioritize EXTRA PROTEIN for muscle tissue synthesis and repair."
+    elif exercise_category == "Cardio":
+        priority_instruction = "Prioritize EXTRA CARBS to replenish glycogen stores."
+    else:
+        priority_instruction = "Provide a balanced split of extra protein and carbs for recovery."
+
+    prompt = f"""You are a cybernetic nutritionist embedded in a futuristic fitness system.
+The user just completed a workout. Analyze the data and calculate macro replenishments.
+
+Workout Data:
+- Category: {exercise_category}
+- Duration: {duration_minutes:.1f} minutes
+- Estimated Calories Burned: {estimated_calories} kcal
+
+Priority: {priority_instruction}
+
+Rules:
+1. Calculate reasonable extra_protein_g (integer, 5-60 range) and extra_carbs_g (integer, 5-80 range) based on the calories burned and exercise category.
+2. Write a short, robotic, cyberpunk-themed directive (1-2 sentences). Example style: "SYSTEM OVERRIDE: 400 Kcal depleted. Consume 30g extra protein for tissue synthesis."
+3. Respond with ONLY valid JSON matching this exact structure:
+{{"extra_protein_g": <int>, "extra_carbs_g": <int>, "directive": "<string>"}}
+"""
+
+    payload = {
+        "model": "phi3",
+        "prompt": prompt,
+        "stream": False,
+        "format": "json",
+        "system": JSON_SYSTEM_PROMPT
+    }
+
+    try:
+        logger.info(f"Generating post-workout macros for {exercise_category} ({duration_minutes}min, {estimated_calories}kcal)...")
+        response = requests.post(OLLAMA_CHAT_URL, json=payload, timeout=120)
+        if response.status_code == 200:
+            raw = response.json().get("response", "").strip()
+            raw = re.sub(r'```json\s*', '', raw)
+            raw = re.sub(r'```\s*', '', raw)
+            result = json.loads(raw)
+            # Validate and clamp values
+            result["extra_protein_g"] = int(result.get("extra_protein_g", 15))
+            result["extra_carbs_g"] = int(result.get("extra_carbs_g", 20))
+            if "directive" not in result or not result["directive"]:
+                result["directive"] = f"SYSTEM OVERRIDE: {estimated_calories} Kcal depleted. Replenish macros immediately."
+            return result
+        else:
+            logger.error(f"Ollama macro generation error [{response.status_code}]: {response.text}")
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse macro JSON from Ollama: {e}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Ollama macro connection failed: {e}")
+
+    # Fallback when Ollama is offline
+    if exercise_category == "Strength":
+        return {
+            "extra_protein_g": max(10, int(estimated_calories * 0.08)),
+            "extra_carbs_g": max(5, int(estimated_calories * 0.04)),
+            "directive": f"SYSTEM OVERRIDE: {estimated_calories} Kcal depleted. Consume {max(10, int(estimated_calories * 0.08))}g extra protein for tissue synthesis. [AI OFFLINE — fallback values]"
+        }
+    elif exercise_category == "Cardio":
+        return {
+            "extra_protein_g": max(5, int(estimated_calories * 0.04)),
+            "extra_carbs_g": max(10, int(estimated_calories * 0.10)),
+            "directive": f"SYSTEM OVERRIDE: {estimated_calories} Kcal depleted. Consume {max(10, int(estimated_calories * 0.10))}g extra carbs for glycogen replenishment. [AI OFFLINE — fallback values]"
+        }
+    else:
+        return {
+            "extra_protein_g": max(5, int(estimated_calories * 0.05)),
+            "extra_carbs_g": max(5, int(estimated_calories * 0.05)),
+            "directive": f"SYSTEM OVERRIDE: {estimated_calories} Kcal depleted. Balanced macro replenishment initiated. [AI OFFLINE — fallback values]"
+        }
+
 
 def get_fallback_meal_plan(cal: float, p: float, c: float, f: float) -> str:
     return (

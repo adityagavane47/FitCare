@@ -128,3 +128,12 @@ The backend provides a Swagger UI for API exploration at `http://localhost:8000/
 ## License
 
 This project is private and intended for educational/research purposes.
+
+## Group 11
+
+- Priyam Gandhi
+- Gaurav Jain
+- Mayuresh Gavali
+- Manashree Ghan
+- Aditya Gavane
+

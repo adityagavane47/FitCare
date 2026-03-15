@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import {
     View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../constants/Colors';
 import { fitcareAPI } from '../services/api';
 import CustomHeader from '../components/CustomHeader';
+import useInteractionReady from '../hooks/useInteractionReady';
 
 const EXERCISE_ICONS = { general: '🏋️', running: '🏃', cycling: '🚴', swimming: '🏊', yoga: '🧘', boxing: '🥊' };
 
@@ -13,6 +15,10 @@ const ProgressDashboard = ({ route }) => {
     const [history, setHistory] = useState([]);
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [dailyTarget, setDailyTarget] = useState('');
+
+    // Wait for screen transition animation to finish before fetching
+    const isReady = useInteractionReady();
 
     const fetchData = async () => {
         setLoading(true);
@@ -28,7 +34,14 @@ const ProgressDashboard = ({ route }) => {
         }
     };
 
-    useEffect(() => { fetchData(); }, [userId]);
+    useEffect(() => { if (isReady) fetchData(); }, [isReady, userId]);
+
+    // Read daily target from AsyncStorage (saved by HomeScreen)
+    useEffect(() => {
+        AsyncStorage.getItem('@fitcare_daily_target')
+            .then((val) => { if (val) setDailyTarget(val); })
+            .catch(() => { });
+    }, []);
 
     // Derive summary stats from history
     const totalWorkouts = history.length;
@@ -50,7 +63,7 @@ const ProgressDashboard = ({ route }) => {
         return days.map((label, i) => ({ label, count: counts[i], pct: counts[i] / max }));
     })();
 
-    if (loading) {
+    if (!isReady || loading) {
         return <View style={styles.centered}><ActivityIndicator color={Colors.primary} size="large" /></View>;
     }
 
@@ -64,6 +77,14 @@ const ProgressDashboard = ({ route }) => {
                     <Text style={styles.refreshBtn}>↻ REFRESH</Text>
                 </TouchableOpacity>
             </View>
+
+            {/* Daily AI Directive */}
+            {dailyTarget !== '' && (
+                <View style={styles.directiveCard}>
+                    <Text style={styles.directiveHeader}>⚡ DAILY AI DIRECTIVE</Text>
+                    <Text style={styles.directiveText}>{dailyTarget}</Text>
+                </View>
+            )}
 
             {/* Weight Progress (Mock Target for Visual) */}
             {user && user.weight_kg && (
@@ -171,6 +192,19 @@ const styles = StyleSheet.create({
     statLabel: { color: Colors.textMuted, fontSize: 11, marginTop: 4 },
     card: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 16, padding: 16, marginBottom: 12 },
     cardTitle: { color: Colors.primary, fontWeight: '700', fontSize: 14, marginBottom: 16 },
+
+    // Daily AI Directive
+    directiveCard: {
+        backgroundColor: Colors.primaryDim, borderRadius: 16, padding: 18,
+        marginBottom: 16, borderWidth: 1.5, borderColor: Colors.primary,
+    },
+    directiveHeader: {
+        color: Colors.primary, fontWeight: '900', fontSize: 13,
+        letterSpacing: 2, marginBottom: 8,
+    },
+    directiveText: {
+        color: '#FFFFFF', fontSize: 16, fontWeight: '700', lineHeight: 23,
+    },
 
     weightCard: { borderColor: Colors.primary, borderWidth: 1 },
     weightRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', marginBottom: 16 },

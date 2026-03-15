@@ -25,6 +25,7 @@ import models
 import schemas
 from database import engine, SessionLocal
 import ai_trainer
+from services.ai_trainer import generate_daily_insights, generate_post_workout_macros
 
 # Create tables
 models.Base.metadata.create_all(bind=engine)
@@ -65,6 +66,10 @@ pose_landmarker = None
 class PoseLandmark:
     LEFT_SHOULDER = 11
     RIGHT_SHOULDER = 12
+    LEFT_ELBOW = 13
+    RIGHT_ELBOW = 14
+    LEFT_WRIST = 15
+    RIGHT_WRIST = 16
     LEFT_HIP = 23
     RIGHT_HIP = 24
     LEFT_ANKLE = 27
@@ -126,16 +131,25 @@ async def form_tracker_websocket(websocket: WebSocket):
     Receives base64-encoded camera frames from the mobile app,
     processes them through MediaPipe Pose, and returns form feedback.
 
-    For pushups, we check the alignment of shoulder-hip-ankle to ensure
-    the user maintains a straight back (plank position).
+    Features:
+    1. Entry State Mechanism - Only evaluates when user is in horizontal pushup position
+    2. Repetition Counter - Tracks elbow angle to count perfect-form pushups
     """
     await websocket.accept()
     print("[WebSocket] Client connected to /ws/form-tracker")
+
+    # Initialize rep counter and stage BEFORE the loop
+    rep_count = 0
+    stage = None  # "up" or "down"
+    frame_count = 0
 
     try:
         while True:
             # Await base64 image data from client
             data = await websocket.receive_text()
+            frame_count += 1
+            if frame_count <= 3 or frame_count % 20 == 0:
+                print(f"[Frame {frame_count}] received")
 
             try:
                 # Decode base64 string to numpy array
@@ -147,10 +161,34 @@ async def form_tracker_websocket(websocket: WebSocket):
 
                 if frame is None:
                     # Frame decoding failed, skip this frame
+                    await websocket.send_text(json.dumps({
+                        "status": "success",
+                        "feedback": "Frame error",
+                        "count": rep_count,
+                        "elbow_angle": 0.0,
+                        "back_angle": 0.0
+                    }))
                     continue
 
+                # Resize to smaller size for faster processing
+                h, w = frame.shape[:2]
+
+                # Target size: 480p for fast processing
+                target_size = 480
+                scale = target_size / max(h, w)
+                new_w = int(w * scale)
+                new_h = int(h * scale)
+                frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+                # Make square to avoid MediaPipe ROI warnings
+                size = max(new_h, new_w)
+                square_frame = np.zeros((size, size, 3), dtype=np.uint8)
+                y_offset = (size - new_h) // 2
+                x_offset = (size - new_w) // 2
+                square_frame[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = frame
+
                 # Convert BGR to RGB for MediaPipe
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                frame_rgb = cv2.cvtColor(square_frame, cv2.COLOR_BGR2RGB)
 
                 # Create MediaPipe Image from numpy array
                 mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
@@ -163,18 +201,28 @@ async def form_tracker_websocket(websocket: WebSocket):
                     # No pose detected in frame
                     await websocket.send_text(json.dumps({
                         "status": "success",
-                        "feedback": "No person detected"
+                        "feedback": "No person detected",
+                        "count": rep_count,
+                        "elbow_angle": 0.0,
+                        "back_angle": 0.0
                     }))
                     continue
 
                 # Extract landmarks from first detected pose
                 landmarks = results.pose_landmarks[0]
 
-                # Get key points for back alignment check
-                # Using LEFT side landmarks (can also check RIGHT side)
+                # Extract all required landmarks (LEFT side)
                 left_shoulder = [
                     landmarks[PoseLandmark.LEFT_SHOULDER].x,
                     landmarks[PoseLandmark.LEFT_SHOULDER].y
+                ]
+                left_elbow = [
+                    landmarks[PoseLandmark.LEFT_ELBOW].x,
+                    landmarks[PoseLandmark.LEFT_ELBOW].y
+                ]
+                left_wrist = [
+                    landmarks[PoseLandmark.LEFT_WRIST].x,
+                    landmarks[PoseLandmark.LEFT_WRIST].y
                 ]
                 left_hip = [
                     landmarks[PoseLandmark.LEFT_HIP].x,
@@ -185,42 +233,84 @@ async def form_tracker_websocket(websocket: WebSocket):
                     landmarks[PoseLandmark.LEFT_ANKLE].y
                 ]
 
-                # Calculate the angle at the hip (shoulder-hip-ankle alignment)
-                # A straight back during a pushup should have this angle close to 180°
-                angle = calculate_angle(left_shoulder, left_hip, left_ankle)
+                # ========== MATH CALCULATIONS ==========
 
-                # Determine feedback based on angle
-                # Ideal range: 165° to 195° (allowing 15° tolerance from perfect 180°)
-                if angle < 165 or angle > 195:
-                    feedback = "Fix your back. Keep it straight."
+                # 1. Body Tilt Angle - Check if user is horizontal (in pushup position)
+                # Uses shoulder and ankle to determine body tilt relative to floor
+                body_tilt_angle = math.degrees(math.atan2(
+                    abs(left_shoulder[1] - left_ankle[1]),  # y difference
+                    abs(left_shoulder[0] - left_ankle[0])   # x difference
+                ))
+
+                # 2. Elbow Angle - For counting reps (Shoulder -> Elbow -> Wrist)
+                try:
+                    elbow_angle = calculate_angle(left_shoulder, left_elbow, left_wrist)
+                except Exception:
+                    elbow_angle = 0.0
+
+                # 3. Back Angle - For form check (Shoulder -> Hip -> Ankle)
+                try:
+                    back_angle = calculate_angle(left_shoulder, left_hip, left_ankle)
+                except Exception:
+                    back_angle = 0.0
+
+                # ========== STATE MACHINE LOGIC ==========
+                feedback = ""
+
+                # GATE 1: Entry State Check - Is user in horizontal pushup position?
+                if body_tilt_angle > 35:
+                    # User is standing, sitting, or not in pushup position
+                    feedback = "Get into position"
+
+                # GATE 2: Form Check - Is back straight?
+                elif back_angle < 165 or back_angle > 195:
+                    # Back is not straight (sagging or piking)
+                    feedback = "Fix your back"
+
+                # GATE 3: Rep Counter - User is in position AND form is perfect
                 else:
-                    feedback = "Good form."
+                    # Track the pushup movement using elbow angle
+                    if elbow_angle < 90:
+                        # User is in the "down" position of pushup
+                        stage = "down"
+                        feedback = "Good form"
+
+                    if elbow_angle > 160 and stage == "down":
+                        # User has pushed back up - count the rep!
+                        stage = "up"
+                        rep_count += 1
+                        feedback = str(rep_count)  # Send the count as feedback
+
+                    # If just holding good form without completing a rep
+                    if not feedback:
+                        feedback = "Good form"
 
                 # Send response back to client
                 await websocket.send_text(json.dumps({
                     "status": "success",
                     "feedback": feedback,
-                    "angle": round(angle, 1)
+                    "count": rep_count,
+                    "elbow_angle": round(elbow_angle, 1),
+                    "back_angle": round(back_angle, 1)
                 }))
 
+                # Debug: Print every 10th frame
+                if frame_count % 10 == 0:
+                    print(f"[Frame {frame_count}] feedback={feedback}, reps={rep_count}")
+
+            except WebSocketDisconnect:
+                # Client disconnected - break out of the loop
+                raise
             except Exception as e:
                 # Frame processing error - log and continue (don't crash the server)
-                print(f"[WebSocket] Frame processing error: {e}")
-                traceback.print_exc()
-                # Try to send error response if connection is still open
-                try:
-                    await websocket.send_text(json.dumps({
-                        "status": "error",
-                        "feedback": "Processing error"
-                    }))
-                except:
-                    pass
+                print(f"[WebSocket] Frame {frame_count} error: {type(e).__name__}: {e}")
+                # Don't print full traceback for every frame - too verbose
                 continue
 
     except WebSocketDisconnect:
-        print("[WebSocket] Client disconnected")
+        print(f"[WebSocket] Client disconnected after {frame_count} frames")
     except Exception as e:
-        print(f"[WebSocket] Connection error: {e}")
+        print(f"[WebSocket] Connection error after {frame_count} frames: {e}")
         traceback.print_exc()
 
 
@@ -337,17 +427,83 @@ def update_user(user_id: int, updates: schemas.UserUpdate, db: Session = Depends
 
 
 # ====================================
+#  AI DAILY INSIGHTS
+# ====================================
+
+@app.get("/api/user/{user_id}/insights")
+def get_daily_insights(user_id: int, db: Session = Depends(get_db)):
+    """
+    Fetches personalised daily insights (quote, fact, target) for a user
+    by passing their profile to the local Ollama Phi-3 model.
+    """
+    user = db.query(models.UserDB).filter(models.UserDB.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    if not all([user.age, user.weight_kg, user.height_cm, user.fitness_goal]):
+        raise HTTPException(
+            status_code=400,
+            detail="Complete your profile (age, height, weight, fitness goal) to get insights."
+        )
+
+    insights = generate_daily_insights(
+        age=user.age,
+        weight=user.weight_kg,
+        height=user.height_cm,
+        goal=user.fitness_goal,
+    )
+    return JSONResponse(content=insights)
+
+
+# ====================================
 #  WORKOUT LOGGING
 # ====================================
 
-@app.post("/api/workout/log", response_model=schemas.WorkoutLogResponse)
-def log_workout(workout: schemas.WorkoutLogCreate, db: Session = Depends(get_db)):
-    """Logs a completed workout session."""
-    new_log = models.WorkoutLog(**workout.model_dump())
+CALORIE_MULTIPLIERS = {
+    "Cardio": 10,
+    "Strength": 6,
+    "Yoga": 4,
+    "Combat": 8,
+}
+
+@app.post("/api/workout/log")
+async def log_workout(workout: schemas.WorkoutLogCreate, db: Session = Depends(get_db)):
+    """Logs a completed workout session with dynamic macro engine integration."""
+    # Calculate estimated calories: duration_minutes * category multiplier
+    category = workout.exercise_category or "Strength"
+    multiplier = CALORIE_MULTIPLIERS.get(category, 4)
+    estimated_calories = int(workout.duration_minutes * multiplier)
+
+    # Store estimated calories on the workout log
+    workout_data = workout.model_dump()
+    workout_data["dynamic_calories"] = estimated_calories
+
+    new_log = models.WorkoutLog(**workout_data)
     db.add(new_log)
     db.commit()
     db.refresh(new_log)
-    return new_log
+
+    # Call AI engine for post-workout macro adjustments
+    macro_adjustments = await generate_post_workout_macros(
+        exercise_category=category,
+        duration_minutes=workout.duration_minutes,
+        estimated_calories=estimated_calories
+    )
+
+    return JSONResponse(content={
+        "status": "success",
+        "estimated_calories": estimated_calories,
+        "macro_adjustments": macro_adjustments,
+        "workout_log": {
+            "id": new_log.id,
+            "user_id": new_log.user_id,
+            "exercise_type": new_log.exercise_type,
+            "exercise_category": new_log.exercise_category,
+            "exercise_name": new_log.exercise_name,
+            "duration_minutes": new_log.duration_minutes,
+            "logged_at": new_log.logged_at.isoformat(),
+        }
+    })
 
 
 @app.get("/api/workout/history/{user_id}", response_model=List[schemas.WorkoutLogResponse])

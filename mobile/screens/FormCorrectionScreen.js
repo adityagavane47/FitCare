@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, Dimensions, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Camera, CameraView } from 'expo-camera';
 import * as Speech from 'expo-speech';
+import { getWebSocketUrl } from '../services/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -14,8 +15,9 @@ const COLORS = {
     overlay: 'rgba(57, 255, 20, 0.1)',
 };
 
-// Your backend server IP address
-const BACKEND_IP = '192.168.1.7';
+// Number words for speech
+const NUMBER_WORDS = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen', 'Twenty'];
 
 export default function FormCorrectionScreen({ route, navigation }) {
     const { userId, exerciseType = 'pushup' } = route.params || { userId: 1 };
@@ -24,6 +26,9 @@ export default function FormCorrectionScreen({ route, navigation }) {
     const [feedback, setFeedback] = useState("Establishing Uplink...");
     const [wsConnected, setWsConnected] = useState(false);
     const [isStreaming, setIsStreaming] = useState(false);
+    const [repCount, setRepCount] = useState(0);
+    const [debugElbow, setDebugElbow] = useState(0);
+    const [debugBack, setDebugBack] = useState(0);
 
     const cameraRef = useRef(null);
     const wsRef = useRef(null);
@@ -38,14 +43,14 @@ export default function FormCorrectionScreen({ route, navigation }) {
         })();
 
         // Initialize WebSocket connection to Python backend
-        const wsUrl = `ws://${BACKEND_IP}:8000/ws/form-tracker`;
+        const wsUrl = getWebSocketUrl('/ws/form-tracker');
         console.log(`[WS] Connecting to ${wsUrl}`);
         const ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
             console.log('[WS] Connected to MediaPipe backend');
             setWsConnected(true);
-            setFeedback("UPLINK_STABLE. Align body...");
+            setFeedback("UPLINK_STABLE. Get into position...");
         };
 
         ws.onmessage = (e) => {
@@ -53,15 +58,32 @@ export default function FormCorrectionScreen({ route, navigation }) {
                 const response = JSON.parse(e.data);
                 if (response.status === "success") {
                     const msg = response.feedback;
+                    const count = response.count || 0;
+
+                    // Update rep count from server
+                    setRepCount(count);
                     setFeedback(msg.toUpperCase());
 
-                    // Throttle Speech: Minimum 3 second interval to prevent overlap
-                    const now = Date.now();
-                    const shouldSpeak = msg !== 'No person detected';
+                    // Update debug HUD angles
+                    setDebugElbow(response.elbow_angle ?? 0);
+                    setDebugBack(response.back_angle ?? 0);
 
-                    if (shouldSpeak && now - lastSpokenRef.current > 3000) {
-                        Speech.speak(msg, { rate: 0.9, pitch: 0.8 });
+                    // ========== SMART AUDIO ENGINE ==========
+                    const now = Date.now();
+                    const isNumber = /^\d+$/.test(msg);
+
+                    if (isNumber) {
+                        // REP COMPLETED - Speak immediately (no throttle)
+                        const num = parseInt(msg, 10);
+                        const word = NUMBER_WORDS[num] || msg;
+                        Speech.speak(word, { rate: 1.0, pitch: 1.0 });
                         lastSpokenRef.current = now;
+                    } else if (msg !== 'No person detected' && msg !== 'Good form') {
+                        // TEXT WARNING - Apply 3-second throttle
+                        if (now - lastSpokenRef.current > 3000) {
+                            Speech.speak(msg, { rate: 0.9, pitch: 0.8 });
+                            lastSpokenRef.current = now;
+                        }
                     }
                 }
             } catch (err) {
@@ -102,25 +124,30 @@ export default function FormCorrectionScreen({ route, navigation }) {
         console.log("[Stream] Initiating Frame Capture");
         setFeedback("ANALYSIS_LIVE");
         setIsStreaming(true);
+        setRepCount(0); // Reset rep count when starting
 
-        // Camera Stream Hack: Capture frame every 500ms (~2 FPS)
+        // Camera Stream: Capture frame every 1000ms (~1 FPS) to reduce memory pressure
         streamIntervalRef.current = setInterval(async () => {
             if (cameraRef.current && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
                 try {
                     const photo = await cameraRef.current.takePictureAsync({
-                        quality: 0.1,           // Low quality for speed
+                        quality: 0.1,           // Low quality JPEG compression
                         base64: true,           // Get base64 string
                         skipProcessing: true,   // Skip image processing for faster capture
-                        shutterSound: false     // Disable camera click sound
+                        shutterSound: false,    // Disable camera click sound
+                        exif: false,            // Don't include EXIF data
+                        imageType: 'jpg'        // Force JPG format
                     });
 
-                    // Send base64 image data over WebSocket
-                    wsRef.current.send(photo.base64);
+                    // Only send if we got valid data
+                    if (photo && photo.base64) {
+                        wsRef.current.send(photo.base64);
+                    }
                 } catch (err) {
-                    console.error("[Frame Capture Error]", err);
+                    console.error("[Frame Capture Error]", err.message);
                 }
             }
-        }, 500);
+        }, 1000);
     };
 
     const stopStreaming = () => {
@@ -157,14 +184,27 @@ export default function FormCorrectionScreen({ route, navigation }) {
                     ref={cameraRef}
                     style={styles.camera}
                     facing="front"
+                    pictureSize="640x480"
                     onCameraReady={() => {
                         console.log("[Camera] Ready");
                     }}
                 />
 
+                {/* MASSIVE REP COUNTER - Top Center */}
+                <View style={styles.repCounterContainer}>
+                    <Text style={styles.repLabel}>REPS</Text>
+                    <Text style={styles.repCount}>{repCount}</Text>
+                </View>
+
+                {/* Visual Debugger HUD - Top Right */}
+                <View style={styles.debugHud}>
+                    <Text style={styles.debugText}>SYS.DEBUG.ELBOW :: {debugElbow}°</Text>
+                    <Text style={styles.debugText}>SYS.DEBUG.BACK  :: {debugBack}°</Text>
+                </View>
+
                 {/* Cyberpunk HUD - Top Overlay */}
                 <View style={styles.hudTop}>
-                    <Text style={styles.hudTitle}>[ MEDIA_PIPE_CORE_V3 ]</Text>
+                    <Text style={styles.hudTitle}>[ FORM_TRACKER_V4 ]</Text>
                     <View style={[
                         styles.statusDot,
                         { backgroundColor: wsConnected ? COLORS.primary : COLORS.danger }
@@ -220,6 +260,30 @@ const styles = StyleSheet.create({
     },
     camera: {
         flex: 1
+    },
+    // MASSIVE REP COUNTER STYLES
+    repCounterContainer: {
+        position: 'absolute',
+        top: 100,
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        zIndex: 20
+    },
+    repLabel: {
+        color: COLORS.primary,
+        fontSize: 16,
+        fontWeight: '900',
+        letterSpacing: 8,
+        opacity: 0.8
+    },
+    repCount: {
+        color: COLORS.primary,
+        fontSize: 120,
+        fontWeight: '900',
+        textShadowColor: COLORS.primary,
+        textShadowRadius: 30,
+        textShadowOffset: { width: 0, height: 0 }
     },
     hudTop: {
         position: 'absolute',
@@ -319,5 +383,26 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 100,
         fontWeight: 'bold'
+    },
+    // ===== VISUAL DEBUGGER HUD =====
+    debugHud: {
+        position: 'absolute',
+        top: 50,
+        right: 12,
+        backgroundColor: 'rgba(18, 18, 18, 0.8)',
+        borderWidth: 1,
+        borderColor: '#FFFF00',
+        borderRadius: 4,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        zIndex: 30
+    },
+    debugText: {
+        color: '#FFFF00',
+        fontSize: 11,
+        fontFamily: 'monospace',
+        fontWeight: '700',
+        letterSpacing: 1,
+        lineHeight: 18
     }
 });

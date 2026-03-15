@@ -2,17 +2,10 @@ import React, { useEffect, useState } from 'react';
 import {
     View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../constants/Colors';
 import { fitcareAPI } from '../services/api';
 import CustomHeader from '../components/CustomHeader';
-
-const QUOTES = [
-    '"The pain you feel today will be the strength you feel tomorrow."',
-    '"Push yourself, because no one else is going to do it for you."',
-    '"Success starts with self-discipline."',
-    '"Your body can stand almost anything. It\'s your mind you have to convince."',
-    '"Fitness is not about being better than someone else. It\'s about being better than you used to be."',
-];
 
 const GOAL_LABELS = { lose: '🔥 Lose Weight', gain: '💪 Gain Muscle', maintain: '⚖️ Maintain' };
 const ACTIVITY_LABELS = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' };
@@ -21,13 +14,41 @@ const HomeScreen = ({ route }) => {
     const { userId } = route.params;
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const quote = QUOTES[new Date().getDay() % QUOTES.length];
+
+    // AI Insights state
+    const [quote, setQuote] = useState('');
+    const [fact, setFact] = useState('');
+    const [target, setTarget] = useState('');
+    const [isLoadingInsights, setIsLoadingInsights] = useState(true);
 
     useEffect(() => {
         fitcareAPI.getUser(userId)
             .then(setUser)
             .catch(() => { })
             .finally(() => setLoading(false));
+    }, [userId]);
+
+    // Fetch AI daily insights
+    useEffect(() => {
+        setIsLoadingInsights(true);
+        fitcareAPI.getDailyInsights(userId)
+            .then(async (data) => {
+                setQuote(data.quote || '');
+                setFact(data.fact || '');
+                setTarget(data.target || '');
+                // Persist target for ProgressDashboard
+                if (data.target) {
+                    try {
+                        await AsyncStorage.setItem('@fitcare_daily_target', data.target);
+                    } catch (_) { }
+                }
+            })
+            .catch(() => {
+                setQuote('Discipline is choosing between what you want now and what you want most.');
+                setFact('Consistent training improves your resting metabolic rate by up to 7%.');
+                setTarget('Stay active — complete a 20-minute bodyweight circuit today.');
+            })
+            .finally(() => setIsLoadingInsights(false));
     }, [userId]);
 
     const bmi = user && user.height_cm && user.weight_kg
@@ -50,6 +71,15 @@ const HomeScreen = ({ route }) => {
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             <CustomHeader title="FitCare Hub" />
 
+            {/* AI Motivational Quote */}
+            <View style={styles.quoteCard}>
+                {isLoadingInsights ? (
+                    <ActivityIndicator color={Colors.primary} size="small" />
+                ) : (
+                    <Text style={styles.aiQuoteText}>"{quote}"</Text>
+                )}
+            </View>
+
             {/* Header Summary */}
             <View style={styles.headerSummary}>
                 <View>
@@ -61,12 +91,6 @@ const HomeScreen = ({ route }) => {
                 <View style={styles.goalBadge}>
                     <Text style={styles.goalBadgeText}>{GOAL_LABELS[user?.fitness_goal] || '—'}</Text>
                 </View>
-            </View>
-
-            {/* Daily Quote */}
-            <View style={styles.quoteCard}>
-                <Text style={styles.quoteIcon}>💬</Text>
-                <Text style={styles.quoteText}>{quote}</Text>
             </View>
 
             {/* BMI Card */}
@@ -112,6 +136,19 @@ const HomeScreen = ({ route }) => {
                 </View>
             </View>
 
+            {/* AI Daily Knowledge Card */}
+            <View style={styles.aiCard}>
+                <Text style={styles.aiCardHeader}>🧠 AI DAILY KNOWLEDGE</Text>
+                {isLoadingInsights ? (
+                    <View style={styles.aiLoadingContainer}>
+                        <ActivityIndicator color={Colors.primary} size="small" />
+                        <Text style={styles.aiLoadingText}>AI is thinking...</Text>
+                    </View>
+                ) : (
+                    <Text style={styles.aiFactText}>{fact}</Text>
+                )}
+            </View>
+
             {/* Profile Summary */}
             <View style={styles.card}>
                 <Text style={styles.cardTitle}>⚙️ Current Programme</Text>
@@ -143,9 +180,32 @@ const styles = StyleSheet.create({
     nameAccent: { color: Colors.primary },
     goalBadge: { backgroundColor: Colors.primaryDim, borderWidth: 1, borderColor: Colors.border, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
     goalBadgeText: { color: Colors.primary, fontSize: 12, fontWeight: '700' },
-    quoteCard: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 16, padding: 16, marginBottom: 16, flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-    quoteIcon: { fontSize: 20, marginTop: 2 },
-    quoteText: { flex: 1, color: Colors.primary, fontStyle: 'italic', lineHeight: 20, fontSize: 13 },
+
+    // AI Motivational Quote
+    quoteCard: {
+        backgroundColor: Colors.card, borderRadius: 16, padding: 20,
+        marginHorizontal: 16, marginTop: 16,
+        borderWidth: 1, borderColor: Colors.border,
+        alignItems: 'center', minHeight: 60, justifyContent: 'center',
+    },
+    aiQuoteText: {
+        color: '#FFFFFF', fontStyle: 'italic', fontSize: 15, lineHeight: 22,
+        textAlign: 'center', textShadowColor: 'rgba(255,255,255,0.3)', textShadowRadius: 8,
+    },
+
+    // AI Daily Knowledge Card
+    aiCard: {
+        backgroundColor: Colors.card, borderRadius: 16, padding: 16,
+        marginBottom: 12, borderWidth: 1.5, borderColor: Colors.primary,
+    },
+    aiCardHeader: {
+        color: Colors.primary, fontWeight: '900', fontSize: 13,
+        letterSpacing: 1.5, marginBottom: 12,
+    },
+    aiFactText: { color: Colors.text, fontSize: 14, lineHeight: 21 },
+    aiLoadingContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+    aiLoadingText: { color: Colors.textMuted, fontSize: 13 },
+
     card: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 16, padding: 16, marginBottom: 12 },
     cardTitle: { color: Colors.primary, fontWeight: '700', fontSize: 14, marginBottom: 12 },
     bmiRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16 },

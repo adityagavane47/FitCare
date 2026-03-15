@@ -3,9 +3,11 @@ import {
     View, Text, ScrollView, StyleSheet, TouchableOpacity,
     ActivityIndicator, Alert, Dimensions
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../constants/Colors';
 import { fitcareAPI } from '../services/api';
 import CustomHeader from '../components/CustomHeader';
+import useInteractionReady from '../hooks/useInteractionReady';
 
 const { width } = Dimensions.get('window');
 
@@ -14,13 +16,33 @@ const DietPlanner = ({ route }) => {
     const [plan, setPlan] = useState(null);
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
+    const [macroOverride, setMacroOverride] = useState(null);
+
+    // Wait for screen transition animation to finish before fetching
+    const isReady = useInteractionReady();
 
     useEffect(() => {
+        if (!isReady) return;
         fitcareAPI.getNutritionPlan(userId)
             .then(setPlan)
             .catch(() => { }) // No plan yet — that's fine
             .finally(() => setFetching(false));
-    }, [userId]);
+    }, [isReady, userId]);
+
+    // Read dynamic macro override from workout logger
+    useEffect(() => {
+        const loadMacroOverride = async () => {
+            try {
+                const stored = await AsyncStorage.getItem('@daily_macro_override');
+                if (stored) {
+                    setMacroOverride(JSON.parse(stored));
+                }
+            } catch (e) {
+                console.log('Failed to read macro override:', e);
+            }
+        };
+        loadMacroOverride();
+    }, []);
 
     const generatePlan = async () => {
         setLoading(true);
@@ -49,7 +71,7 @@ const DietPlanner = ({ route }) => {
         );
     };
 
-    if (fetching) {
+    if (!isReady || fetching) {
         return <View style={styles.centered}><ActivityIndicator color={Colors.primary} size="large" /></View>;
     }
 
@@ -61,6 +83,24 @@ const DietPlanner = ({ route }) => {
                 <Text style={styles.pageTitle}>🥗 DIET_SYNC</Text>
                 <Text style={styles.pageSubtitle}>Personalised via Mifflin-St Jeor engine</Text>
             </View>
+
+            {/* Dynamic Macro Override Banner */}
+            {macroOverride && (
+                <View style={styles.overrideBanner}>
+                    <Text style={styles.overrideBannerTitle}>DYNAMIC MACRO ADJUSTMENT ACTIVE</Text>
+                    <View style={styles.overrideMacros}>
+                        <View style={styles.overrideMacroItem}>
+                            <Text style={styles.overrideMacroValue}>+{macroOverride.extra_protein_g}g</Text>
+                            <Text style={styles.overrideMacroLabel}>PROTEIN</Text>
+                        </View>
+                        <View style={styles.overrideDivider} />
+                        <View style={styles.overrideMacroItem}>
+                            <Text style={styles.overrideMacroValue}>+{macroOverride.extra_carbs_g}g</Text>
+                            <Text style={styles.overrideMacroLabel}>CARBS</Text>
+                        </View>
+                    </View>
+                </View>
+            )}
 
             {plan ? (
                 <>
@@ -161,6 +201,36 @@ const styles = StyleSheet.create({
     pageHeader: { paddingHorizontal: 16, marginTop: 20, marginBottom: 20 },
     pageTitle: { color: Colors.text, fontSize: 24, fontWeight: '800' },
     pageSubtitle: { color: Colors.textMuted, fontSize: 13, marginTop: 4 },
+
+    // Dynamic Macro Override Banner
+    overrideBanner: {
+        backgroundColor: 'rgba(57, 255, 20, 0.08)',
+        borderWidth: 1.5,
+        borderColor: '#39FF14',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+        shadowColor: '#39FF14',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.6,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    overrideBannerTitle: {
+        color: '#39FF14',
+        fontSize: 12,
+        fontWeight: '900',
+        letterSpacing: 3,
+        textAlign: 'center',
+        marginBottom: 12,
+        textShadowColor: '#39FF14',
+        textShadowRadius: 8,
+    },
+    overrideMacros: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+    overrideMacroItem: { alignItems: 'center', flex: 1 },
+    overrideMacroValue: { color: '#39FF14', fontSize: 28, fontWeight: '900', textShadowColor: '#39FF14', textShadowRadius: 10 },
+    overrideMacroLabel: { color: '#39FF14', fontSize: 10, fontWeight: '800', letterSpacing: 2, marginTop: 4, opacity: 0.7 },
+    overrideDivider: { width: 1, height: 40, backgroundColor: 'rgba(57, 255, 20, 0.3)' },
 
     calorieRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
     calorieCard: {
