@@ -6,12 +6,12 @@
     "orientation": "portrait",
     "scheme": "fitcare",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#000000"
       },
-      "package": "com.fitcare.mobile"
+      "package": "com.fitcare.mobile",
+      "usesCleartextTraffic": true
     },
     "ios": {
       "supportsTablet": true,
@@ -28,7 +28,16 @@
         }
       ],
       "react-native-ble-plx",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26,
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {

@@ -3,6 +3,14 @@ import Constants from 'expo-constants';
 
 const API_PORT = '8000';
 
+// ============================================================
+// 🔧 CHANGE THIS IP to your machine's Wi-Fi IPv4 address
+//    when running on a physical device.
+//    Find it with: ipconfig (Windows) or ifconfig (Mac/Linux)
+// ============================================================
+const API_HOST = '192.168.45.74';
+const API_BASE_URL = `http://${API_HOST}:${API_PORT}`;
+
 function getExpoHostCandidate() {
     const hostUri =
         Constants?.expoConfig?.hostUri ||
@@ -22,8 +30,9 @@ function buildBaseUrlCandidates() {
     const expoHost = getExpoHostCandidate();
     const emulatorHost = Platform.OS === 'android' ? `http://10.0.2.2:${API_PORT}` : null;
 
-    // Ordered fallbacks: explicit env > Expo LAN host > emulator localhost > local machine
+    // Ordered fallbacks: LAN IP (physical device) > explicit env > Expo host > emulator > loopback
     return [
+        API_BASE_URL,
         fromEnv,
         expoHost,
         emulatorHost,
@@ -71,7 +80,7 @@ async function request(path, options = {}) {
 }
 
 export function getWebSocketUrl(path) {
-    const httpUrl = getExpoHostCandidate() || `http://127.0.0.1:${API_PORT}`;
+    const httpUrl = getExpoHostCandidate() || API_BASE_URL;
     const wsUrl = httpUrl.replace(/^http/, 'ws');
     return `${wsUrl}${path}`;
 }
