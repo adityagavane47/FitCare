@@ -20,6 +20,7 @@ import AIVisionScreen from './screens/AIVisionScreen';
 import VideoLibraryScreen from './screens/VideoLibraryScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import FormCorrectionScreen from './screens/FormCorrectionScreen';
+import LogFoodScreen from './screens/LogFoodScreen';
 
 // --- GLOBAL MONKEY-PATCH FOR TENSORFLOW.JS COMPATIBILITY ---
 import * as ExpoCamera from 'expo-camera';
@@ -121,6 +122,12 @@ function MainDrawer({ route }) {
                 component={ProfileScreen}
                 initialParams={{ userId }}
                 options={{ title: '⚙️ SYSTEM_SETTINGS' }}
+            />
+            <Drawer.Screen
+                name="LogFood"
+                component={LogFoodScreen}
+                initialParams={{ userId }}
+                options={{ title: '🍽️ LOG_FOOD' }}
             />
         </Drawer.Navigator>
     );

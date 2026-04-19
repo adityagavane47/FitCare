@@ -62,7 +62,6 @@ class OTPVerify(BaseModel):
 
 class OTPResponse(BaseModel):
     message: str
-    otp: str  # Exposed only in dev/mock mode — remove in production
 
 
 class OTPVerifyResponse(BaseModel):
@@ -156,3 +155,38 @@ class WorkoutAnalysisRequest(BaseModel):
 
 class WorkoutAnalysisResponse(BaseModel):
     feedback: str
+
+
+# ===========================
+# FORM ANALYSIS SCHEMAS (LSTM)
+# ===========================
+
+class FormAnalysisRequest(BaseModel):
+    """Request payload for TensorFlow LSTM form analysis."""
+    exercise_type: str = Field(default="pushup", description="Type of exercise being performed")
+    landmark_sequence: list[list[float]] = Field(
+        ...,
+        description="Sliding window of 30 frames, each frame is 99 floats (33 landmarks × 3 coords X,Y,Z)"
+    )
+
+
+class FormAlertItem(BaseModel):
+    label: str
+    confidence: float
+    message: str
+
+
+class JointStatusItem(BaseModel):
+    joint: str
+    status: str
+    severity: str
+    confidence: float
+
+
+class FormAnalysisResponse(BaseModel):
+    """Response from the LSTM form analysis endpoint."""
+    accuracy: float = Field(..., description="Overall form correctness percentage (0-100)")
+    labels: dict[str, float] = Field(..., description="Per-label confidence scores")
+    alerts: list[FormAlertItem] = Field(default_factory=list, description="Detected form errors")
+    joint_status: list[JointStatusItem] = Field(..., description="Terminal-style joint status list")
+    exercise_type: str

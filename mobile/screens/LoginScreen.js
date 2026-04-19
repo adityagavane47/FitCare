@@ -11,7 +11,6 @@ const LoginScreen = ({ navigation }) => {
     const [phone, setPhone] = useState('');
     const [otp, setOtp] = useState('');
     const [loading, setLoading] = useState(false);
-    const [devOtp, setDevOtp] = useState(null); // Shows mock OTP in dev mode
 
     const handleRequestOTP = async () => {
         if (phone.length !== 10 || !/^\d+$/.test(phone)) {
@@ -20,8 +19,7 @@ const LoginScreen = ({ navigation }) => {
         }
         setLoading(true);
         try {
-            const res = await fitcareAPI.requestOTP(phone);
-            setDevOtp(res.otp); // Display in UI for dev/demo — remove in production
+            await fitcareAPI.requestOTP(phone);
             setStep('otp');
         } catch (err) {
             Alert.alert('Error', err.message || 'Could not send OTP. Is the backend running?');
@@ -93,11 +91,6 @@ const LoginScreen = ({ navigation }) => {
                             Sent to +91 {phone}{'  '}
                             <Text style={styles.link} onPress={() => setStep('phone')}>Change</Text>
                         </Text>
-                        {devOtp && (
-                            <View style={styles.devBadge}>
-                                <Text style={styles.devBadgeText}>🔧 DEV MODE — OTP: {devOtp}</Text>
-                            </View>
-                        )}
                         <TextInput
                             style={[styles.input, styles.otpInput]}
                             placeholder="• • • •"
@@ -116,7 +109,7 @@ const LoginScreen = ({ navigation }) => {
                         )}
                         <TouchableOpacity
                             style={{ marginTop: 16 }}
-                            onPress={() => { setStep('phone'); setOtp(''); setDevOtp(null); }}
+                            onPress={() => { setStep('phone'); setOtp(''); }}
                         >
                             <Text style={styles.link}>Resend OTP</Text>
                         </TouchableOpacity>

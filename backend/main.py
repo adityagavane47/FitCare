@@ -1,20 +1,16 @@
-from fastapi import FastAPI, Depends, HTTPException, Body, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, Body, Query
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pathlib import Path
 from dotenv import load_dotenv
-from typing import List
-from datetime import datetime
+from typing import List, Optional
+from datetime import datetime, date
 import random
 import os
-import cv2
-import mediapipe as mp
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
+import httpx
 import numpy as np
-import base64
-import math
 import json
 import traceback
 
@@ -26,14 +22,15 @@ import schemas
 from database import engine, SessionLocal
 import ai_trainer
 from services.ai_trainer import generate_daily_insights, generate_post_workout_macros
+from services.meal_evaluator import evaluate_meal
 
 # Create tables
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="FitCare API",
-    description="Backend API for the FitCare fitness application with AI-powered form correction.",
-    version="2.0.0"
+    description="Backend API for the FitCare fitness application with TensorFlow LSTM form analysis.",
+    version="3.0.0"
 )
 
 # CORS - allow all origins for local development
@@ -56,262 +53,53 @@ def get_db():
 
 
 # ====================================
-#  MEDIAPIPE FORM TRACKER (WebSocket)
+#  TENSORFLOW LSTM FORM ANALYSIS
 # ====================================
 
-# Lazy initialization for MediaPipe Pose Landmarker (initialized on first use)
-pose_landmarker = None
+from services.form_model import get_form_model, SEQUENCE_LENGTH, FEATURES_PER_FRAME
 
-# Landmark indices for pose analysis (MediaPipe Pose Landmarker)
-class PoseLandmark:
-    LEFT_SHOULDER = 11
-    RIGHT_SHOULDER = 12
-    LEFT_ELBOW = 13
-    RIGHT_ELBOW = 14
-    LEFT_WRIST = 15
-    RIGHT_WRIST = 16
-    LEFT_HIP = 23
-    RIGHT_HIP = 24
-    LEFT_ANKLE = 27
-    RIGHT_ANKLE = 28
 
-def get_pose_detector():
-    """Get or create the MediaPipe Pose Landmarker (lazy initialization)."""
-    global pose_landmarker
-    if pose_landmarker is None:
-        model_path = Path(__file__).resolve().parent / "pose_landmarker.task"
-        base_options = python.BaseOptions(model_asset_path=str(model_path))
-        options = vision.PoseLandmarkerOptions(
-            base_options=base_options,
-            running_mode=vision.RunningMode.IMAGE,
-            min_pose_detection_confidence=0.5,
-            min_tracking_confidence=0.5
+@app.post("/api/form/analyze", response_model=schemas.FormAnalysisResponse)
+def analyze_form_lstm(req: schemas.FormAnalysisRequest):
+    """
+    TensorFlow LSTM-based exercise form analysis.
+
+    Accepts a sliding window of 30 frames of normalized pose landmarks
+    and returns form correctness, per-joint status, and alerts.
+
+    Input: JSON with exercise_type and landmark_sequence (30 frames × 99 values each).
+    Output: Accuracy %, label confidences, alerts, and terminal-style joint status.
+    """
+    # Validate sequence dimensions
+    sequence = req.landmark_sequence
+
+    if len(sequence) != SEQUENCE_LENGTH:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Expected {SEQUENCE_LENGTH} frames, received {len(sequence)}. "
+                   f"Buffer the sliding window to exactly {SEQUENCE_LENGTH} frames before sending."
         )
-        pose_landmarker = vision.PoseLandmarker.create_from_options(options)
-    return pose_landmarker
 
+    for i, frame in enumerate(sequence):
+        if len(frame) != FEATURES_PER_FRAME:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Frame {i} has {len(frame)} values, expected {FEATURES_PER_FRAME} "
+                       f"(33 landmarks × 3 coords)."
+            )
 
-def calculate_angle(a, b, c):
-    """
-    Calculate the angle ABC (at point B) using three landmark points.
-
-    This uses the atan2 function to compute the angle between two vectors:
-    - Vector BA (from B to A)
-    - Vector BC (from B to C)
-
-    The formula:
-    1. Compute angle of BA relative to x-axis: atan2(a.y - b.y, a.x - b.x)
-    2. Compute angle of BC relative to x-axis: atan2(c.y - b.y, c.x - b.x)
-    3. The angle at B = difference between these two angles
-    4. Convert from radians to degrees
-
-    Args:
-        a: First point (e.g., shoulder) with x, y coordinates
-        b: Middle point / vertex (e.g., hip) with x, y coordinates
-        c: Third point (e.g., ankle) with x, y coordinates
-
-    Returns:
-        Angle in degrees (0-360 range, normalized)
-    """
-    radians = math.atan2(c[1] - b[1], c[0] - b[0]) - math.atan2(a[1] - b[1], a[0] - b[0])
-    angle = abs(radians * 180.0 / math.pi)
-
-    # Normalize to 0-180 range
-    if angle > 180.0:
-        angle = 360.0 - angle
-
-    return angle
-
-
-@app.websocket("/ws/form-tracker")
-async def form_tracker_websocket(websocket: WebSocket):
-    """
-    WebSocket endpoint for real-time pose analysis using MediaPipe.
-
-    Receives base64-encoded camera frames from the mobile app,
-    processes them through MediaPipe Pose, and returns form feedback.
-
-    Features:
-    1. Entry State Mechanism - Only evaluates when user is in horizontal pushup position
-    2. Repetition Counter - Tracks elbow angle to count perfect-form pushups
-    """
-    await websocket.accept()
-    print("[WebSocket] Client connected to /ws/form-tracker")
-
-    # Initialize rep counter and stage BEFORE the loop
-    rep_count = 0
-    stage = None  # "up" or "down"
-    frame_count = 0
-
+    # Convert to numpy and reshape for the model: (1, 30, 99)
     try:
-        while True:
-            # Await base64 image data from client
-            data = await websocket.receive_text()
-            frame_count += 1
-            if frame_count <= 3 or frame_count % 20 == 0:
-                print(f"[Frame {frame_count}] received")
-
-            try:
-                # Decode base64 string to numpy array
-                img_bytes = base64.b64decode(data)
-                np_arr = np.frombuffer(img_bytes, dtype=np.uint8)
-
-                # Decode to OpenCV image (BGR format)
-                frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-
-                if frame is None:
-                    # Frame decoding failed, skip this frame
-                    await websocket.send_text(json.dumps({
-                        "status": "success",
-                        "feedback": "Frame error",
-                        "count": rep_count,
-                        "elbow_angle": 0.0,
-                        "back_angle": 0.0
-                    }))
-                    continue
-
-                # Resize to smaller size for faster processing
-                h, w = frame.shape[:2]
-
-                # Target size: 480p for fast processing
-                target_size = 480
-                scale = target_size / max(h, w)
-                new_w = int(w * scale)
-                new_h = int(h * scale)
-                frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
-
-                # Make square to avoid MediaPipe ROI warnings
-                size = max(new_h, new_w)
-                square_frame = np.zeros((size, size, 3), dtype=np.uint8)
-                y_offset = (size - new_h) // 2
-                x_offset = (size - new_w) // 2
-                square_frame[y_offset:y_offset+new_h, x_offset:x_offset+new_w] = frame
-
-                # Convert BGR to RGB for MediaPipe
-                frame_rgb = cv2.cvtColor(square_frame, cv2.COLOR_BGR2RGB)
-
-                # Create MediaPipe Image from numpy array
-                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
-
-                # Process frame with MediaPipe Pose Landmarker
-                detector = get_pose_detector()
-                results = detector.detect(mp_image)
-
-                if not results.pose_landmarks or len(results.pose_landmarks) == 0:
-                    # No pose detected in frame
-                    await websocket.send_text(json.dumps({
-                        "status": "success",
-                        "feedback": "No person detected",
-                        "count": rep_count,
-                        "elbow_angle": 0.0,
-                        "back_angle": 0.0
-                    }))
-                    continue
-
-                # Extract landmarks from first detected pose
-                landmarks = results.pose_landmarks[0]
-
-                # Extract all required landmarks (LEFT side)
-                left_shoulder = [
-                    landmarks[PoseLandmark.LEFT_SHOULDER].x,
-                    landmarks[PoseLandmark.LEFT_SHOULDER].y
-                ]
-                left_elbow = [
-                    landmarks[PoseLandmark.LEFT_ELBOW].x,
-                    landmarks[PoseLandmark.LEFT_ELBOW].y
-                ]
-                left_wrist = [
-                    landmarks[PoseLandmark.LEFT_WRIST].x,
-                    landmarks[PoseLandmark.LEFT_WRIST].y
-                ]
-                left_hip = [
-                    landmarks[PoseLandmark.LEFT_HIP].x,
-                    landmarks[PoseLandmark.LEFT_HIP].y
-                ]
-                left_ankle = [
-                    landmarks[PoseLandmark.LEFT_ANKLE].x,
-                    landmarks[PoseLandmark.LEFT_ANKLE].y
-                ]
-
-                # ========== MATH CALCULATIONS ==========
-
-                # 1. Body Tilt Angle - Check if user is horizontal (in pushup position)
-                # Uses shoulder and ankle to determine body tilt relative to floor
-                body_tilt_angle = math.degrees(math.atan2(
-                    abs(left_shoulder[1] - left_ankle[1]),  # y difference
-                    abs(left_shoulder[0] - left_ankle[0])   # x difference
-                ))
-
-                # 2. Elbow Angle - For counting reps (Shoulder -> Elbow -> Wrist)
-                try:
-                    elbow_angle = calculate_angle(left_shoulder, left_elbow, left_wrist)
-                except Exception:
-                    elbow_angle = 0.0
-
-                # 3. Back Angle - For form check (Shoulder -> Hip -> Ankle)
-                try:
-                    back_angle = calculate_angle(left_shoulder, left_hip, left_ankle)
-                except Exception:
-                    back_angle = 0.0
-
-                # ========== STATE MACHINE LOGIC ==========
-                feedback = ""
-
-                # GATE 1: Entry State Check - Is user in horizontal pushup position?
-                if body_tilt_angle > 35:
-                    # User is standing, sitting, or not in pushup position
-                    feedback = "Get into position"
-
-                # GATE 2: Form Check - Is back straight?
-                elif back_angle < 165 or back_angle > 195:
-                    # Back is not straight (sagging or piking)
-                    feedback = "Fix your back"
-
-                # GATE 3: Rep Counter - User is in position AND form is perfect
-                else:
-                    # Track the pushup movement using elbow angle
-                    if elbow_angle < 90:
-                        # User is in the "down" position of pushup
-                        stage = "down"
-                        feedback = "Good form"
-
-                    if elbow_angle > 160 and stage == "down":
-                        # User has pushed back up - count the rep!
-                        stage = "up"
-                        rep_count += 1
-                        feedback = str(rep_count)  # Send the count as feedback
-
-                    # If just holding good form without completing a rep
-                    if not feedback:
-                        feedback = "Good form"
-
-                # Send response back to client
-                await websocket.send_text(json.dumps({
-                    "status": "success",
-                    "feedback": feedback,
-                    "count": rep_count,
-                    "elbow_angle": round(elbow_angle, 1),
-                    "back_angle": round(back_angle, 1)
-                }))
-
-                # Debug: Print every 10th frame
-                if frame_count % 10 == 0:
-                    print(f"[Frame {frame_count}] feedback={feedback}, reps={rep_count}")
-
-            except WebSocketDisconnect:
-                # Client disconnected - break out of the loop
-                raise
-            except Exception as e:
-                # Frame processing error - log and continue (don't crash the server)
-                print(f"[WebSocket] Frame {frame_count} error: {type(e).__name__}: {e}")
-                # Don't print full traceback for every frame - too verbose
-                continue
-
-    except WebSocketDisconnect:
-        print(f"[WebSocket] Client disconnected after {frame_count} frames")
+        sequence_array = np.array(sequence, dtype=np.float32).reshape(1, SEQUENCE_LENGTH, FEATURES_PER_FRAME)
     except Exception as e:
-        print(f"[WebSocket] Connection error after {frame_count} frames: {e}")
-        traceback.print_exc()
+        raise HTTPException(status_code=422, detail=f"Failed to parse landmark data: {e}")
+
+    # Run LSTM inference
+    model = get_form_model()
+    result = model.predict_form(sequence_array)
+    result["exercise_type"] = req.exercise_type
+
+    return result
 
 
 # ====================================
@@ -320,12 +108,12 @@ async def form_tracker_websocket(websocket: WebSocket):
 
 @app.get("/")
 def root():
-    return {"status": "online", "message": "FitCare API v2.0 - MediaPipe Form Tracker Active"}
+    return {"status": "online", "message": "FitCare API v3.0 — TensorFlow LSTM Form Analysis Active"}
 
 
 @app.get("/health")
 def health_check():
-    return {"status": "healthy", "mediapipe": "initialized"}
+    return {"status": "healthy", "engine": "tensorflow_lstm", "version": "3.0.0"}
 
 
 # ====================================
@@ -351,8 +139,14 @@ def request_otp(req: schemas.OTPRequest, db: Session = Depends(get_db)):
     """Request OTP for phone-based authentication (mock implementation)."""
     # Generate a mock OTP (in production, integrate with SMS provider)
     otp = str(random.randint(1000, 9999))
+    
+    # Print the OTP to terminal instead of returning it for security
+    print(f"\n==========================================")
+    print(f"🔒 MOCK OTP FOR {req.phone}: {otp}")
+    print(f"==========================================\n")
+    
     # In production, store OTP in cache (Redis) with expiration
-    return {"message": f"OTP sent to {req.phone}", "otp": otp}
+    return {"message": f"OTP sent to {req.phone}"}
 
 
 @app.post("/api/auth/verify-otp", response_model=schemas.OTPVerifyResponse)
@@ -614,6 +408,180 @@ def get_latest_nutrition_plan(user_id: int, db: Session = Depends(get_db)):
             detail="No nutrition plan found. Call POST /api/nutrition/generate first."
         )
     return plan
+
+
+# ====================================
+#  FOOD SEARCH (USDA FoodData Central + Fallback)
+# ====================================
+
+# USDA FoodData Central API (primary food search provider)
+USDA_API_KEY = os.getenv("USDA_API_KEY", "")
+USDA_API_URL = "https://api.nal.usda.gov/fdc/v1/foods/search"
+
+# USDA Nutrient IDs for macro extraction
+USDA_NUTRIENT_MAP = {
+    1008: "calories",   # Energy (KCAL)
+    1003: "protein",    # Protein (G)
+    1005: "carbs",      # Carbohydrate, by difference (G)
+    1004: "fats",       # Total lipid / fat (G)
+}
+
+
+def _parse_usda_food(food_item: dict) -> dict:
+    """Extract macro nutrients from a USDA FDC food search result."""
+    macros = {"calories": 0, "protein": 0, "carbs": 0, "fats": 0}
+    for nutrient in food_item.get("foodNutrients", []):
+        nid = nutrient.get("nutrientId")
+        if nid in USDA_NUTRIENT_MAP:
+            macros[USDA_NUTRIENT_MAP[nid]] = round(nutrient.get("value", 0), 1)
+    return {
+        "id": str(food_item.get("fdcId", "")),
+        "name": food_item.get("description", "Unknown").title(),
+        **macros,
+    }
+
+
+# Dummy food database for when no API key is available
+DUMMY_FOOD_DB = [
+    {"id": "food_001", "name": "Grilled Chicken Breast", "calories": 284, "protein": 53, "carbs": 0, "fats": 6},
+    {"id": "food_002", "name": "Chicken Biryani", "calories": 490, "protein": 22, "carbs": 58, "fats": 18},
+    {"id": "food_003", "name": "Masala Omelette", "calories": 220, "protein": 16, "carbs": 4, "fats": 16},
+    {"id": "food_004", "name": "Paneer Tikka", "calories": 320, "protein": 18, "carbs": 8, "fats": 24},
+    {"id": "food_005", "name": "Egg Fried Rice", "calories": 410, "protein": 12, "carbs": 62, "fats": 14},
+    {"id": "food_006", "name": "Whey Protein Shake", "calories": 130, "protein": 25, "carbs": 3, "fats": 2},
+    {"id": "food_007", "name": "Peanut Butter Toast", "calories": 310, "protein": 12, "carbs": 32, "fats": 16},
+    {"id": "food_008", "name": "Greek Yogurt Bowl", "calories": 180, "protein": 18, "carbs": 12, "fats": 6},
+    {"id": "food_009", "name": "Salmon Sushi Roll", "calories": 350, "protein": 20, "carbs": 42, "fats": 10},
+    {"id": "food_010", "name": "Caesar Salad", "calories": 260, "protein": 14, "carbs": 12, "fats": 18},
+    {"id": "food_011", "name": "Steak and Potatoes", "calories": 680, "protein": 48, "carbs": 40, "fats": 32},
+    {"id": "food_012", "name": "Veggie Wrap", "calories": 290, "protein": 10, "carbs": 38, "fats": 12},
+    {"id": "food_013", "name": "Chocolate Brownie", "calories": 380, "protein": 5, "carbs": 50, "fats": 18},
+    {"id": "food_014", "name": "Dal Tadka with Rice", "calories": 420, "protein": 16, "carbs": 64, "fats": 10},
+    {"id": "food_015", "name": "Banana Smoothie", "calories": 220, "protein": 6, "carbs": 44, "fats": 3},
+]
+
+
+@app.get("/api/food/search")
+async def search_food(
+    query: str = Query(..., min_length=1, description="Dish name to search"),
+    usda_key: Optional[str] = Query(None, description="USDA API key (overrides server env)"),
+):
+    """
+    Searches for food items by name.
+    Uses the USDA FoodData Central API if an API key is provided
+    (via query param or server env), otherwise falls back to a local
+    dummy database.
+    """
+    # Resolve the active key: prefer client-provided, then server env
+    active_key = usda_key or USDA_API_KEY
+
+    # Try USDA FoodData Central API if a key is available
+    if active_key:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    USDA_API_URL,
+                    params={
+                        "api_key": active_key,
+                        "query": query,
+                        "pageSize": 10,
+                    },
+                )
+            if resp.status_code == 200:
+                data = resp.json()
+                results = [
+                    _parse_usda_food(food)
+                    for food in data.get("foods", [])[:10]
+                ]
+                return {"source": "usda", "results": results}
+            else:
+                print(f"[FoodSearch] USDA API error [{resp.status_code}]: {resp.text}")
+        except Exception as e:
+            print(f"[FoodSearch] USDA API request failed: {e}")
+
+    # Fallback: filter dummy database by query (case-insensitive partial match)
+    query_lower = query.lower()
+    matches = [item for item in DUMMY_FOOD_DB if query_lower in item["name"].lower()]
+
+    # If no exact matches, return all items sorted by relevance
+    if not matches:
+        matches = DUMMY_FOOD_DB[:8]
+
+    return {"source": "local", "results": matches}
+
+
+# ====================================
+#  FOOD LOGGING (In-Memory + AI Eval)
+# ====================================
+
+class FoodLogCreate(BaseModel):
+    """Schema for logging a single food item's macros."""
+    food_name: str
+    calories: float
+    protein_g: float = 0.0
+    carbs_g: float = 0.0
+    fats_g: float = 0.0
+    user_goal: Optional[str] = None
+
+# In-memory store: { "YYYY-MM-DD": [ {food_name, calories, ...}, ... ] }
+daily_food_logs: dict[str, list] = {}
+
+# Default user goal used when none is provided
+DEFAULT_USER_GOAL = "Muscle Hypertrophy"
+
+
+@app.post("/api/food/log")
+def log_food(entry: FoodLogCreate):
+    """
+    Logs a food item to today's in-memory ledger, then runs
+    the meal through the AI evaluator for personalised feedback.
+    """
+    today = date.today().isoformat()  # "YYYY-MM-DD"
+    if today not in daily_food_logs:
+        daily_food_logs[today] = []
+
+    entry_data = entry.model_dump()
+    daily_food_logs[today].append(entry_data)
+
+    # Run AI meal evaluation
+    user_goal = entry.user_goal or DEFAULT_USER_GOAL
+    macros = {
+        "calories": entry.calories,
+        "protein": entry.protein_g,
+        "carbs": entry.carbs_g,
+        "fats": entry.fats_g,
+    }
+    ai_feedback = evaluate_meal(
+        food_name=entry.food_name,
+        macros=macros,
+        user_goal=user_goal,
+    )
+
+    return {
+        "status": "success",
+        "date": today,
+        "logged": entry_data,
+        "ai_feedback": ai_feedback,
+    }
+
+
+@app.get("/api/nutrition/today")
+def get_today_nutrition():
+    """
+    Returns aggregated calories & protein for today plus default daily goals.
+    """
+    today = date.today().isoformat()
+    logs = daily_food_logs.get(today, [])
+    total_calories = sum(l["calories"] for l in logs)
+    total_protein = sum(l["protein_g"] for l in logs)
+    return {
+        "date": today,
+        "total_calories": round(total_calories, 1),
+        "total_protein": round(total_protein, 1),
+        "calorie_goal": 2500,
+        "protein_goal": 150,
+        "items_logged": len(logs),
+    }
 
 
 # ====================================

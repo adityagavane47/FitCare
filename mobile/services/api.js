@@ -3,12 +3,8 @@ import Constants from 'expo-constants';
 
 const API_PORT = '8000';
 
-// ============================================================
-// 🔧 CHANGE THIS IP to your machine's Wi-Fi IPv4 address
-//    when running on a physical device.
-//    Find it with: ipconfig (Windows) or ifconfig (Mac/Linux)
-// ============================================================
-const API_HOST = '192.168.45.74';
+
+const API_HOST = '192.168.68.100';
 const API_BASE_URL = `http://${API_HOST}:${API_PORT}`;
 
 function getExpoHostCandidate() {
@@ -30,7 +26,7 @@ function buildBaseUrlCandidates() {
     const expoHost = getExpoHostCandidate();
     const emulatorHost = Platform.OS === 'android' ? `http://10.0.2.2:${API_PORT}` : null;
 
-    // Ordered fallbacks: LAN IP (physical device) > explicit env > Expo host > emulator > loopback
+
     return [
         API_BASE_URL,
         fromEnv,
@@ -117,6 +113,21 @@ export const fitcareAPI = {
     getNutritionPlan: (userId) =>
         request(`/api/nutrition/plan/${userId}`),
 
+    // --- FOOD SEARCH & LOGGING ---
+    searchFood: (query, usdaKey = null) => {
+        let url = `/api/food/search?query=${encodeURIComponent(query)}`;
+        if (usdaKey) {
+            url += `&usda_key=${encodeURIComponent(usdaKey)}`;
+        }
+        return request(url);
+    },
+
+    logFoodItem: (foodData) =>
+        request('/api/food/log', { method: 'POST', body: foodData }),
+
+    fetchTodayNutrition: () =>
+        request('/api/nutrition/today'),
+
     // --- AI DAILY INSIGHTS ---
     getDailyInsights: (userId) =>
         request(`/api/user/${userId}/insights`),
@@ -131,4 +142,8 @@ export const fitcareAPI = {
     // --- WORKOUT ANALYSIS ---
     analyzeWorkoutForm: (userId, exerciseType, formFlags) =>
         request('/api/workout/analysis', { method: 'POST', body: { user_id: userId, exercise_type: exerciseType, form_flags: formFlags } }),
+
+    // --- LSTM FORM ANALYSIS ---
+    analyzeFormSequence: (exerciseType, landmarkSequence) =>
+        request('/api/form/analyze', { method: 'POST', body: { exercise_type: exerciseType, landmark_sequence: landmarkSequence } }),
 };
