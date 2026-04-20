@@ -190,3 +190,25 @@ class FormAnalysisResponse(BaseModel):
     alerts: list[FormAlertItem] = Field(default_factory=list, description="Detected form errors")
     joint_status: list[JointStatusItem] = Field(..., description="Terminal-style joint status list")
     exercise_type: str
+
+
+# ===========================
+# SESSION ANALYSIS SCHEMAS (Post-Workout Summary)
+# ===========================
+
+class SessionAnalysisRequest(BaseModel):
+    """Request payload for post-workout session analysis."""
+    user_id: int
+    exercise_type: str = Field(default="pushup", description="Type of exercise: pushup, squat, etc.")
+    total_reps: int = Field(..., description="Total reps completed in the session")
+    avg_precision: float = Field(..., description="Average form precision score 0-100")
+    form_flags: list[str] = Field(default_factory=list, description="Unique form issues detected during session")
+    duration_seconds: int = Field(..., description="Total session duration in seconds")
+    landmark_summary: Optional[list[list[float]]] = Field(None, description="Optional batch of landmark frames for deep analysis")
+
+
+class SessionAnalysisResponse(BaseModel):
+    """Response from the post-workout session analysis."""
+    summary: str = Field(..., description="AI-generated coaching feedback")
+    grade: str = Field(..., description="Session grade: A+, A, B, C, D, F")
+    recommendations: list[str] = Field(default_factory=list, description="Specific improvement tips")

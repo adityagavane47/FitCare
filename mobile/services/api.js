@@ -146,4 +146,8 @@ export const fitcareAPI = {
     // --- LSTM FORM ANALYSIS ---
     analyzeFormSequence: (exerciseType, landmarkSequence) =>
         request('/api/form/analyze', { method: 'POST', body: { exercise_type: exerciseType, landmark_sequence: landmarkSequence } }),
+
+    // --- POST-WORKOUT SESSION ANALYSIS ---
+    analyzeSession: (sessionData) =>
+        request('/api/workout/analyze-session', { method: 'POST', body: sessionData }),
 };

@@ -13,7 +13,12 @@ import {
 import { Camera, CameraView } from 'expo-camera';
 import * as Speech from 'expo-speech';
 import Svg, { Line, Circle } from 'react-native-svg';
+import * as tf from '@tensorflow/tfjs';
+import { cameraWithTensors } from '@tensorflow/tfjs-react-native';
+import * as poseDetection from '@tensorflow-models/pose-detection';
 import { fitcareAPI } from '../services/api';
+
+const TensorCamera = cameraWithTensors(CameraView);
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -39,133 +44,215 @@ const COLORS = {
     textDim: '#3a3a4a',
     border: 'rgba(57, 255, 20, 0.2)',
     borderDanger: 'rgba(255, 49, 49, 0.3)',
+    cyan: '#00F0FF',
+    cyanDim: 'rgba(0, 240, 255, 0.2)',
 };
 
 const FONTS = {
     mono: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
 };
-const SEQUENCE_LENGTH = 30;        
-const NUM_LANDMARKS = 33;           
-const COORDS_PER_LANDMARK = 3;      
-const FEATURES_PER_FRAME = NUM_LANDMARKS * COORDS_PER_LANDMARK; 
-const FRAME_SKIP = 5;               
-
-
-const SKELETON_CONNECTIONS = [
-    [11, 13], [13, 15],   
-    [12, 14], [14, 16],   
-    [11, 12],            
-    [11, 23], [12, 24],   
-    [23, 24],            
-    [23, 25], [25, 27],   
-    [24, 26], [26, 28],   
-    [0, 1], [1, 2], [2, 3], [3, 7],  
-    [0, 4], [4, 5], [5, 6], [6, 8],  
-    [15, 17], [15, 19], [15, 21],    
-    [16, 18], [16, 20], [16, 22],    
-    [27, 29], [29, 31],              
-    [28, 30], [30, 32],              
-];
-
-
-const LEFT_HIP = 23;
-const RIGHT_HIP = 24;
-const NOSE = 0;
-const LEFT_ANKLE = 27;
-const RIGHT_ANKLE = 28;
-
-
-
- *
- * @param {Array} landmarks - Array of 33 objects with {x, y, z}
- * @returns {Array} Flat array of 99 normalized floats
- */
-function normalizeLandmarks(landmarks) {
-    if (!landmarks || landmarks.length < NUM_LANDMARKS) {
-        return new Array(FEATURES_PER_FRAME).fill(0);
-    }
-
-    // 1. Compute hip midpoint (center of mass proxy)
-    const hipCenterX = (landmarks[LEFT_HIP].x + landmarks[RIGHT_HIP].x) / 2;
-    const hipCenterY = (landmarks[LEFT_HIP].y + landmarks[RIGHT_HIP].y) / 2;
-    const hipCenterZ = (landmarks[LEFT_HIP].z + landmarks[RIGHT_HIP].z) / 2;
-
-    // 2. Compute body height for scale (nose to ankle midpoint)
-    const ankleMidX = (landmarks[LEFT_ANKLE].x + landmarks[RIGHT_ANKLE].x) / 2;
-    const ankleMidY = (landmarks[LEFT_ANKLE].y + landmarks[RIGHT_ANKLE].y) / 2;
-    const noseX = landmarks[NOSE].x;
-    const noseY = landmarks[NOSE].y;
-
-    const bodyHeight = Math.sqrt(
-        Math.pow(noseX - ankleMidX, 2) + Math.pow(noseY - ankleMidY, 2)
-    );
-    const scale = bodyHeight > 0.01 ? bodyHeight : 1.0; // Avoid division by zero
-
-    // 3. Center and scale each landmark
-    const normalized = [];
-    for (let i = 0; i < NUM_LANDMARKS; i++) {
-        const lm = landmarks[i];
-        normalized.push((lm.x - hipCenterX) / scale);
-        normalized.push((lm.y - hipCenterY) / scale);
-        normalized.push(((lm.z || 0) - hipCenterZ) / scale);
-    }
-
-    return normalized;
-}
-
 
 // ================================================================
-//  SIMULATED POSE DATA (Dev Mode — until real pose detector plugged in)
+//  MOVENET CONFIG — 17 Keypoints, Lightning Model
+// ================================================================
+
+// TensorCamera input resolution (MoveNet Lightning expects 192×192)
+const INPUT_TENSOR_WIDTH = 192;
+const INPUT_TENSOR_HEIGHT = 192;
+
+// MoveNet 17-keypoint indices
+const KP = {
+    NOSE: 0,
+    LEFT_EYE: 1,
+    RIGHT_EYE: 2,
+    LEFT_EAR: 3,
+    RIGHT_EAR: 4,
+    LEFT_SHOULDER: 5,
+    RIGHT_SHOULDER: 6,
+    LEFT_ELBOW: 7,
+    RIGHT_ELBOW: 8,
+    LEFT_WRIST: 9,
+    RIGHT_WRIST: 10,
+    LEFT_HIP: 11,
+    RIGHT_HIP: 12,
+    LEFT_KNEE: 13,
+    RIGHT_KNEE: 14,
+    LEFT_ANKLE: 15,
+    RIGHT_ANKLE: 16,
+};
+
+const NUM_KEYPOINTS = 17;
+const MIN_KEYPOINT_SCORE = 0.3; // Confidence threshold for drawing/analyzing
+
+// Skeleton connections for MoveNet 17-keypoint model
+const SKELETON_CONNECTIONS = [
+    // Arms
+    [KP.LEFT_SHOULDER, KP.LEFT_ELBOW],
+    [KP.LEFT_ELBOW, KP.LEFT_WRIST],
+    [KP.RIGHT_SHOULDER, KP.RIGHT_ELBOW],
+    [KP.RIGHT_ELBOW, KP.RIGHT_WRIST],
+    // Shoulders
+    [KP.LEFT_SHOULDER, KP.RIGHT_SHOULDER],
+    // Torso
+    [KP.LEFT_SHOULDER, KP.LEFT_HIP],
+    [KP.RIGHT_SHOULDER, KP.RIGHT_HIP],
+    // Hips
+    [KP.LEFT_HIP, KP.RIGHT_HIP],
+    // Legs
+    [KP.LEFT_HIP, KP.LEFT_KNEE],
+    [KP.LEFT_KNEE, KP.LEFT_ANKLE],
+    [KP.RIGHT_HIP, KP.RIGHT_KNEE],
+    [KP.RIGHT_KNEE, KP.RIGHT_ANKLE],
+    // Face (subtle)
+    [KP.NOSE, KP.LEFT_EYE],
+    [KP.NOSE, KP.RIGHT_EYE],
+    [KP.LEFT_EYE, KP.LEFT_EAR],
+    [KP.RIGHT_EYE, KP.RIGHT_EAR],
+];
+
+// ================================================================
+//  ANGLE & REP COUNTING UTILITIES
 // ================================================================
 
 /**
- * Generate simulated landmark data for development/demo purposes.
- * Produces a plausible standing human pose with slight random variation.
+ * Calculate angle at point B formed by vectors BA and BC.
+ * Returns degrees [0, 360).
  */
-function generateSimulatedLandmarks() {
-    // Base standing pose (normalized coordinates 0-1 range)
-    const basePose = [
-        { x: 0.50, y: 0.15, z: 0 },   // 0  nose
-        { x: 0.49, y: 0.13, z: 0 },   // 1  left eye inner
-        { x: 0.48, y: 0.13, z: 0 },   // 2  left eye
-        { x: 0.47, y: 0.13, z: 0 },   // 3  left eye outer
-        { x: 0.51, y: 0.13, z: 0 },   // 4  right eye inner
-        { x: 0.52, y: 0.13, z: 0 },   // 5  right eye
-        { x: 0.53, y: 0.13, z: 0 },   // 6  right eye outer
-        { x: 0.46, y: 0.14, z: 0 },   // 7  left ear
-        { x: 0.54, y: 0.14, z: 0 },   // 8  right ear
-        { x: 0.49, y: 0.18, z: 0 },   // 9  mouth left
-        { x: 0.51, y: 0.18, z: 0 },   // 10 mouth right
-        { x: 0.40, y: 0.30, z: 0 },   // 11 left shoulder
-        { x: 0.60, y: 0.30, z: 0 },   // 12 right shoulder
-        { x: 0.35, y: 0.45, z: 0 },   // 13 left elbow
-        { x: 0.65, y: 0.45, z: 0 },   // 14 right elbow
-        { x: 0.33, y: 0.58, z: 0 },   // 15 left wrist
-        { x: 0.67, y: 0.58, z: 0 },   // 16 right wrist
-        { x: 0.32, y: 0.60, z: 0 },   // 17 left pinky
-        { x: 0.68, y: 0.60, z: 0 },   // 18 right pinky
-        { x: 0.31, y: 0.59, z: 0 },   // 19 left index
-        { x: 0.69, y: 0.59, z: 0 },   // 20 right index
-        { x: 0.33, y: 0.57, z: 0 },   // 21 left thumb
-        { x: 0.67, y: 0.57, z: 0 },   // 22 right thumb
-        { x: 0.44, y: 0.55, z: 0 },   // 23 left hip
-        { x: 0.56, y: 0.55, z: 0 },   // 24 right hip
-        { x: 0.43, y: 0.72, z: 0 },   // 25 left knee
-        { x: 0.57, y: 0.72, z: 0 },   // 26 right knee
-        { x: 0.42, y: 0.90, z: 0 },   // 27 left ankle
-        { x: 0.58, y: 0.90, z: 0 },   // 28 right ankle
-        { x: 0.41, y: 0.93, z: 0 },   // 29 left heel
-        { x: 0.59, y: 0.93, z: 0 },   // 30 right heel
-        { x: 0.40, y: 0.95, z: 0 },   // 31 left foot index
-        { x: 0.60, y: 0.95, z: 0 },   // 32 right foot index
-    ];
+function calculateAngle(A, B, C) {
+    const radians = Math.atan2(C.y - B.y, C.x - B.x) - Math.atan2(A.y - B.y, A.x - B.x);
+    let angle = Math.abs(radians * (180 / Math.PI));
+    if (angle > 180) angle = 360 - angle;
+    return angle;
+}
 
-    // Add slight random variation to simulate movement
-    return basePose.map(lm => ({
-        x: lm.x + (Math.random() - 0.5) * 0.02,
-        y: lm.y + (Math.random() - 0.5) * 0.02,
-        z: lm.z + (Math.random() - 0.5) * 0.01,
-    }));
+/**
+ * Check if a keypoint has sufficient confidence to be used.
+ */
+function isValid(kp) {
+    return kp && kp.score >= MIN_KEYPOINT_SCORE;
+}
+
+/**
+ * Calculate elbow angle for pushup detection (shoulder → elbow → wrist).
+ */
+function getElbowAngle(keypoints, side = 'left') {
+    const shoulder = keypoints[side === 'left' ? KP.LEFT_SHOULDER : KP.RIGHT_SHOULDER];
+    const elbow = keypoints[side === 'left' ? KP.LEFT_ELBOW : KP.RIGHT_ELBOW];
+    const wrist = keypoints[side === 'left' ? KP.LEFT_WRIST : KP.RIGHT_WRIST];
+
+    if (!isValid(shoulder) || !isValid(elbow) || !isValid(wrist)) return null;
+    return calculateAngle(shoulder, elbow, wrist);
+}
+
+/**
+ * Calculate knee angle for squat detection (hip → knee → ankle).
+ */
+function getKneeAngle(keypoints, side = 'left') {
+    const hip = keypoints[side === 'left' ? KP.LEFT_HIP : KP.RIGHT_HIP];
+    const knee = keypoints[side === 'left' ? KP.LEFT_KNEE : KP.RIGHT_KNEE];
+    const ankle = keypoints[side === 'left' ? KP.LEFT_ANKLE : KP.RIGHT_ANKLE];
+
+    if (!isValid(hip) || !isValid(knee) || !isValid(ankle)) return null;
+    return calculateAngle(hip, knee, ankle);
+}
+
+/**
+ * Calculate body alignment angle (shoulder → hip → ankle) for plank/pushup form.
+ */
+function getBodyAlignmentAngle(keypoints, side = 'left') {
+    const shoulder = keypoints[side === 'left' ? KP.LEFT_SHOULDER : KP.RIGHT_SHOULDER];
+    const hip = keypoints[side === 'left' ? KP.LEFT_HIP : KP.RIGHT_HIP];
+    const ankle = keypoints[side === 'left' ? KP.LEFT_ANKLE : KP.RIGHT_ANKLE];
+
+    if (!isValid(shoulder) || !isValid(hip) || !isValid(ankle)) return null;
+    return calculateAngle(shoulder, hip, ankle);
+}
+
+// ================================================================
+//  FORM HEURISTICS ENGINE
+// ================================================================
+
+/**
+ * Analyze form from keypoints and return alerts + precision score.
+ */
+function analyzeForm(keypoints, exerciseType) {
+    const alerts = [];
+    let deductions = 0;
+    const maxDeductions = 4; // Each issue can deduct up to 25%
+
+    if (exerciseType === 'pushup') {
+        // 1. Body alignment (shoulder-hip-ankle should be ~170-180°)
+        const bodyAngle = getBodyAlignmentAngle(keypoints, 'left') ||
+                          getBodyAlignmentAngle(keypoints, 'right');
+        if (bodyAngle !== null) {
+            if (bodyAngle < 155) {
+                alerts.push({ message: 'HIPS :: TOO_HIGH — Lower your hips to plank line', severity: 'critical' });
+                deductions += 1;
+            } else if (bodyAngle > 195 || bodyAngle < 160) {
+                alerts.push({ message: 'HIPS :: SAGGING — Engage core, lift to straight line', severity: 'warning' });
+                deductions += 0.7;
+            }
+        }
+
+        // 2. Elbow flaring — compare elbow X vs shoulder X
+        const lShoulder = keypoints[KP.LEFT_SHOULDER];
+        const lElbow = keypoints[KP.LEFT_ELBOW];
+        const rShoulder = keypoints[KP.RIGHT_SHOULDER];
+        const rElbow = keypoints[KP.RIGHT_ELBOW];
+
+        if (isValid(lShoulder) && isValid(lElbow) && isValid(rShoulder) && isValid(rElbow)) {
+            const shoulderWidth = Math.abs(rShoulder.x - lShoulder.x);
+            const elbowWidth = Math.abs(rElbow.x - lElbow.x);
+            if (elbowWidth > shoulderWidth * 1.5) {
+                alerts.push({ message: 'ELBOWS :: FLARING — Tuck elbows closer to torso', severity: 'warning' });
+                deductions += 0.7;
+            }
+        }
+
+        // 3. Depth check — elbow angle should reach below 90° at bottom
+        const elbowAngle = getElbowAngle(keypoints, 'left') || getElbowAngle(keypoints, 'right');
+        // We only flag this if the user seems to be in the "down" position but not deep enough
+        // This is tracked per-frame — the rep counter handles the state machine
+
+    } else if (exerciseType === 'squat') {
+        // 1. Knee caving — compare knee X position vs ankle X position
+        const lKnee = keypoints[KP.LEFT_KNEE];
+        const lAnkle = keypoints[KP.LEFT_ANKLE];
+        const rKnee = keypoints[KP.RIGHT_KNEE];
+        const rAnkle = keypoints[KP.RIGHT_ANKLE];
+
+        if (isValid(lKnee) && isValid(lAnkle) && isValid(rKnee) && isValid(rAnkle)) {
+            const ankleWidth = Math.abs(rAnkle.x - lAnkle.x);
+            const kneeWidth = Math.abs(rKnee.x - lKnee.x);
+            if (kneeWidth < ankleWidth * 0.7) {
+                alerts.push({ message: 'KNEES :: CAVING_IN — Push knees outward over toes', severity: 'critical' });
+                deductions += 1;
+            }
+        }
+
+        // 2. Back rounding — torso lean check (shoulder should not be far forward of hip)
+        const shoulder = keypoints[KP.LEFT_SHOULDER];
+        const hip = keypoints[KP.LEFT_HIP];
+        if (isValid(shoulder) && isValid(hip)) {
+            // In a front-facing camera, excessive forward lean means shoulder.y >> hip.y
+            // For side view, shoulder.x << hip.x
+            const forwardLean = Math.abs(shoulder.x - hip.x);
+            const torsoHeight = Math.abs(shoulder.y - hip.y);
+            if (forwardLean > torsoHeight * 0.6) {
+                alerts.push({ message: 'SPINE :: ROUNDING — Keep chest up, neutral spine', severity: 'warning' });
+                deductions += 0.7;
+            }
+        }
+
+        // 3. Depth — knee angle at bottom of squat
+        const kneeAngle = getKneeAngle(keypoints, 'left') || getKneeAngle(keypoints, 'right');
+        // Tracked by rep counter state machine
+    }
+
+    // Calculate precision score (100% minus deductions, clamped 0-100)
+    const precision = Math.max(0, Math.min(100, Math.round(100 - (deductions / maxDeductions) * 100)));
+
+    return { alerts, precision };
 }
 
 
@@ -180,28 +267,47 @@ export default function FormCorrectionScreen({ route, navigation }) {
     const [hasPermission, setHasPermission] = useState(null);
     const [tfReady, setTfReady] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [accuracy, setAccuracy] = useState(0);
-    const [jointStatus, setJointStatus] = useState([]);
+    const [precision, setPrecision] = useState(100);
     const [alerts, setAlerts] = useState([]);
     const [statusMessage, setStatusMessage] = useState('INITIALIZING_SUBSYSTEMS...');
     const [frameCount, setFrameCount] = useState(0);
     const [hasError, setHasError] = useState(false);
+    const [detectedKeypoints, setDetectedKeypoints] = useState(null);
+    const [repCount, setRepCount] = useState(0);
+    const [latency, setLatency] = useState(0);
+    const [loadingProgress, setLoadingProgress] = useState('');
+    const [exercisePhase, setExercisePhase] = useState('IDLE'); // IDLE | UP | DOWN
 
     // ---- Refs ----
-    const cameraRef = useRef(null);
-    const slidingWindowRef = useRef([]);       // Circular buffer: Array of 99-float arrays
-    const frameCounterRef = useRef(0);         // Total frames seen (for skip logic)
-    const analyzeIntervalRef = useRef(null);
-    const isAnalyzingRef = useRef(false);       // Prevent overlapping requests
+    const detectorRef = useRef(null);
+    const isAnalyzingRef = useRef(false);
+    const frameCounterRef = useRef(0);
+    const requestRef = useRef(null);
+
+    // Rep counting state machine refs
+    const repPhaseRef = useRef('IDLE'); // 'IDLE' | 'UP' | 'DOWN'
+    const repCountRef = useRef(0);
+    const lowestAngleRef = useRef(180); // Track deepest angle in a rep
+
+    // Voice coaching refs
     const lastSpokenRef = useRef(0);
+    const lastSpokenWarningRef = useRef('');
+
+    // Session tracking refs (for post-workout summary)
+    const sessionStartRef = useRef(null);
+    const formFlagsRef = useRef(new Set()); // Unique form issues detected during session
+    const precisionSamplesRef = useRef([]); // Track precision over time
+
+    // Camera view dimensions (for coordinate mapping)
+    const cameraViewRef = useRef({ width: SCREEN_WIDTH, height: SCREEN_HEIGHT });
 
     // ---- Animations ----
     const alertPulse = useRef(new Animated.Value(0)).current;
-    const accuracyAnim = useRef(new Animated.Value(0)).current;
     const scanLineAnim = useRef(new Animated.Value(0)).current;
+    const loadingDotAnim = useRef(new Animated.Value(0)).current;
 
     // ================================================================
-    //  INITIALIZATION
+    //  INITIALIZATION — TF.js + MoveNet
     // ================================================================
 
     useEffect(() => {
@@ -212,12 +318,43 @@ export default function FormCorrectionScreen({ route, navigation }) {
             const { status } = await Camera.requestCameraPermissionsAsync();
             if (mounted) setHasPermission(status === 'granted');
 
-            // 2. Initialize TensorFlow.js (backend-side model, so we just mark ready)
-            // In a full implementation, you'd do: await tf.ready(); here
-            // For now the inference happens on the backend via REST
+            if (status !== 'granted') return;
+
+            // 2. Initialize TensorFlow.js
             if (mounted) {
-                setTfReady(true);
-                setStatusMessage('SUBSYSTEMS_ONLINE. Ready to analyze.');
+                setStatusMessage('LOADING_NEURAL_ENGINE...');
+                setLoadingProgress('Initializing TensorFlow runtime...');
+            }
+
+            try {
+                await tf.ready();
+                if (mounted) setLoadingProgress('TF.js backend active: ' + tf.getBackend());
+
+                // 3. Create MoveNet detector (SinglePose Lightning — fastest)
+                if (mounted) setLoadingProgress('Downloading MoveNet Lightning model...');
+
+                const detector = await poseDetection.createDetector(
+                    poseDetection.SupportedModels.MoveNet,
+                    {
+                        modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+                        enableSmoothing: true,
+                    }
+                );
+
+                detectorRef.current = detector;
+
+                if (mounted) {
+                    setTfReady(true);
+                    setStatusMessage('SUBSYSTEMS_ONLINE — Ready to analyze.');
+                    setLoadingProgress('');
+                }
+            } catch (err) {
+                console.error('[TFJS] Init Error:', err);
+                if (mounted) {
+                    setStatusMessage('NEURAL_ENGINE_FAILURE :: ' + err.message);
+                    setHasError(true);
+                    setLoadingProgress('');
+                }
             }
         }
 
@@ -232,9 +369,21 @@ export default function FormCorrectionScreen({ route, navigation }) {
             })
         ).start();
 
+        // Loading dots animation
+        Animated.loop(
+            Animated.timing(loadingDotAnim, {
+                toValue: 3,
+                duration: 1500,
+                useNativeDriver: false,
+            })
+        ).start();
+
         return () => {
             mounted = false;
             stopAnalysis();
+            if (detectorRef.current) {
+                detectorRef.current.dispose?.();
+            }
         };
     }, []);
 
@@ -265,71 +414,176 @@ export default function FormCorrectionScreen({ route, navigation }) {
     }, [hasError]);
 
     // ================================================================
-    //  SLIDING WINDOW & ANALYSIS
+    //  REP COUNTING STATE MACHINE
     // ================================================================
 
-    const pushToSlidingWindow = useCallback((normalizedFrame) => {
-        const window = slidingWindowRef.current;
-        window.push(normalizedFrame);
+    const processRepCounting = useCallback((keypoints) => {
+        let angle = null;
 
-        // Maintain exactly SEQUENCE_LENGTH frames
-        while (window.length > SEQUENCE_LENGTH) {
-            window.shift();
+        if (exerciseType === 'pushup') {
+            // Track elbow angle: shoulder → elbow → wrist
+            angle = getElbowAngle(keypoints, 'left') ?? getElbowAngle(keypoints, 'right');
+        } else if (exerciseType === 'squat') {
+            // Track knee angle: hip → knee → ankle
+            angle = getKneeAngle(keypoints, 'left') ?? getKneeAngle(keypoints, 'right');
+        }
+
+        if (angle === null) return;
+
+        const DOWN_THRESHOLD = 100;  // Angle below this = "down" position
+        const UP_THRESHOLD = 155;    // Angle above this = "up" position
+
+        // Track the lowest angle reached
+        if (angle < lowestAngleRef.current) {
+            lowestAngleRef.current = angle;
+        }
+
+        const currentPhase = repPhaseRef.current;
+
+        if (currentPhase === 'IDLE' || currentPhase === 'UP') {
+            if (angle < DOWN_THRESHOLD) {
+                repPhaseRef.current = 'DOWN';
+                setExercisePhase('DOWN');
+                lowestAngleRef.current = angle;
+            }
+        } else if (currentPhase === 'DOWN') {
+            if (angle > UP_THRESHOLD) {
+                // Rep completed: DOWN → UP transition
+                repPhaseRef.current = 'UP';
+                setExercisePhase('UP');
+                repCountRef.current += 1;
+                setRepCount(repCountRef.current);
+
+                // Check if the rep was deep enough
+                if (lowestAngleRef.current > 110) {
+                    // Not deep enough — didn't get below ~110°
+                    formFlagsRef.current.add('not_deep_enough');
+                }
+
+                lowestAngleRef.current = 180; // Reset for next rep
+            }
+        }
+    }, [exerciseType]);
+
+    // ================================================================
+    //  VOICE COACHING ENGINE — 5-second cooldown
+    // ================================================================
+
+    const triggerVoiceAlert = useCallback((alertMessage) => {
+        const now = Date.now();
+        const cleanText = alertMessage
+            .replace(/::/g, '. ')
+            .replace(/—/g, ', ')
+            .replace(/_/g, ' ');
+
+        // Only speak if: different warning OR 5+ seconds since last speech
+        if (cleanText !== lastSpokenWarningRef.current || (now - lastSpokenRef.current > 5000)) {
+            Speech.speak(cleanText, {
+                rate: 0.95,
+                pitch: 0.85,
+                language: 'en-US',
+            });
+            lastSpokenRef.current = now;
+            lastSpokenWarningRef.current = cleanText;
         }
     }, []);
 
-    const runAnalysis = useCallback(async () => {
-        if (isAnalyzingRef.current) return; // Prevent overlapping
-        if (slidingWindowRef.current.length < SEQUENCE_LENGTH) return; // Not enough data
+    // ================================================================
+    //  CAMERA STREAM HANDLER — On-Device Pose Detection Loop
+    // ================================================================
 
-        isAnalyzingRef.current = true;
-
-        try {
-            // Deep copy the current window
-            const sequenceCopy = slidingWindowRef.current.map(frame => [...frame]);
-
-            const result = await fitcareAPI.analyzeFormSequence(exerciseType, sequenceCopy);
-
-            // Update state with results
-            setAccuracy(result.accuracy || 0);
-            setJointStatus(result.joint_status || []);
-            setAlerts(result.alerts || []);
-
-            // Animate accuracy change
-            Animated.timing(accuracyAnim, {
-                toValue: result.accuracy || 0,
-                duration: 400,
-                useNativeDriver: false,
-            }).start();
-
-            // Check for errors
-            const hasFormErrors = (result.alerts || []).length > 0;
-            setHasError(hasFormErrors);
-
-            // Build status message
-            if (hasFormErrors) {
-                const topAlert = result.alerts[0];
-                setStatusMessage(topAlert.message || 'FORM_DEVIATION_DETECTED');
-
-                // Audio feedback (throttled)
-                const now = Date.now();
-                if (now - lastSpokenRef.current > 4000) {
-                    Speech.speak(topAlert.message.replace(/::/g, '').replace(/—/g, ','), {
-                        rate: 0.85,
-                        pitch: 0.8,
-                    });
-                    lastSpokenRef.current = now;
-                }
-            } else {
-                setStatusMessage('FORM_ANALYSIS :: ALL_NOMINAL');
+    const handleCameraStream = useCallback((images) => {
+        const loop = async () => {
+            if (!isAnalyzingRef.current || !detectorRef.current) {
+                // Keep draining the tensor iterator even when not analyzing
+                const next = images.next().value;
+                if (next) tf.dispose(next);
+                requestRef.current = requestAnimationFrame(loop);
+                return;
             }
-        } catch (err) {
-            console.error('[FormAnalysis] Error:', err.message);
-            setStatusMessage('BACKEND_ERROR :: Check connection');
-        } finally {
-            isAnalyzingRef.current = false;
-        }
-    }, [exerciseType]);
+
+            const nextImageTensor = images.next().value;
+            if (!nextImageTensor) {
+                requestRef.current = requestAnimationFrame(loop);
+                return;
+            }
+
+            try {
+                // ---- Measure Latency ----
+                const t0 = performance.now();
+
+                // ---- Run MoveNet Inference ----
+                const poses = await detectorRef.current.estimatePoses(nextImageTensor, {
+                    maxPoses: 1,
+                    flipHorizontal: false,
+                });
+
+                const inferenceMs = Math.round(performance.now() - t0);
+                setLatency(inferenceMs);
+
+                if (poses && poses.length > 0) {
+                    const rawKeypoints = poses[0].keypoints;
+
+                    // ---- COORDINATE MAPPING ----
+                    // MoveNet returns keypoints with x,y in pixel space of the input tensor
+                    // (0..INPUT_TENSOR_WIDTH, 0..INPUT_TENSOR_HEIGHT)
+                    // We normalize to [0,1] then multiply by the camera view dimensions
+                    const mappedKeypoints = rawKeypoints.map(kp => ({
+                        x: (kp.x / INPUT_TENSOR_WIDTH) * cameraViewRef.current.width,
+                        y: (kp.y / INPUT_TENSOR_HEIGHT) * cameraViewRef.current.height,
+                        score: kp.score,
+                        name: kp.name,
+                    }));
+
+                    // Update display state
+                    setDetectedKeypoints(mappedKeypoints);
+
+                    // ---- Frame counter ----
+                    frameCounterRef.current += 1;
+                    setFrameCount(frameCounterRef.current);
+
+                    // ---- Rep Counting ----
+                    processRepCounting(mappedKeypoints);
+
+                    // ---- Form Analysis (every 3rd frame to save CPU) ----
+                    if (frameCounterRef.current % 3 === 0) {
+                        const { alerts: formAlerts, precision: formPrecision } = analyzeForm(mappedKeypoints, exerciseType);
+
+                        setPrecision(formPrecision);
+                        setAlerts(formAlerts);
+
+                        const hasFormErrors = formAlerts.length > 0;
+                        setHasError(hasFormErrors);
+
+                        // Track form flags for session summary
+                        formAlerts.forEach(a => {
+                            const flagKey = a.message.split('::')[0].trim().toLowerCase().replace(/\s/g, '_');
+                            formFlagsRef.current.add(flagKey);
+                        });
+
+                        // Track precision samples
+                        precisionSamplesRef.current.push(formPrecision);
+
+                        if (hasFormErrors) {
+                            const topAlert = formAlerts[0];
+                            setStatusMessage(topAlert.message);
+                            triggerVoiceAlert(topAlert.message);
+                        } else {
+                            setStatusMessage('FORM_ANALYSIS :: ALL_NOMINAL');
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('[Detector] Error:', err);
+            } finally {
+                tf.dispose(nextImageTensor);
+            }
+
+            requestRef.current = requestAnimationFrame(loop);
+        };
+
+        loop();
+    }, [exerciseType, processRepCounting, triggerVoiceAlert]);
 
     // ================================================================
     //  START / STOP CONTROLS
@@ -337,57 +591,81 @@ export default function FormCorrectionScreen({ route, navigation }) {
 
     const startAnalysis = useCallback(() => {
         setIsAnalyzing(true);
-        setStatusMessage('ANALYSIS_LIVE — Collecting frames...');
-        slidingWindowRef.current = [];
+        isAnalyzingRef.current = true;
+        setStatusMessage('ANALYSIS_LIVE — Tracking Active');
         frameCounterRef.current = 0;
+        repCountRef.current = 0;
+        repPhaseRef.current = 'IDLE';
+        lowestAngleRef.current = 180;
+        setRepCount(0);
+        setPrecision(100);
+        setAlerts([]);
+        setHasError(false);
+        setExercisePhase('IDLE');
 
-        // Simulate pose detection loop (generates landmarks every 200ms)
-        // In production, replace with real on-device pose detector
-        analyzeIntervalRef.current = setInterval(() => {
-            frameCounterRef.current += 1;
-            setFrameCount(frameCounterRef.current);
+        // Session tracking
+        sessionStartRef.current = Date.now();
+        formFlagsRef.current = new Set();
+        precisionSamplesRef.current = [];
+    }, []);
 
-            // Rate limiting: only process every FRAME_SKIP-th frame
-            if (frameCounterRef.current % FRAME_SKIP !== 0) return;
-
-            // Generate simulated landmarks (replace with real pose detector)
-            const landmarks = generateSimulatedLandmarks();
-            const normalized = normalizeLandmarks(landmarks);
-            pushToSlidingWindow(normalized);
-
-            // Once buffer is full, run backend analysis
-            if (slidingWindowRef.current.length >= SEQUENCE_LENGTH) {
-                runAnalysis();
-            }
-        }, 200); // ~5 FPS capture rate
-    }, [pushToSlidingWindow, runAnalysis]);
-
-    const stopAnalysis = useCallback(() => {
-        if (analyzeIntervalRef.current) {
-            clearInterval(analyzeIntervalRef.current);
-            analyzeIntervalRef.current = null;
+    const stopAnalysis = useCallback(async () => {
+        if (requestRef.current) {
+            cancelAnimationFrame(requestRef.current);
+            requestRef.current = null;
         }
+
+        const wasAnalyzing = isAnalyzingRef.current;
         setIsAnalyzing(false);
+        isAnalyzingRef.current = false;
         setStatusMessage('ANALYSIS_TERMINATED');
         setHasError(false);
-    }, []);
+        setExercisePhase('IDLE');
+
+        // Send post-workout summary to backend if we had a real session
+        if (wasAnalyzing && sessionStartRef.current && repCountRef.current > 0) {
+            const durationSeconds = Math.round((Date.now() - sessionStartRef.current) / 1000);
+            const samples = precisionSamplesRef.current;
+            const avgPrecision = samples.length > 0
+                ? Math.round(samples.reduce((a, b) => a + b, 0) / samples.length)
+                : 100;
+
+            try {
+                const sessionData = {
+                    user_id: userId || 1,
+                    exercise_type: exerciseType,
+                    total_reps: repCountRef.current,
+                    avg_precision: avgPrecision,
+                    form_flags: Array.from(formFlagsRef.current),
+                    duration_seconds: durationSeconds,
+                };
+
+                const result = await fitcareAPI.analyzeSession(sessionData);
+                if (result?.summary) {
+                    setStatusMessage('SESSION_COMPLETE :: ' + result.grade);
+                    // Speak the summary
+                    Speech.speak(result.summary, { rate: 0.9, pitch: 0.85 });
+                }
+            } catch (err) {
+                console.warn('[Session] Failed to send summary:', err.message);
+                setStatusMessage('SESSION_SAVED_LOCALLY — ' + repCountRef.current + ' reps');
+            }
+        }
+    }, [userId, exerciseType]);
 
     // ================================================================
     //  RENDER HELPERS
     // ================================================================
 
-    const getSeverityColor = (severity) => {
-        switch (severity) {
-            case 'ok': return COLORS.primary;
-            case 'warning': return COLORS.warning;
-            case 'critical': return COLORS.danger;
-            default: return COLORS.textMuted;
-        }
+    const getAccuracyColor = () => {
+        if (precision >= 70) return COLORS.primary;
+        if (precision >= 50) return COLORS.warning;
+        return COLORS.danger;
     };
 
-    const getAccuracyColor = () => {
-        if (accuracy >= 70) return COLORS.primary;
-        if (accuracy >= 50) return COLORS.warning;
+    const getLatencyColor = () => {
+        if (latency < 50) return COLORS.primary;
+        if (latency < 100) return COLORS.warning;
         return COLORS.danger;
     };
 
@@ -407,6 +685,12 @@ export default function FormCorrectionScreen({ route, navigation }) {
         inputRange: [0, 1],
         outputRange: ['rgba(255, 49, 49, 0.05)', 'rgba(255, 49, 49, 0.2)'],
     });
+
+    // Camera view layout handler — captures actual rendered dimensions for coordinate mapping
+    const onCameraLayout = useCallback((event) => {
+        const { width, height } = event.nativeEvent.layout;
+        cameraViewRef.current = { width, height };
+    }, []);
 
     // ================================================================
     //  RENDER — Loading / Permission States
@@ -430,6 +714,59 @@ export default function FormCorrectionScreen({ route, navigation }) {
         );
     }
 
+    // ---- Model Loading State ----
+    if (!tfReady) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.loadingContainer}>
+                    <View style={styles.loadingTerminal}>
+                        <Text style={styles.loadingTerminalHeader}>{'>'} NEURAL_ENGINE_BOOTSTRAP</Text>
+                        <View style={styles.loadingDivider} />
+
+                        <View style={styles.loadingRow}>
+                            <Text style={styles.loadingLabel}>STATUS</Text>
+                            <Text style={styles.loadingValue}>LOADING</Text>
+                        </View>
+
+                        <View style={styles.loadingRow}>
+                            <Text style={styles.loadingLabel}>MODEL</Text>
+                            <Text style={styles.loadingValue}>MoveNet Lightning</Text>
+                        </View>
+
+                        <View style={styles.loadingRow}>
+                            <Text style={styles.loadingLabel}>RUNTIME</Text>
+                            <Text style={styles.loadingValue}>TensorFlow.js</Text>
+                        </View>
+
+                        <View style={styles.loadingDivider} />
+
+                        <Text style={styles.loadingProgressText}>
+                            {loadingProgress || 'Initializing...'}
+                        </Text>
+
+                        <ActivityIndicator
+                            size="large"
+                            color={COLORS.primary}
+                            style={{ marginTop: 20 }}
+                        />
+
+                        <Text style={styles.loadingSubtext}>
+                            Preparing on-device inference engine{'\n'}
+                            This may take 10-20 seconds on first load
+                        </Text>
+                    </View>
+
+                    <TouchableOpacity
+                        style={styles.loadingBackBtn}
+                        onPress={() => navigation.goBack()}
+                    >
+                        <Text style={styles.backText}>← ABORT</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    }
+
     // ================================================================
     //  RENDER — Main UI
     // ================================================================
@@ -437,12 +774,19 @@ export default function FormCorrectionScreen({ route, navigation }) {
     return (
         <View style={styles.container}>
             {/* ===== CAMERA LAYER ===== */}
-            <View style={styles.cameraFrame}>
-                <CameraView
-                    ref={cameraRef}
+            <View style={styles.cameraFrame} onLayout={onCameraLayout}>
+                <TensorCamera
                     style={styles.camera}
                     facing="front"
                     onCameraReady={() => console.log('[Camera] Ready')}
+                    // Tensor Camera Props — MoveNet Lightning expects 192×192
+                    cameraTextureHeight={1200}
+                    cameraTextureWidth={1600}
+                    resizeHeight={INPUT_TENSOR_HEIGHT}
+                    resizeWidth={INPUT_TENSOR_WIDTH}
+                    resizeDepth={3}
+                    onReady={handleCameraStream}
+                    autorender={true}
                 />
 
                 {/* Scan Line Animation */}
@@ -455,35 +799,60 @@ export default function FormCorrectionScreen({ route, navigation }) {
                     />
                 )}
 
-                {/* SVG Skeleton Overlay (placeholder visual) */}
-                <Svg style={styles.skeletonOverlay} viewBox={`0 0 ${SCREEN_WIDTH} ${SCREEN_HEIGHT}`}>
-                    {isAnalyzing && SKELETON_CONNECTIONS.map(([from, to], idx) => {
-                        // Map landmark indices to approximate screen positions
-                        const simLandmarks = generateSimulatedLandmarks();
-                        const x1 = simLandmarks[from].x * SCREEN_WIDTH;
-                        const y1 = simLandmarks[from].y * SCREEN_HEIGHT;
-                        const x2 = simLandmarks[to].x * SCREEN_WIDTH;
-                        const y2 = simLandmarks[to].y * SCREEN_HEIGHT;
+                {/* ===== SVG SKELETON OVERLAY ===== */}
+                <Svg
+                    style={styles.skeletonOverlay}
+                    width={cameraViewRef.current.width}
+                    height={cameraViewRef.current.height}
+                >
+                    {/* Draw limb connections */}
+                    {isAnalyzing && detectedKeypoints && SKELETON_CONNECTIONS.map(([fromIdx, toIdx], idx) => {
+                        const from = detectedKeypoints[fromIdx];
+                        const to = detectedKeypoints[toIdx];
+
+                        if (!from || !to || from.score < MIN_KEYPOINT_SCORE || to.score < MIN_KEYPOINT_SCORE) {
+                            return null;
+                        }
+
                         return (
                             <Line
-                                key={idx}
-                                x1={x1} y1={y1} x2={x2} y2={y2}
+                                key={`bone-${idx}`}
+                                x1={from.x}
+                                y1={from.y}
+                                x2={to.x}
+                                y2={to.y}
                                 stroke={hasError ? COLORS.danger : COLORS.primary}
-                                strokeWidth="2"
-                                opacity={0.6}
+                                strokeWidth="3"
+                                strokeLinecap="round"
+                                opacity={0.85}
                             />
                         );
                     })}
-                    {isAnalyzing && Array.from({ length: NUM_LANDMARKS }).map((_, idx) => {
-                        const simLandmarks = generateSimulatedLandmarks();
+
+                    {/* Draw joint circles */}
+                    {isAnalyzing && detectedKeypoints && detectedKeypoints.map((kp, idx) => {
+                        if (!kp || kp.score < MIN_KEYPOINT_SCORE) return null;
+
+                        // Larger circles for major joints
+                        const isMajorJoint = [
+                            KP.LEFT_SHOULDER, KP.RIGHT_SHOULDER,
+                            KP.LEFT_ELBOW, KP.RIGHT_ELBOW,
+                            KP.LEFT_WRIST, KP.RIGHT_WRIST,
+                            KP.LEFT_HIP, KP.RIGHT_HIP,
+                            KP.LEFT_KNEE, KP.RIGHT_KNEE,
+                            KP.LEFT_ANKLE, KP.RIGHT_ANKLE,
+                        ].includes(idx);
+
                         return (
                             <Circle
-                                key={`dot-${idx}`}
-                                cx={simLandmarks[idx].x * SCREEN_WIDTH}
-                                cy={simLandmarks[idx].y * SCREEN_HEIGHT}
-                                r="4"
+                                key={`joint-${idx}`}
+                                cx={kp.x}
+                                cy={kp.y}
+                                r={isMajorJoint ? 6 : 4}
                                 fill={hasError ? COLORS.danger : COLORS.primary}
-                                opacity={0.8}
+                                opacity={0.9}
+                                stroke={hasError ? COLORS.dangerGlow : COLORS.primaryGlow}
+                                strokeWidth="2"
                             />
                         );
                     })}
@@ -491,7 +860,7 @@ export default function FormCorrectionScreen({ route, navigation }) {
 
                 {/* ===== TOP HUD BAR ===== */}
                 <View style={styles.hudTop}>
-                    <Text style={styles.hudTitle}>[ FORM_TRACKER_V5 ]</Text>
+                    <Text style={styles.hudTitle}>[ FORM_TRACKER_V6 ]</Text>
                     <View style={styles.hudRight}>
                         <Text style={styles.hudFrames}>
                             FRM:{frameCount}
@@ -503,49 +872,69 @@ export default function FormCorrectionScreen({ route, navigation }) {
                     </View>
                 </View>
 
-                {/* ===== PRECISION METER CARD ===== */}
-                <View style={styles.precisionCard}>
-                    <Text style={styles.precisionLabel}>PRECISION_METER</Text>
-                    <View style={styles.precisionCircle}>
-                        <View style={[
-                            styles.precisionInner,
-                            {
-                                borderColor: getAccuracyColor(),
-                                shadowColor: getAccuracyColor(),
-                            },
-                        ]}>
-                            <Text style={[styles.precisionValue, { color: getAccuracyColor() }]}>
-                                {Math.round(accuracy)}
-                            </Text>
-                            <Text style={styles.precisionPercent}>%</Text>
+                {/* ===== PRECISION + LATENCY CARDS (Right Side) ===== */}
+                <View style={styles.rightCards}>
+                    {/* Precision Score */}
+                    <View style={styles.precisionCard}>
+                        <Text style={styles.precisionLabel}>PRECISION</Text>
+                        <View style={styles.precisionCircle}>
+                            <View style={[
+                                styles.precisionInner,
+                                {
+                                    borderColor: getAccuracyColor(),
+                                    shadowColor: getAccuracyColor(),
+                                },
+                            ]}>
+                                <Text style={[styles.precisionValue, { color: getAccuracyColor() }]}>
+                                    {Math.round(precision)}
+                                </Text>
+                                <Text style={styles.precisionPercent}>%</Text>
+                            </View>
                         </View>
+                        <Text style={[styles.precisionStatus, { color: getAccuracyColor() }]}>
+                            {precision >= 70 ? 'OPTIMAL' : precision >= 50 ? 'DEGRADED' : 'CRITICAL'}
+                        </Text>
                     </View>
-                    <Text style={[styles.precisionStatus, { color: getAccuracyColor() }]}>
-                        {accuracy >= 70 ? 'OPTIMAL' : accuracy >= 50 ? 'DEGRADED' : 'CRITICAL'}
-                    </Text>
+
+                    {/* System Latency */}
+                    <View style={styles.latencyCard}>
+                        <Text style={styles.latencyLabel}>SYS_LATENCY</Text>
+                        <Text style={[styles.latencyValue, { color: getLatencyColor() }]}>
+                            {latency}
+                        </Text>
+                        <Text style={styles.latencyUnit}>ms</Text>
+                    </View>
                 </View>
 
-                {/* ===== JOINT STATUS TERMINAL ===== */}
-                {jointStatus.length > 0 && (
-                    <View style={styles.jointTerminal}>
-                        <Text style={styles.terminalHeader}>
-                            {'>'} JOINT_STATUS_v3.0
+                {/* ===== REP COUNTER (Left Side) ===== */}
+                <View style={styles.repCard}>
+                    <Text style={styles.repLabel}>REPS</Text>
+                    <Text style={styles.repValue}>{repCount}</Text>
+                    <Text style={styles.repExercise}>{exerciseType.toUpperCase()}</Text>
+                    <View style={[
+                        styles.phaseIndicator,
+                        {
+                            backgroundColor: exercisePhase === 'DOWN'
+                                ? COLORS.warningDim
+                                : exercisePhase === 'UP'
+                                    ? COLORS.primaryDim
+                                    : COLORS.textDim,
+                        }
+                    ]}>
+                        <Text style={[
+                            styles.phaseText,
+                            {
+                                color: exercisePhase === 'DOWN'
+                                    ? COLORS.warning
+                                    : exercisePhase === 'UP'
+                                        ? COLORS.primary
+                                        : COLORS.textMuted,
+                            }
+                        ]}>
+                            {exercisePhase}
                         </Text>
-                        <ScrollView style={styles.terminalScroll} nestedScrollEnabled>
-                            {jointStatus.map((item, idx) => (
-                                <View key={idx} style={styles.terminalRow}>
-                                    <Text style={[styles.terminalJoint, { color: getSeverityColor(item.severity) }]}>
-                                        {item.joint}
-                                    </Text>
-                                    <Text style={styles.terminalSeparator}> :: </Text>
-                                    <Text style={[styles.terminalStatus, { color: getSeverityColor(item.severity) }]}>
-                                        {item.status}
-                                    </Text>
-                                </View>
-                            ))}
-                        </ScrollView>
                     </View>
-                )}
+                </View>
 
                 {/* ===== FORM ALERT BOX (Pulsing Red) ===== */}
                 {hasError && alerts.length > 0 && (
@@ -579,17 +968,6 @@ export default function FormCorrectionScreen({ route, navigation }) {
                         ]}>
                             {statusMessage}
                         </Text>
-                        {isAnalyzing && slidingWindowRef.current.length < SEQUENCE_LENGTH && (
-                            <View style={styles.bufferBar}>
-                                <View style={[
-                                    styles.bufferFill,
-                                    { width: `${(slidingWindowRef.current.length / SEQUENCE_LENGTH) * 100}%` },
-                                ]} />
-                                <Text style={styles.bufferText}>
-                                    BUFFER: {slidingWindowRef.current.length}/{SEQUENCE_LENGTH}
-                                </Text>
-                            </View>
-                        )}
                     </View>
 
                     {/* Controls */}
@@ -629,7 +1007,7 @@ export default function FormCorrectionScreen({ route, navigation }) {
 
 
 // ================================================================
-//  STYLES
+//  STYLES — Dark Academia / Terminal Aesthetic
 // ================================================================
 
 const styles = StyleSheet.create({
@@ -663,6 +1041,79 @@ const styles = StyleSheet.create({
         fontSize: 11,
         textAlign: 'center',
         marginTop: 8,
+    },
+
+    // ---- Model Loading Screen ----
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+    },
+    loadingTerminal: {
+        width: '100%',
+        backgroundColor: COLORS.surfaceGlass,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        borderRadius: 12,
+        padding: 24,
+    },
+    loadingTerminalHeader: {
+        color: COLORS.primary,
+        fontFamily: FONTS.mono,
+        fontSize: 13,
+        fontWeight: '900',
+        letterSpacing: 2,
+        textShadowColor: COLORS.primaryGlow,
+        textShadowRadius: 8,
+        textShadowOffset: { width: 0, height: 0 },
+    },
+    loadingDivider: {
+        height: 1,
+        backgroundColor: COLORS.border,
+        marginVertical: 14,
+    },
+    loadingRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    loadingLabel: {
+        color: COLORS.textMuted,
+        fontFamily: FONTS.mono,
+        fontSize: 11,
+        fontWeight: '700',
+        letterSpacing: 1,
+    },
+    loadingValue: {
+        color: COLORS.primary,
+        fontFamily: FONTS.mono,
+        fontSize: 11,
+        fontWeight: '800',
+    },
+    loadingProgressText: {
+        color: COLORS.cyan,
+        fontFamily: FONTS.mono,
+        fontSize: 10,
+        fontWeight: '700',
+        letterSpacing: 0.5,
+    },
+    loadingSubtext: {
+        color: COLORS.textMuted,
+        fontFamily: FONTS.mono,
+        fontSize: 9,
+        textAlign: 'center',
+        marginTop: 16,
+        lineHeight: 16,
+        letterSpacing: 0.5,
+    },
+    loadingBackBtn: {
+        marginTop: 24,
+        paddingVertical: 12,
+        paddingHorizontal: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.15)',
+        borderRadius: 6,
     },
 
     // ---- Camera ----
@@ -742,11 +1193,18 @@ const styles = StyleSheet.create({
         elevation: 4,
     },
 
-    // ---- Precision Meter Card ----
-    precisionCard: {
+    // ---- Right Side Cards ----
+    rightCards: {
         position: 'absolute',
         top: 90,
-        right: 16,
+        right: 12,
+        alignItems: 'center',
+        gap: 10,
+        zIndex: 15,
+    },
+
+    // ---- Precision Meter Card ----
+    precisionCard: {
         width: 100,
         alignItems: 'center',
         backgroundColor: COLORS.surfaceGlass,
@@ -755,7 +1213,6 @@ const styles = StyleSheet.create({
         borderColor: COLORS.border,
         paddingVertical: 12,
         paddingHorizontal: 8,
-        zIndex: 15,
     },
     precisionLabel: {
         color: COLORS.textMuted,
@@ -806,54 +1263,89 @@ const styles = StyleSheet.create({
         letterSpacing: 2,
     },
 
-    // ---- Joint Status Terminal ----
-    jointTerminal: {
-        position: 'absolute',
-        top: 90,
-        left: 16,
-        width: 200,
-        maxHeight: 180,
+    // ---- Latency Card ----
+    latencyCard: {
+        width: 100,
+        alignItems: 'center',
         backgroundColor: COLORS.surfaceGlass,
-        borderRadius: 8,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: COLORS.border,
-        padding: 10,
-        zIndex: 15,
+        borderColor: COLORS.cyanDim,
+        paddingVertical: 10,
+        paddingHorizontal: 8,
     },
-    terminalHeader: {
-        color: COLORS.primary,
+    latencyLabel: {
+        color: COLORS.textMuted,
         fontFamily: FONTS.mono,
-        fontSize: 9,
+        fontSize: 7,
         fontWeight: '800',
         letterSpacing: 1,
-        marginBottom: 6,
-        opacity: 0.7,
+        marginBottom: 4,
     },
-    terminalScroll: {
-        maxHeight: 140,
-    },
-    terminalRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 2,
-    },
-    terminalJoint: {
+    latencyValue: {
         fontFamily: FONTS.mono,
-        fontSize: 10,
-        fontWeight: '800',
-        letterSpacing: 0.5,
-        width: 65,
+        fontSize: 24,
+        fontWeight: '900',
     },
-    terminalSeparator: {
-        color: COLORS.textDim,
-        fontFamily: FONTS.mono,
-        fontSize: 10,
-    },
-    terminalStatus: {
+    latencyUnit: {
+        color: COLORS.textMuted,
         fontFamily: FONTS.mono,
         fontSize: 9,
         fontWeight: '700',
-        flex: 1,
+        marginTop: -2,
+    },
+
+    // ---- Rep Counter Card (Left Side) ----
+    repCard: {
+        position: 'absolute',
+        top: 90,
+        left: 12,
+        width: 100,
+        alignItems: 'center',
+        backgroundColor: COLORS.surfaceGlass,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        paddingVertical: 12,
+        paddingHorizontal: 8,
+        zIndex: 15,
+    },
+    repLabel: {
+        color: COLORS.textMuted,
+        fontFamily: FONTS.mono,
+        fontSize: 8,
+        fontWeight: '800',
+        letterSpacing: 2,
+        marginBottom: 4,
+    },
+    repValue: {
+        color: COLORS.primary,
+        fontFamily: FONTS.mono,
+        fontSize: 36,
+        fontWeight: '900',
+        textShadowColor: COLORS.primaryGlow,
+        textShadowRadius: 12,
+        textShadowOffset: { width: 0, height: 0 },
+    },
+    repExercise: {
+        color: COLORS.textMuted,
+        fontFamily: FONTS.mono,
+        fontSize: 8,
+        fontWeight: '700',
+        letterSpacing: 1.5,
+        marginTop: 2,
+    },
+    phaseIndicator: {
+        marginTop: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 3,
+        borderRadius: 4,
+    },
+    phaseText: {
+        fontFamily: FONTS.mono,
+        fontSize: 8,
+        fontWeight: '900',
+        letterSpacing: 1,
     },
 
     // ---- Form Alert Box (Pulsing) ----
@@ -915,31 +1407,6 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '700',
         letterSpacing: 0.5,
-    },
-    bufferBar: {
-        marginTop: 8,
-        height: 14,
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderRadius: 4,
-        overflow: 'hidden',
-        position: 'relative',
-    },
-    bufferFill: {
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        backgroundColor: COLORS.primaryDim,
-        borderRadius: 4,
-    },
-    bufferText: {
-        color: COLORS.textMuted,
-        fontFamily: FONTS.mono,
-        fontSize: 8,
-        fontWeight: '700',
-        letterSpacing: 1,
-        textAlign: 'center',
-        lineHeight: 14,
     },
     controls: {
         flexDirection: 'row',

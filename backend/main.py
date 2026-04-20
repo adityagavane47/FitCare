@@ -103,6 +103,131 @@ def analyze_form_lstm(req: schemas.FormAnalysisRequest):
 
 
 # ====================================
+#  POST-WORKOUT SESSION ANALYSIS
+# ====================================
+
+def _grade_session(avg_precision: float, total_reps: int, form_flags: list) -> str:
+    """Calculate a letter grade for the workout session."""
+    score = avg_precision
+    # Penalize for form issues
+    score -= len(form_flags) * 5
+    # Bonus for rep count
+    if total_reps >= 20:
+        score += 5
+    elif total_reps >= 10:
+        score += 2
+
+    if score >= 95:
+        return "A+"
+    elif score >= 85:
+        return "A"
+    elif score >= 75:
+        return "B"
+    elif score >= 60:
+        return "C"
+    elif score >= 45:
+        return "D"
+    return "F"
+
+
+def _build_recommendations(exercise_type: str, form_flags: list) -> list:
+    """Generate specific improvement tips based on detected form issues."""
+    tips = {
+        "hips": "Focus on core engagement — practice planks to build stability for a straighter body line.",
+        "elbows": "Keep elbows at 45° angle from your torso. Imagine screwing your hands into the floor.",
+        "knees": "Place a resistance band above your knees during squats to train outward knee tracking.",
+        "spine": "Practice cat-cow stretches and dead bugs to improve spinal awareness under load.",
+        "not_deep_enough": "Work on mobility first — use box squats or incline pushups to build range of motion.",
+    }
+    recommendations = []
+    for flag in form_flags:
+        flag_lower = flag.lower()
+        for key, tip in tips.items():
+            if key in flag_lower:
+                recommendations.append(tip)
+                break
+    if not recommendations:
+        recommendations.append("Great session! Maintain consistency and gradually increase difficulty.")
+    return recommendations
+
+
+@app.post("/api/workout/analyze-session", response_model=schemas.SessionAnalysisResponse)
+async def analyze_session(req: schemas.SessionAnalysisRequest):
+    """
+    Post-workout session analysis endpoint.
+
+    Accepts a summary of the completed workout (reps, precision, form flags)
+    and returns an AI-generated coaching summary with a grade and recommendations.
+    Uses local Ollama for the AI summary when available, otherwise falls back
+    to a deterministic response.
+    """
+    grade = _grade_session(req.avg_precision, req.total_reps, req.form_flags)
+    recommendations = _build_recommendations(req.exercise_type, req.form_flags)
+
+    # Build a coaching summary prompt for Ollama
+    duration_min = round(req.duration_seconds / 60, 1)
+    flag_str = ", ".join(req.form_flags) if req.form_flags else "none detected"
+
+    prompt = (
+        f"You are a concise fitness coach. Summarize this workout session in 2-3 sentences.\n"
+        f"Exercise: {req.exercise_type}\n"
+        f"Reps completed: {req.total_reps}\n"
+        f"Average form precision: {req.avg_precision}%\n"
+        f"Duration: {duration_min} minutes\n"
+        f"Form issues detected: {flag_str}\n"
+        f"Grade: {grade}\n"
+        f"Give encouraging but honest feedback. Be specific about what to improve."
+    )
+
+    # Try Ollama for AI summary
+    summary = ""
+    OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                f"{OLLAMA_URL}/api/generate",
+                json={
+                    "model": os.getenv("OLLAMA_MODEL", "phi3"),
+                    "prompt": prompt,
+                    "stream": False,
+                },
+            )
+        if resp.status_code == 200:
+            data = resp.json()
+            summary = data.get("response", "").strip()
+    except Exception as e:
+        print(f"[SessionAnalysis] Ollama unavailable: {e}")
+
+    # Fallback summary if Ollama is not available
+    if not summary:
+        if grade in ("A+", "A"):
+            summary = (
+                f"Excellent {req.exercise_type} session! You completed {req.total_reps} reps "
+                f"in {duration_min} minutes with {req.avg_precision:.0f}% precision. "
+                f"Your form was outstanding — keep up the great work."
+            )
+        elif grade in ("B", "C"):
+            summary = (
+                f"Solid {req.exercise_type} session with {req.total_reps} reps. "
+                f"Your precision averaged {req.avg_precision:.0f}%. "
+                f"Focus on: {flag_str}. Improving these will take you to the next level."
+            )
+        else:
+            summary = (
+                f"You completed {req.total_reps} {req.exercise_type} reps in {duration_min} minutes. "
+                f"Precision was {req.avg_precision:.0f}% — there's room for improvement. "
+                f"Key areas to work on: {flag_str}. Consider reducing reps and focusing on form."
+            )
+
+    return {
+        "summary": summary,
+        "grade": grade,
+        "recommendations": recommendations,
+    }
+
+
+
+# ====================================
 #  HEALTH CHECK
 # ====================================
 
