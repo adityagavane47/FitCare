@@ -78,7 +78,7 @@ def evaluate_meal(food_name: str, macros: dict, user_goal: str = "Muscle Hypertr
     except requests.exceptions.RequestException as e:
         logger.error(f"[MealEval] Ollama connection failed: {e}")
 
-    # ── Fallback: smart template-based evaluation ──
+    
     return _fallback_evaluation(food_name, calories, protein, carbs, fats, user_goal)
 
 
@@ -97,7 +97,7 @@ def _fallback_evaluation(
     goal_lower = user_goal.lower()
     analysis_parts = [f"LOGGED {int(calories)} kcal of {food_name}."]
 
-    # Protein assessment
+    
     if protein >= 25:
         analysis_parts.append(f"High protein ({int(protein)}g) — excellent for muscle repair.")
     elif protein >= 10:
@@ -105,7 +105,7 @@ def _fallback_evaluation(
     else:
         analysis_parts.append(f"Low protein ({int(protein)}g) — consider adding a protein source.")
 
-    # Goal-specific commentary
+    
     if "hypertrophy" in goal_lower or "muscle" in goal_lower or "gain" in goal_lower:
         if protein >= 20 and calories >= 300:
             analysis_parts.append("Aligns well with your muscle-building objective. Keep fuelling.")

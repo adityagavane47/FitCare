@@ -3,9 +3,9 @@ from typing import Optional
 from datetime import datetime
 
 
-# ===========================
-# USER SCHEMAS
-# ===========================
+
+
+
 
 class UserCreate(BaseModel):
     phone: str
@@ -47,9 +47,9 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
-# ===========================
-# OTP AUTH SCHEMAS
-# ===========================
+
+
+
 
 class OTPRequest(BaseModel):
     phone: str = Field(..., description="10-digit Indian mobile number")
@@ -71,9 +71,9 @@ class OTPVerifyResponse(BaseModel):
     name: Optional[str] = None
 
 
-# ===========================
-# WORKOUT LOG SCHEMAS
-# ===========================
+
+
+
 
 class WorkoutLogCreate(BaseModel):
     user_id: int
@@ -106,9 +106,9 @@ class WorkoutLogResponse(BaseModel):
         from_attributes = True
 
 
-# ===========================
-# NUTRITION PLAN SCHEMAS
-# ===========================
+
+
+
 
 class NutritionRequest(BaseModel):
     user_id: int
@@ -130,9 +130,9 @@ class NutritionPlanResponse(BaseModel):
         from_attributes = True
 
 
-# ===========================
-# AI TRAINER SCHEMAS
-# ===========================
+
+
+
 
 class TrainerChatRequest(BaseModel):
     user_id: Optional[int] = None
@@ -143,9 +143,9 @@ class TrainerChatResponse(BaseModel):
     reply: str
 
 
-# ===========================
-# FORM ANALYSIS SCHEMAS
-# ===========================
+
+
+
 
 class WorkoutAnalysisRequest(BaseModel):
     user_id: int
@@ -157,9 +157,9 @@ class WorkoutAnalysisResponse(BaseModel):
     feedback: str
 
 
-# ===========================
-# FORM ANALYSIS SCHEMAS (LSTM)
-# ===========================
+
+
+
 
 class FormAnalysisRequest(BaseModel):
     """Request payload for TensorFlow LSTM form analysis."""
@@ -192,9 +192,9 @@ class FormAnalysisResponse(BaseModel):
     exercise_type: str
 
 
-# ===========================
-# SESSION ANALYSIS SCHEMAS (Post-Workout Summary)
-# ===========================
+
+
+
 
 class SessionAnalysisRequest(BaseModel):
     """Request payload for post-workout session analysis."""

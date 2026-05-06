@@ -12,11 +12,14 @@ import {
 } from 'react-native';
 import { Camera, CameraView } from 'expo-camera';
 import * as Speech from 'expo-speech';
-import Svg, { Line, Circle } from 'react-native-svg';
+import Svg, { Line, Circle, Path, G } from 'react-native-svg';
 import * as tf from '@tensorflow/tfjs';
 import { cameraWithTensors } from '@tensorflow/tfjs-react-native';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import { fitcareAPI } from '../services/api';
+
+const BACKEND_BASE = 'http://10.20.1.7:8000'; // ← Update to your server IP
+const STABILIZATION_DURATION = 1500; // ms the user must hold plank before counting starts
 
 const TensorCamera = cameraWithTensors(CameraView);
 
@@ -278,16 +281,26 @@ export default function FormCorrectionScreen({ route, navigation }) {
     const [loadingProgress, setLoadingProgress] = useState('');
     const [exercisePhase, setExercisePhase] = useState('IDLE'); // IDLE | UP | DOWN
 
+    // ---- Position Calibration State ----
+    const [positionLocked, setPositionLocked] = useState(false);      // true once 1.5 s hold complete
+    const [positionValid, setPositionValid] = useState(false);        // live per-frame gate result
+    const [stabilizationProgress, setStabilizationProgress] = useState(0); // 0-1
+    const stabilizationAnim = useRef(new Animated.Value(0)).current;
+    const positionValidRef = useRef(false);                            // ref mirror for use inside loop
+    const positionLockedRef = useRef(false);
+    const lockTimerStartRef = useRef(null);                            // when user entered valid position
+    const voiceLockedRef = useRef(false);                              // spoken "Position locked" once
+
     // ---- Refs ----
     const detectorRef = useRef(null);
     const isAnalyzingRef = useRef(false);
     const frameCounterRef = useRef(0);
     const requestRef = useRef(null);
 
-    // Rep counting state machine refs
+    // Backend-driven rep counting state refs (forwarded each frame)
     const repPhaseRef = useRef('IDLE'); // 'IDLE' | 'UP' | 'DOWN'
     const repCountRef = useRef(0);
-    const lowestAngleRef = useRef(180); // Track deepest angle in a rep
+    const lowestAngleRef = useRef(180.0); // Track deepest angle sent to backend
 
     // Voice coaching refs
     const lastSpokenRef = useRef(0);
@@ -305,6 +318,15 @@ export default function FormCorrectionScreen({ route, navigation }) {
     const alertPulse = useRef(new Animated.Value(0)).current;
     const scanLineAnim = useRef(new Animated.Value(0)).current;
     const loadingDotAnim = useRef(new Animated.Value(0)).current;
+    const calibrationIconScale = useRef(new Animated.Value(1)).current;
+
+    // Animate the calibration icon bounce when position is first locked
+    const playLockAnimation = useCallback(() => {
+        Animated.sequence([
+            Animated.timing(calibrationIconScale, { toValue: 1.4, duration: 150, useNativeDriver: true }),
+            Animated.spring(calibrationIconScale, { toValue: 1, friction: 4, useNativeDriver: true }),
+        ]).start();
+    }, [calibrationIconScale]);
 
     // ================================================================
     //  INITIALIZATION — TF.js + MoveNet
@@ -417,53 +439,127 @@ export default function FormCorrectionScreen({ route, navigation }) {
     //  REP COUNTING STATE MACHINE
     // ================================================================
 
-    const processRepCounting = useCallback((keypoints) => {
-        let angle = null;
-
-        if (exerciseType === 'pushup') {
-            // Track elbow angle: shoulder → elbow → wrist
-            angle = getElbowAngle(keypoints, 'left') ?? getElbowAngle(keypoints, 'right');
-        } else if (exerciseType === 'squat') {
-            // Track knee angle: hip → knee → ankle
-            angle = getKneeAngle(keypoints, 'left') ?? getKneeAngle(keypoints, 'right');
-        }
-
-        if (angle === null) return;
-
-        const DOWN_THRESHOLD = 100;  // Angle below this = "down" position
-        const UP_THRESHOLD = 155;    // Angle above this = "up" position
-
-        // Track the lowest angle reached
-        if (angle < lowestAngleRef.current) {
-            lowestAngleRef.current = angle;
-        }
-
-        const currentPhase = repPhaseRef.current;
-
-        if (currentPhase === 'IDLE' || currentPhase === 'UP') {
-            if (angle < DOWN_THRESHOLD) {
+    /**
+     * Backend-driven rep counter for pushups.
+     * Sends keypoints + current state to /api/pushup/analyze every frame.
+     * Handles:
+     *   - Position gate (is_in_pushup_position)
+     *   - 1.5 s stabilization timer before counting starts
+     *   - Voice confirmation on first position lock
+     *   - REP_COMPLETE events from backend (hysteresis: <70° / >165°)
+     */
+    const processRepCounting = useCallback(async (keypoints) => {
+        if (exerciseType !== 'pushup') {
+            // Squat — keep local state machine (unchanged)
+            const angle = getKneeAngle(keypoints, 'left') ?? getKneeAngle(keypoints, 'right');
+            if (angle === null) return;
+            const DOWN_THRESHOLD = 100;
+            const UP_THRESHOLD   = 155;
+            if (angle < lowestAngleRef.current) lowestAngleRef.current = angle;
+            if ((repPhaseRef.current === 'IDLE' || repPhaseRef.current === 'UP') && angle < DOWN_THRESHOLD) {
                 repPhaseRef.current = 'DOWN';
                 setExercisePhase('DOWN');
                 lowestAngleRef.current = angle;
-            }
-        } else if (currentPhase === 'DOWN') {
-            if (angle > UP_THRESHOLD) {
-                // Rep completed: DOWN → UP transition
+            } else if (repPhaseRef.current === 'DOWN' && angle > UP_THRESHOLD) {
                 repPhaseRef.current = 'UP';
                 setExercisePhase('UP');
                 repCountRef.current += 1;
                 setRepCount(repCountRef.current);
+                if (lowestAngleRef.current > 110) formFlagsRef.current.add('not_deep_enough');
+                lowestAngleRef.current = 180;
+            }
+            return;
+        }
 
-                // Check if the rep was deep enough
-                if (lowestAngleRef.current > 110) {
-                    // Not deep enough — didn't get below ~110°
-                    formFlagsRef.current.add('not_deep_enough');
-                }
+        // Build keypoint payload (normalised 0-1 coords → pass raw pixel coords, backend normalises)
+        const kpPayload = keypoints.map(kp => ({ x: kp.x, y: kp.y, score: kp.score ?? 0 }));
 
-                lowestAngleRef.current = 180; // Reset for next rep
+        let result;
+        try {
+            const resp = await fetch(`${BACKEND_BASE}/api/pushup/analyze`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    keypoints: kpPayload,
+                    exercise_type: 'pushup',
+                    current_phase: repPhaseRef.current,
+                    lowest_angle_this_rep: lowestAngleRef.current,
+                }),
+            });
+            result = await resp.json();
+        } catch (e) {
+            // Network error — skip this frame
+            return;
+        }
+
+        const inPosition = result.is_in_pushup_position;
+
+        // --- Update position gate UI ---
+        if (inPosition !== positionValidRef.current) {
+            positionValidRef.current = inPosition;
+            setPositionValid(inPosition);
+
+            if (!inPosition) {
+                // Lost position — reset stabilisation
+                lockTimerStartRef.current = null;
+                setStabilizationProgress(0);
+                stabilizationAnim.setValue(0);
+                positionLockedRef.current = false;
+                setPositionLocked(false);
+                voiceLockedRef.current = false;
+                setStatusMessage(result.feedback || 'Get into a plank position');
             }
         }
-    }, [exerciseType]);
+
+        if (!inPosition) return;
+
+        // --- Stabilisation Timer (1.5 s hold) ---
+        if (!positionLockedRef.current) {
+            const now = Date.now();
+            if (!lockTimerStartRef.current) {
+                lockTimerStartRef.current = now;
+            }
+            const elapsed = now - lockTimerStartRef.current;
+            const progress = Math.min(1, elapsed / STABILIZATION_DURATION);
+            setStabilizationProgress(progress);
+            Animated.timing(stabilizationAnim, {
+                toValue: progress,
+                duration: 100,
+                useNativeDriver: false,
+            }).start();
+
+            if (elapsed < STABILIZATION_DURATION) {
+                setStatusMessage(`Hold plank... ${Math.ceil((STABILIZATION_DURATION - elapsed) / 1000)}s`);
+                return; // Not yet locked — skip rep counting
+            }
+
+            // Lock achieved!
+            positionLockedRef.current = true;
+            setPositionLocked(true);
+            playLockAnimation();
+
+            if (!voiceLockedRef.current) {
+                voiceLockedRef.current = true;
+                Speech.speak('Position locked. Start your set.', { rate: 0.95, pitch: 0.9 });
+            }
+        }
+
+        // --- Sync state machine from backend response ---
+        repPhaseRef.current      = result.new_phase;
+        lowestAngleRef.current   = result.new_lowest_angle;
+        setExercisePhase(result.new_phase);
+        setStatusMessage(result.feedback || 'FORM_NOMINAL');
+
+        if (result.rep_event === 'REP_COMPLETE') {
+            repCountRef.current += 1;
+            setRepCount(repCountRef.current);
+            // Depth check: backend already enforces <70° so if that threshold wasn't met it simply
+            // won't send REP_COMPLETE. Log a flag if it was a shallow rep (tracked via new_lowest_angle).
+            if (result.new_lowest_angle > 70) {
+                formFlagsRef.current.add('not_deep_enough');
+            }
+        }
+    }, [exerciseType, playLockAnimation, stabilizationAnim]);
 
     // ================================================================
     //  VOICE COACHING ENGINE — 5-second cooldown
@@ -592,22 +688,32 @@ export default function FormCorrectionScreen({ route, navigation }) {
     const startAnalysis = useCallback(() => {
         setIsAnalyzing(true);
         isAnalyzingRef.current = true;
-        setStatusMessage('ANALYSIS_LIVE — Tracking Active');
+        setStatusMessage('Get into a plank position');
         frameCounterRef.current = 0;
         repCountRef.current = 0;
         repPhaseRef.current = 'IDLE';
-        lowestAngleRef.current = 180;
+        lowestAngleRef.current = 180.0;
         setRepCount(0);
         setPrecision(100);
         setAlerts([]);
         setHasError(false);
         setExercisePhase('IDLE');
 
+        // Reset calibration state
+        setPositionLocked(false);
+        setPositionValid(false);
+        setStabilizationProgress(0);
+        stabilizationAnim.setValue(0);
+        positionValidRef.current   = false;
+        positionLockedRef.current  = false;
+        lockTimerStartRef.current  = null;
+        voiceLockedRef.current     = false;
+
         // Session tracking
         sessionStartRef.current = Date.now();
         formFlagsRef.current = new Set();
         precisionSamplesRef.current = [];
-    }, []);
+    }, [stabilizationAnim]);
 
     const stopAnalysis = useCallback(async () => {
         if (requestRef.current) {
@@ -621,6 +727,13 @@ export default function FormCorrectionScreen({ route, navigation }) {
         setStatusMessage('ANALYSIS_TERMINATED');
         setHasError(false);
         setExercisePhase('IDLE');
+        setPositionLocked(false);
+        setPositionValid(false);
+        setStabilizationProgress(0);
+        stabilizationAnim.setValue(0);
+        positionValidRef.current  = false;
+        positionLockedRef.current = false;
+        lockTimerStartRef.current = null;
 
         // Send post-workout summary to backend if we had a real session
         if (wasAnalyzing && sessionStartRef.current && repCountRef.current > 0) {
@@ -814,6 +927,13 @@ export default function FormCorrectionScreen({ route, navigation }) {
                             return null;
                         }
 
+                        // Skeleton colour driven by calibration state
+                        const boneColor = positionLocked
+                            ? COLORS.primary
+                            : positionValid
+                                ? COLORS.warning
+                                : hasError ? COLORS.danger : COLORS.primary;
+
                         return (
                             <Line
                                 key={`bone-${idx}`}
@@ -821,7 +941,7 @@ export default function FormCorrectionScreen({ route, navigation }) {
                                 y1={from.y}
                                 x2={to.x}
                                 y2={to.y}
-                                stroke={hasError ? COLORS.danger : COLORS.primary}
+                                stroke={boneColor}
                                 strokeWidth="3"
                                 strokeLinecap="round"
                                 opacity={0.85}
@@ -833,7 +953,6 @@ export default function FormCorrectionScreen({ route, navigation }) {
                     {isAnalyzing && detectedKeypoints && detectedKeypoints.map((kp, idx) => {
                         if (!kp || kp.score < MIN_KEYPOINT_SCORE) return null;
 
-                        // Larger circles for major joints
                         const isMajorJoint = [
                             KP.LEFT_SHOULDER, KP.RIGHT_SHOULDER,
                             KP.LEFT_ELBOW, KP.RIGHT_ELBOW,
@@ -843,20 +962,83 @@ export default function FormCorrectionScreen({ route, navigation }) {
                             KP.LEFT_ANKLE, KP.RIGHT_ANKLE,
                         ].includes(idx);
 
+                        const jointColor = positionLocked
+                            ? COLORS.primary
+                            : positionValid
+                                ? COLORS.warning
+                                : hasError ? COLORS.danger : COLORS.primary;
+
                         return (
                             <Circle
                                 key={`joint-${idx}`}
                                 cx={kp.x}
                                 cy={kp.y}
                                 r={isMajorJoint ? 6 : 4}
-                                fill={hasError ? COLORS.danger : COLORS.primary}
+                                fill={jointColor}
                                 opacity={0.9}
-                                stroke={hasError ? COLORS.dangerGlow : COLORS.primaryGlow}
+                                stroke={positionLocked ? COLORS.primaryGlow : hasError ? COLORS.dangerGlow : COLORS.primaryGlow}
                                 strokeWidth="2"
                             />
                         );
                     })}
                 </Svg>
+
+                {/* ===== CALIBRATION OVERLAY — Position Gate ===== */}
+                {isAnalyzing && exerciseType === 'pushup' && !positionLocked && (
+                    <View style={styles.calibrationOverlay}>
+                        {/* Icon: Red X or Yellow hourglass */}
+                        <Animated.View style={[
+                            styles.calibrationIcon,
+                            {
+                                backgroundColor: positionValid
+                                    ? COLORS.warningDim
+                                    : COLORS.dangerDim,
+                                borderColor: positionValid ? COLORS.warning : COLORS.danger,
+                                transform: [{ scale: calibrationIconScale }],
+                            }
+                        ]}>
+                            <Text style={[
+                                styles.calibrationIconText,
+                                { color: positionValid ? COLORS.warning : COLORS.danger },
+                            ]}>
+                                {positionValid ? '⏳' : '✗'}
+                            </Text>
+                        </Animated.View>
+
+                        <Text style={[
+                            styles.calibrationLabel,
+                            { color: positionValid ? COLORS.warning : COLORS.danger },
+                        ]}>
+                            {positionValid ? 'HOLD POSITION' : 'NOT IN POSITION'}
+                        </Text>
+
+                        {/* Stabilisation progress bar */}
+                        {positionValid && (
+                            <View style={styles.stabBarTrack}>
+                                <Animated.View style={[
+                                    styles.stabBarFill,
+                                    {
+                                        width: stabilizationAnim.interpolate({
+                                            inputRange: [0, 1],
+                                            outputRange: ['0%', '100%'],
+                                        }),
+                                    },
+                                ]} />
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                {/* ===== POSITION LOCKED BADGE ===== */}
+                {isAnalyzing && exerciseType === 'pushup' && positionLocked && (
+                    <Animated.View style={[
+                        styles.lockedBadge,
+                        { transform: [{ scale: calibrationIconScale }] },
+                    ]}>
+                        <Text style={styles.lockedIcon}>✓</Text>
+                        <Text style={styles.lockedLabel}>LOCKED</Text>
+                    </Animated.View>
+                )}
 
                 {/* ===== TOP HUD BAR ===== */}
                 <View style={styles.hudTop}>
@@ -1465,5 +1647,87 @@ const styles = StyleSheet.create({
         fontFamily: FONTS.mono,
         fontWeight: '700',
         fontSize: 12,
+    },
+
+    // ---- Calibration Overlay ----
+    calibrationOverlay: {
+        position: 'absolute',
+        top: '35%',
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        zIndex: 25,
+    },
+    calibrationIcon: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        borderWidth: 3,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 10,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.8,
+        shadowRadius: 16,
+        elevation: 10,
+    },
+    calibrationIconText: {
+        fontSize: 34,
+        fontWeight: '900',
+    },
+    calibrationLabel: {
+        fontFamily: FONTS.mono,
+        fontSize: 13,
+        fontWeight: '900',
+        letterSpacing: 3,
+        marginBottom: 14,
+    },
+
+    // Stabilization progress bar
+    stabBarTrack: {
+        width: 200,
+        height: 6,
+        backgroundColor: 'rgba(255,184,0,0.2)',
+        borderRadius: 3,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255,184,0,0.4)',
+    },
+    stabBarFill: {
+        height: '100%',
+        backgroundColor: COLORS.warning,
+        borderRadius: 3,
+        shadowColor: COLORS.warning,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        shadowRadius: 8,
+    },
+
+    // Position Locked Badge
+    lockedBadge: {
+        position: 'absolute',
+        top: '35%',
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        zIndex: 25,
+    },
+    lockedIcon: {
+        fontSize: 44,
+        color: COLORS.primary,
+        textShadowColor: COLORS.primaryGlow,
+        textShadowRadius: 20,
+        textShadowOffset: { width: 0, height: 0 },
+    },
+    lockedLabel: {
+        color: COLORS.primary,
+        fontFamily: FONTS.mono,
+        fontSize: 13,
+        fontWeight: '900',
+        letterSpacing: 4,
+        marginTop: 6,
+        textShadowColor: COLORS.primaryGlow,
+        textShadowRadius: 10,
+        textShadowOffset: { width: 0, height: 0 },
     },
 });

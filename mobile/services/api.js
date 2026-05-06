@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 const API_PORT = '8000';
 
 
-const API_HOST = '192.168.68.100';
+const API_HOST = '10.20.1.7r';
 const API_BASE_URL = `http://${API_HOST}:${API_PORT}`;
 
 function getExpoHostCandidate() {

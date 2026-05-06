@@ -23,22 +23,22 @@ import logging
 import numpy as np
 from pathlib import Path
 
-# Fix TF/Keras compatibility
-# os.environ["TF_USE_LEGACY_KERAS"] = "1"
+
+
 
 import tensorflow as tf
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ================================================================
-#  CONSTANTS
-# ================================================================
 
-SEQUENCE_LENGTH = 30       # Number of frames in the sliding window
-NUM_LANDMARKS = 33         # MediaPipe / BlazePose landmark count
-COORDS_PER_LANDMARK = 3   # X, Y, Z
-FEATURES_PER_FRAME = NUM_LANDMARKS * COORDS_PER_LANDMARK  # 99
+
+
+
+SEQUENCE_LENGTH = 30       
+NUM_LANDMARKS = 33         
+COORDS_PER_LANDMARK = 3   
+FEATURES_PER_FRAME = NUM_LANDMARKS * COORDS_PER_LANDMARK  
 
 FORM_LABELS = [
     "form_correct",
@@ -51,14 +51,14 @@ FORM_LABELS = [
 
 NUM_CLASSES = len(FORM_LABELS)
 
-# Path to a pre-trained model file (optional — falls back to random weights)
+
 MODEL_DIR = Path(__file__).resolve().parent.parent
 MODEL_PATH = MODEL_DIR / "form_lstm_model.h5"
 
 
-# ================================================================
-#  LSTM MODEL
-# ================================================================
+
+
+
 
 class FormAnalysisModel:
     """
@@ -132,25 +132,25 @@ class FormAnalysisModel:
                 - alerts: list[dict] — items where error confidence > 0.5
                 - joint_status: list[dict] — terminal-style status for each joint check
         """
-        # Validate input shape
+        
         if sequence.shape != (1, SEQUENCE_LENGTH, FEATURES_PER_FRAME):
             raise ValueError(
                 f"Expected shape (1, {SEQUENCE_LENGTH}, {FEATURES_PER_FRAME}), "
                 f"got {sequence.shape}"
             )
 
-        # Run inference
-        predictions = self.model.predict(sequence, verbose=0)[0]  # shape (6,)
+        
+        predictions = self.model.predict(sequence, verbose=0)[0]  
 
-        # Build label confidence map
+        
         labels = {}
         for i, label_name in enumerate(FORM_LABELS):
             labels[label_name] = round(float(predictions[i]), 4)
 
-        # Overall accuracy = form_correct confidence × 100
+        
         accuracy = round(float(predictions[0]) * 100, 1)
 
-        # Build alerts for detected errors (labels 1-5 where confidence > 0.5)
+        
         alerts = []
         for i in range(1, NUM_CLASSES):
             if predictions[i] > 0.5:
@@ -160,7 +160,7 @@ class FormAnalysisModel:
                     "message": _get_alert_message(FORM_LABELS[i]),
                 })
 
-        # Build terminal-style joint status
+        
         joint_status = _build_joint_status(predictions)
 
         return {
@@ -177,14 +177,13 @@ class FormAnalysisModel:
         return "\n".join(summary_lines)
 
 
-# ================================================================
-#  HELPER FUNCTIONS
-# ================================================================
+
+
+
 
 def _get_alert_message(label: str) -> str:
     """Return a human-readable coaching directive for a detected form error."""
     messages = {
-        "elbows_flared": "ELBOWS :: FLARING — Tuck elbows closer to your torso",
         "back_rounding": "SPINE :: ROUNDING — Engage your core, flatten your back",
         "hips_sagging": "HIPS :: SAGGING — Squeeze glutes, lift hips to plank line",
         "not_deep_enough": "ROM :: INSUFFICIENT — Lower further for full range of motion",
@@ -199,8 +198,8 @@ def _build_joint_status(predictions: np.ndarray) -> list:
     Each entry has: joint name, status string, severity level.
     """
     checks = [
-        ("FORM_OVERALL", 0, False),   # index 0 is form_correct (higher = better)
-        ("ELBOWS", 1, True),          # indices 1-5 are errors (higher = worse)
+        ("FORM_OVERALL", 0, False),   
+        ("ELBOWS", 1, True),          
         ("BACK", 2, True),
         ("HIPS", 3, True),
         ("DEPTH", 4, True),
@@ -212,7 +211,7 @@ def _build_joint_status(predictions: np.ndarray) -> list:
         confidence = float(predictions[idx])
 
         if is_error:
-            # For error labels: > 0.5 = problem detected
+            
             if confidence > 0.7:
                 status = "CRITICAL — FIX_NOW"
                 severity = "critical"
@@ -223,7 +222,7 @@ def _build_joint_status(predictions: np.ndarray) -> list:
                 status = "NOMINAL"
                 severity = "ok"
         else:
-            # For form_correct: > 0.5 = good form
+            
             if confidence > 0.7:
                 status = "LOCKED_IN"
                 severity = "ok"
@@ -244,9 +243,9 @@ def _build_joint_status(predictions: np.ndarray) -> list:
     return status_list
 
 
-# ================================================================
-#  SINGLETON INSTANCE (lazy-loaded on first import)
-# ================================================================
+
+
+
 
 _model_instance = None
 

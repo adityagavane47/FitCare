@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pathlib import Path
 from dotenv import load_dotenv
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime, date
 import random
 import os
@@ -13,8 +13,9 @@ import httpx
 import numpy as np
 import json
 import traceback
+import math
 
-# Load .env before any os.getenv() calls
+
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 
 import models
@@ -24,7 +25,7 @@ import ai_trainer
 from services.ai_trainer import generate_daily_insights, generate_post_workout_macros
 from services.meal_evaluator import evaluate_meal
 
-# Create tables
+
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -33,7 +34,7 @@ app = FastAPI(
     version="3.0.0"
 )
 
-# CORS - allow all origins for local development
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -52,11 +53,245 @@ def get_db():
         db.close()
 
 
-# ====================================
-#  TENSORFLOW LSTM FORM ANALYSIS
-# ====================================
+
+
+
 
 from services.form_model import get_form_model, SEQUENCE_LENGTH, FEATURES_PER_FRAME
+
+
+# ============================================================
+#  PUSHUP POSITION DETECTION — Multi-Point Validation
+# ============================================================
+
+class PushupAnalyzeRequest(BaseModel):
+    """Single-frame pose keypoints for real-time pushup analysis.
+
+    Each keypoint is a dict with keys: x, y, score (0-1).
+    Expected order matches MoveNet 17-keypoint layout:
+      0:nose 1:l_eye 2:r_eye 3:l_ear 4:r_ear
+      5:l_shoulder 6:r_shoulder 7:l_elbow 8:r_elbow
+      9:l_wrist 10:r_wrist 11:l_hip 12:r_hip
+      13:l_knee 14:r_knee 15:l_ankle 16:r_ankle
+    """
+    keypoints: List[Dict[str, float]]  # [{x, y, score}, ...] length 17
+    exercise_type: str = "pushup"
+
+    # Rep-counting state forwarded from the frontend
+    current_phase: str = "IDLE"          # IDLE | UP | DOWN
+    lowest_angle_this_rep: float = 180.0
+
+
+class PushupAnalyzeResponse(BaseModel):
+    is_in_pushup_position: bool
+    feedback: str
+    elbow_angle: Optional[float] = None
+    body_alignment: Optional[float] = None
+    rep_event: Optional[str] = None      # "DOWN" | "UP" | "REP_COMPLETE" | None
+    new_phase: str = "IDLE"
+    new_lowest_angle: float = 180.0
+
+
+# --- Internal keypoint index constants (MoveNet 17-kp) ---
+_L_SHOULDER  = 5
+_R_SHOULDER  = 6
+_L_ELBOW     = 7
+_R_ELBOW     = 8
+_L_WRIST     = 9
+_R_WRIST     = 10
+_L_HIP       = 11
+_R_HIP       = 12
+_L_KNEE      = 13
+_R_KNEE      = 14
+_L_ANKLE     = 15
+_R_ANKLE     = 16
+
+_MIN_SCORE = 0.3   # Minimum confidence to treat a keypoint as reliable
+
+# Rep-counting hysteresis thresholds (tightened to prevent double-counts)
+_DOWN_ANGLE = 70.0   # elbow must drop BELOW this to register "down"
+_UP_ANGLE   = 165.0  # elbow must rise ABOVE this to register "up" / complete rep
+
+
+def _kp(keypoints: List[Dict], idx: int) -> Optional[Dict]:
+    """Return keypoint dict if score meets threshold, else None."""
+    try:
+        kp = keypoints[idx]
+        return kp if kp.get("score", 0) >= _MIN_SCORE else None
+    except IndexError:
+        return None
+
+
+def _angle(A: Dict, B: Dict, C: Dict) -> float:
+    """Angle (degrees) at vertex B formed by vectors BA and BC."""
+    ax, ay = A["x"] - B["x"], A["y"] - B["y"]
+    cx, cy = C["x"] - B["x"], C["y"] - B["y"]
+    dot    = ax * cx + ay * cy
+    mag    = (math.sqrt(ax**2 + ay**2) * math.sqrt(cx**2 + cy**2))
+    if mag == 0:
+        return 0.0
+    return math.degrees(math.acos(max(-1.0, min(1.0, dot / mag))))
+
+
+def _unit_length(keypoints: List[Dict]) -> float:
+    """
+    Normalization unit: pixel distance between left shoulder and left hip.
+    Using this as the 'ruler' makes all threshold comparisons scale-invariant
+    regardless of how close the user stands to the camera.
+    Falls back to right side if left is occluded.
+    """
+    for s_idx, h_idx in ((_L_SHOULDER, _L_HIP), (_R_SHOULDER, _R_HIP)):
+        s = _kp(keypoints, s_idx)
+        h = _kp(keypoints, h_idx)
+        if s and h:
+            dx = s["x"] - h["x"]
+            dy = s["y"] - h["y"]
+            d  = math.sqrt(dx**2 + dy**2)
+            if d > 1e-3:
+                return d
+    return 100.0  # Safe fallback if torso is fully occluded
+
+
+def is_in_pushup_position(keypoints: List[Dict]) -> tuple[bool, str]:
+    """
+    Three-gate validator for a horizontal pushup / plank starting position.
+
+    Returns (True, "OK") when all checks pass.
+    Returns (False, <reason>) with a user-facing feedback string on first failure.
+
+    Gate 1 — Height Differential (wrist below shoulder)
+      In a proper plank/pushup the wrist is significantly lower (larger Y on
+      screen) than the shoulder. We require at least 0.3 × unit_length drop.
+
+    Gate 2 — Horizontal Alignment (shoulder / hip / knee on same horizontal plane)
+      We take the Y-coords of shoulder, hip and knee and check that their
+      standard deviation is small compared to their horizontal spread.  In a
+      standing pose these points are stacked vertically (large std-dev in Y);
+      in a plank they are roughly co-linear horizontally (small std-dev in Y).
+      Threshold: std-dev in Y < 0.6 × unit_length.
+
+    Gate 3 — Floor Contact Order (wrist and ankle are the *lowest* visible points)
+      In a pushup the hands and feet touch the floor and should have the
+      largest Y values (screen-coordinate bottom).  We verify that both wrist
+      and ankle Y exceed the shoulder/hip Y — i.e. they are closer to the
+      ground than the torso.
+    """
+    unit = _unit_length(keypoints)
+
+    # Prefer left side, fall back to right
+    shoulder = _kp(keypoints, _L_SHOULDER) or _kp(keypoints, _R_SHOULDER)
+    wrist    = _kp(keypoints, _L_WRIST)    or _kp(keypoints, _R_WRIST)
+    hip      = _kp(keypoints, _L_HIP)      or _kp(keypoints, _R_HIP)
+    knee     = _kp(keypoints, _L_KNEE)     or _kp(keypoints, _R_KNEE)
+    ankle    = _kp(keypoints, _L_ANKLE)    or _kp(keypoints, _R_ANKLE)
+
+    if not all([shoulder, wrist, hip, knee, ankle]):
+        return False, "Cannot see all required joints — move into frame"
+
+    # ---- Gate 1: Height Differential ----
+    # Y increases downward. Wrist must be noticeably below (higher Y) than shoulder.
+    wrist_drop = (wrist["y"] - shoulder["y"]) / unit
+    if wrist_drop < 0.3:
+        return False, "Get into a plank position"
+
+    # ---- Gate 2: Horizontal Alignment ----
+    # Measure Y-coord spread of {shoulder, hip, knee}.
+    torso_ys   = [shoulder["y"], hip["y"], knee["y"]]
+    y_mean     = sum(torso_ys) / 3
+    y_std      = math.sqrt(sum((y - y_mean)**2 for y in torso_ys) / 3)
+    y_std_norm = y_std / unit
+    if y_std_norm > 0.6:
+        return False, "Get into a plank position"
+
+    # ---- Gate 3: Floor Contact ----
+    # Both wrist and ankle Y must exceed (be below) the shoulder and hip Y.
+    torso_max_y = max(shoulder["y"], hip["y"])
+    if wrist["y"] <= torso_max_y or ankle["y"] <= torso_max_y:
+        return False, "Get into a plank position"
+
+    return True, "OK"
+
+
+@app.post("/api/pushup/analyze", response_model=PushupAnalyzeResponse)
+def analyze_pushup(req: PushupAnalyzeRequest):
+    """
+    Real-time pushup position validation and rep-counting endpoint.
+
+    Workflow
+    --------
+    1. Run is_in_pushup_position() — if it fails, return immediately with
+       feedback="Get into a plank position" so the UI shows a red X.
+    2. Compute the elbow angle (shoulder → elbow → wrist) for the visible side.
+    3. Run the rep-counting state machine with tightened hysteresis:
+       DOWN threshold : elbow_angle < 70°
+       UP   threshold : elbow_angle > 165°
+    4. Return the new phase, new lowest angle, and any rep event.
+    """
+    kps = req.keypoints
+
+    # --- Gate: Position Validation ---
+    valid, reason = is_in_pushup_position(kps)
+    if not valid:
+        return PushupAnalyzeResponse(
+            is_in_pushup_position=False,
+            feedback=reason,
+            new_phase=req.current_phase,
+            new_lowest_angle=req.lowest_angle_this_rep,
+        )
+
+    # --- Elbow Angle (prefer left, fall back to right) ---
+    elbow_angle: Optional[float] = None
+    for s_idx, e_idx, w_idx in ((_L_SHOULDER, _L_ELBOW, _L_WRIST),
+                                  (_R_SHOULDER, _R_ELBOW, _R_WRIST)):
+        s = _kp(kps, s_idx)
+        e = _kp(kps, e_idx)
+        w = _kp(kps, w_idx)
+        if s and e and w:
+            elbow_angle = _angle(s, e, w)
+            break
+
+    # --- Body Alignment (shoulder → hip → ankle) ---
+    body_alignment: Optional[float] = None
+    for s_idx, h_idx, a_idx in ((_L_SHOULDER, _L_HIP, _L_ANKLE),
+                                  (_R_SHOULDER, _R_HIP, _R_ANKLE)):
+        s = _kp(kps, s_idx)
+        h = _kp(kps, h_idx)
+        a = _kp(kps, a_idx)
+        if s and h and a:
+            body_alignment = _angle(s, h, a)
+            break
+
+    # --- Rep Counting State Machine ---
+    phase        = req.current_phase
+    lowest_angle = req.lowest_angle_this_rep
+    rep_event: Optional[str] = None
+    feedback     = "FORM_NOMINAL — Tracking active"
+
+    if elbow_angle is not None:
+        if elbow_angle < lowest_angle:
+            lowest_angle = elbow_angle
+
+        if phase in ("IDLE", "UP"):
+            if elbow_angle < _DOWN_ANGLE:
+                phase     = "DOWN"
+                rep_event = "DOWN"
+        elif phase == "DOWN":
+            if elbow_angle > _UP_ANGLE:
+                phase        = "UP"
+                rep_event    = "REP_COMPLETE"
+                lowest_angle = 180.0  # Reset for next rep
+    else:
+        feedback = "Elbow not visible — adjust camera angle"
+
+    return PushupAnalyzeResponse(
+        is_in_pushup_position=True,
+        feedback=feedback,
+        elbow_angle=elbow_angle,
+        body_alignment=body_alignment,
+        rep_event=rep_event,
+        new_phase=phase,
+        new_lowest_angle=lowest_angle,
+    )
 
 
 @app.post("/api/form/analyze", response_model=schemas.FormAnalysisResponse)
@@ -70,7 +305,7 @@ def analyze_form_lstm(req: schemas.FormAnalysisRequest):
     Input: JSON with exercise_type and landmark_sequence (30 frames × 99 values each).
     Output: Accuracy %, label confidences, alerts, and terminal-style joint status.
     """
-    # Validate sequence dimensions
+    
     sequence = req.landmark_sequence
 
     if len(sequence) != SEQUENCE_LENGTH:
@@ -88,13 +323,13 @@ def analyze_form_lstm(req: schemas.FormAnalysisRequest):
                        f"(33 landmarks × 3 coords)."
             )
 
-    # Convert to numpy and reshape for the model: (1, 30, 99)
+    
     try:
         sequence_array = np.array(sequence, dtype=np.float32).reshape(1, SEQUENCE_LENGTH, FEATURES_PER_FRAME)
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Failed to parse landmark data: {e}")
 
-    # Run LSTM inference
+    
     model = get_form_model()
     result = model.predict_form(sequence_array)
     result["exercise_type"] = req.exercise_type
@@ -102,16 +337,16 @@ def analyze_form_lstm(req: schemas.FormAnalysisRequest):
     return result
 
 
-# ====================================
-#  POST-WORKOUT SESSION ANALYSIS
-# ====================================
+
+
+
 
 def _grade_session(avg_precision: float, total_reps: int, form_flags: list) -> str:
     """Calculate a letter grade for the workout session."""
     score = avg_precision
-    # Penalize for form issues
+    
     score -= len(form_flags) * 5
-    # Bonus for rep count
+    
     if total_reps >= 20:
         score += 5
     elif total_reps >= 10:
@@ -164,7 +399,7 @@ async def analyze_session(req: schemas.SessionAnalysisRequest):
     grade = _grade_session(req.avg_precision, req.total_reps, req.form_flags)
     recommendations = _build_recommendations(req.exercise_type, req.form_flags)
 
-    # Build a coaching summary prompt for Ollama
+    
     duration_min = round(req.duration_seconds / 60, 1)
     flag_str = ", ".join(req.form_flags) if req.form_flags else "none detected"
 
@@ -179,7 +414,7 @@ async def analyze_session(req: schemas.SessionAnalysisRequest):
         f"Give encouraging but honest feedback. Be specific about what to improve."
     )
 
-    # Try Ollama for AI summary
+    
     summary = ""
     OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     try:
@@ -198,7 +433,7 @@ async def analyze_session(req: schemas.SessionAnalysisRequest):
     except Exception as e:
         print(f"[SessionAnalysis] Ollama unavailable: {e}")
 
-    # Fallback summary if Ollama is not available
+    
     if not summary:
         if grade in ("A+", "A"):
             summary = (
@@ -227,9 +462,9 @@ async def analyze_session(req: schemas.SessionAnalysisRequest):
 
 
 
-# ====================================
-#  HEALTH CHECK
-# ====================================
+
+
+
 
 @app.get("/")
 def root():
@@ -241,9 +476,9 @@ def health_check():
     return {"status": "healthy", "engine": "tensorflow_lstm", "version": "3.0.0"}
 
 
-# ====================================
-#  USER MANAGEMENT
-# ====================================
+
+
+
 
 @app.post("/api/users/register", response_model=schemas.UserResponse)
 def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
@@ -262,30 +497,30 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 @app.post("/api/auth/request-otp", response_model=schemas.OTPResponse)
 def request_otp(req: schemas.OTPRequest, db: Session = Depends(get_db)):
     """Request OTP for phone-based authentication (mock implementation)."""
-    # Generate a mock OTP (in production, integrate with SMS provider)
+    
     otp = str(random.randint(1000, 9999))
     
-    # Print the OTP to terminal instead of returning it for security
+    
     print(f"\n==========================================")
     print(f"🔒 MOCK OTP FOR {req.phone}: {otp}")
     print(f"==========================================\n")
     
-    # In production, store OTP in cache (Redis) with expiration
+    
     return {"message": f"OTP sent to {req.phone}"}
 
 
 @app.post("/api/auth/verify-otp", response_model=schemas.OTPVerifyResponse)
 def verify_otp(req: schemas.OTPVerify, db: Session = Depends(get_db)):
     """Verify OTP and return/create user."""
-    # In production, verify OTP from cache
-    # For now, accept any 4-digit OTP
+    
+    
     if len(req.otp) != 4:
         raise HTTPException(status_code=400, detail="Invalid OTP format.")
 
     is_new_user = False
     user = db.query(models.UserDB).filter(models.UserDB.phone == req.phone).first()
     if not user:
-        # Auto-register new user on first OTP verification
+        
         is_new_user = True
         user = models.UserDB(phone=req.phone)
         db.add(user)
@@ -305,7 +540,7 @@ def onboard_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     """Onboard a new user with profile details after OTP verification."""
     existing = db.query(models.UserDB).filter(models.UserDB.phone == user.phone).first()
     if existing:
-        # Update existing user with onboarding data
+        
         for field, value in user.model_dump(exclude_unset=True).items():
             if value is not None:
                 setattr(existing, field, value)
@@ -313,7 +548,7 @@ def onboard_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
         db.refresh(existing)
         return existing
 
-    # Create new user
+    
     new_user = models.UserDB(**user.model_dump())
     db.add(new_user)
     db.commit()
@@ -345,9 +580,9 @@ def update_user(user_id: int, updates: schemas.UserUpdate, db: Session = Depends
     return user
 
 
-# ====================================
-#  AI DAILY INSIGHTS
-# ====================================
+
+
+
 
 @app.get("/api/user/{user_id}/insights")
 def get_daily_insights(user_id: int, db: Session = Depends(get_db)):
@@ -374,9 +609,9 @@ def get_daily_insights(user_id: int, db: Session = Depends(get_db)):
     return JSONResponse(content=insights)
 
 
-# ====================================
-#  WORKOUT LOGGING
-# ====================================
+
+
+
 
 CALORIE_MULTIPLIERS = {
     "Cardio": 10,
@@ -388,12 +623,12 @@ CALORIE_MULTIPLIERS = {
 @app.post("/api/workout/log")
 async def log_workout(workout: schemas.WorkoutLogCreate, db: Session = Depends(get_db)):
     """Logs a completed workout session with dynamic macro engine integration."""
-    # Calculate estimated calories: duration_minutes * category multiplier
+    
     category = workout.exercise_category or "Strength"
     multiplier = CALORIE_MULTIPLIERS.get(category, 4)
     estimated_calories = int(workout.duration_minutes * multiplier)
 
-    # Store estimated calories on the workout log
+    
     workout_data = workout.model_dump()
     workout_data["dynamic_calories"] = estimated_calories
 
@@ -402,7 +637,7 @@ async def log_workout(workout: schemas.WorkoutLogCreate, db: Session = Depends(g
     db.commit()
     db.refresh(new_log)
 
-    # Call AI engine for post-workout macro adjustments
+    
     macro_adjustments = await generate_post_workout_macros(
         exercise_category=category,
         duration_minutes=workout.duration_minutes,
@@ -433,19 +668,19 @@ def get_user_workouts(user_id: int, db: Session = Depends(get_db)):
     ).order_by(models.WorkoutLog.logged_at.desc()).all()
 
 
-# ====================================
-#  NUTRITION PLANNER - MIFFLIN-ST JEOR
-# ====================================
+
+
+
 
 ACTIVITY_MULTIPLIERS = {
-    "beginner": 1.375,      # Light exercise 1-3 days/week
-    "intermediate": 1.55,   # Moderate exercise 3-5 days/week
-    "advanced": 1.725,      # Hard exercise 6-7 days/week
+    "beginner": 1.375,      
+    "intermediate": 1.55,   
+    "advanced": 1.725,      
 }
 
 GOAL_CALORIE_DELTA = {
-    "lose": -500,       # 500 kcal deficit -> ~0.5 kg/week loss
-    "gain": +300,       # 300 kcal surplus -> lean bulk
+    "lose": -500,       
+    "gain": +300,       
     "maintain": 0,
 }
 
@@ -474,8 +709,8 @@ def _calculate_nutrition(user: models.UserDB) -> dict:
     goal_delta = GOAL_CALORIE_DELTA.get(user.fitness_goal, 0)
     target = tdee + goal_delta
 
-    protein_g = round(w * 2.0, 1)              # 2g per kg bodyweight
-    fat_g = round((target * 0.25) / 9, 1)      # 25% of calories from fat
+    protein_g = round(w * 2.0, 1)              
+    fat_g = round((target * 0.25) / 9, 1)      
     carbs_kcal = target - (protein_g * 4) - (fat_g * 9)
     carbs_g = round(carbs_kcal / 4, 1)
 
@@ -501,7 +736,7 @@ def generate_nutrition_plan(req: schemas.NutritionRequest, db: Session = Depends
 
     nutrition = _calculate_nutrition(user)
 
-    # Send calculated macros to Ollama Phi-3 locally
+    
     ai_meal_plan_text = ai_trainer.generate_meal_plan_ollama(
         user_goal=user.fitness_goal,
         calories=nutrition["target_calories"],
@@ -522,10 +757,7 @@ def generate_nutrition_plan(req: schemas.NutritionRequest, db: Session = Depends
 @app.get("/api/nutrition/plan/{user_id}", response_model=schemas.NutritionPlanResponse)
 def get_latest_nutrition_plan(user_id: int, db: Session = Depends(get_db)):
     """Returns the most recently generated nutrition plan for a user."""
-    plan = db.query(models.NutritionPlan)\
-             .filter(models.NutritionPlan.user_id == user_id)\
-             .order_by(models.NutritionPlan.generated_at.desc())\
-             .first()
+    plan = db.query(models.NutritionPlan)             .filter(models.NutritionPlan.user_id == user_id)             .order_by(models.NutritionPlan.generated_at.desc())             .first()
 
     if not plan:
         raise HTTPException(
@@ -535,20 +767,20 @@ def get_latest_nutrition_plan(user_id: int, db: Session = Depends(get_db)):
     return plan
 
 
-# ====================================
-#  FOOD SEARCH (USDA FoodData Central + Fallback)
-# ====================================
 
-# USDA FoodData Central API (primary food search provider)
+
+
+
+
 USDA_API_KEY = os.getenv("USDA_API_KEY", "")
 USDA_API_URL = "https://api.nal.usda.gov/fdc/v1/foods/search"
 
-# USDA Nutrient IDs for macro extraction
+
 USDA_NUTRIENT_MAP = {
-    1008: "calories",   # Energy (KCAL)
-    1003: "protein",    # Protein (G)
-    1005: "carbs",      # Carbohydrate, by difference (G)
-    1004: "fats",       # Total lipid / fat (G)
+    1008: "calories",   
+    1003: "protein",    
+    1005: "carbs",      
+    1004: "fats",       
 }
 
 
@@ -566,7 +798,7 @@ def _parse_usda_food(food_item: dict) -> dict:
     }
 
 
-# Dummy food database for when no API key is available
+
 DUMMY_FOOD_DB = [
     {"id": "food_001", "name": "Grilled Chicken Breast", "calories": 284, "protein": 53, "carbs": 0, "fats": 6},
     {"id": "food_002", "name": "Chicken Biryani", "calories": 490, "protein": 22, "carbs": 58, "fats": 18},
@@ -597,10 +829,10 @@ async def search_food(
     (via query param or server env), otherwise falls back to a local
     dummy database.
     """
-    # Resolve the active key: prefer client-provided, then server env
+    
     active_key = usda_key or USDA_API_KEY
 
-    # Try USDA FoodData Central API if a key is available
+    
     if active_key:
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -624,20 +856,20 @@ async def search_food(
         except Exception as e:
             print(f"[FoodSearch] USDA API request failed: {e}")
 
-    # Fallback: filter dummy database by query (case-insensitive partial match)
+    
     query_lower = query.lower()
     matches = [item for item in DUMMY_FOOD_DB if query_lower in item["name"].lower()]
 
-    # If no exact matches, return all items sorted by relevance
+    
     if not matches:
         matches = DUMMY_FOOD_DB[:8]
 
     return {"source": "local", "results": matches}
 
 
-# ====================================
-#  FOOD LOGGING (In-Memory + AI Eval)
-# ====================================
+
+
+
 
 class FoodLogCreate(BaseModel):
     """Schema for logging a single food item's macros."""
@@ -648,10 +880,10 @@ class FoodLogCreate(BaseModel):
     fats_g: float = 0.0
     user_goal: Optional[str] = None
 
-# In-memory store: { "YYYY-MM-DD": [ {food_name, calories, ...}, ... ] }
+
 daily_food_logs: dict[str, list] = {}
 
-# Default user goal used when none is provided
+
 DEFAULT_USER_GOAL = "Muscle Hypertrophy"
 
 
@@ -661,14 +893,14 @@ def log_food(entry: FoodLogCreate):
     Logs a food item to today's in-memory ledger, then runs
     the meal through the AI evaluator for personalised feedback.
     """
-    today = date.today().isoformat()  # "YYYY-MM-DD"
+    today = date.today().isoformat()  
     if today not in daily_food_logs:
         daily_food_logs[today] = []
 
     entry_data = entry.model_dump()
     daily_food_logs[today].append(entry_data)
 
-    # Run AI meal evaluation
+    
     user_goal = entry.user_goal or DEFAULT_USER_GOAL
     macros = {
         "calories": entry.calories,
@@ -709,9 +941,9 @@ def get_today_nutrition():
     }
 
 
-# ====================================
-#  AI TRAINER CHAT
-# ====================================
+
+
+
 
 @app.post("/api/trainer/chat", response_model=schemas.TrainerChatResponse)
 def chat_with_trainer(req: schemas.TrainerChatRequest, db: Session = Depends(get_db)):

@@ -28,12 +28,12 @@ class UserDB(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    # --- AUTHENTICATION ---
+    
     email = Column(String, unique=True, index=True, nullable=True)
     phone = Column(String, unique=True, index=True)
     name = Column(String, nullable=True)
 
-    # --- FITNESS PROFILE ---
+    
     age = Column(Integer, nullable=True)
     gender = Column(String, nullable=True)
     height_cm = Column(Float, nullable=True)
@@ -41,10 +41,10 @@ class UserDB(Base):
     fitness_goal = Column(String, default="maintain")
     activity_level = Column(String, default="beginner")
 
-    # --- META ---
+    
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # --- RELATIONSHIPS ---
+    
     workout_logs = relationship("WorkoutLog", back_populates="user")
     nutrition_plans = relationship("NutritionPlan", back_populates="user")
 
@@ -81,12 +81,12 @@ class NutritionPlan(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
 
-    # Mifflin-St Jeor outputs
+    
     bmr = Column(Float)
     tdee = Column(Float)
     target_calories = Column(Float)
 
-    # Macro breakdown
+    
     protein_g = Column(Float)
     carbs_g = Column(Float)
     fat_g = Column(Float)

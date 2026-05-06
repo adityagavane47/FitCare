@@ -22,7 +22,7 @@ def _query_ollama(prompt: str) -> str:
         "model": MODEL_NAME,
         "prompt": prompt,
         "stream": False,
-        # Keep model loaded briefly so repeated calls are less likely to cold-start timeout.
+        
         "keep_alive": "5m",
     }
 

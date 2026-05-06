@@ -73,17 +73,17 @@ def get_workout_plan_json(user_goal: str, activity_level: str, duration_minutes:
     prompt = f"""
 Generate a {duration_minutes}-minute workout plan for a {activity_level} user with the goal to {user_goal}.
 Respond with ONLY a raw JSON object matching this exact structure:
-{{
+{ 
   "plan_title": "A short, motivating title",
   "warm_up": ["Exercise 1 - 5 min", "Exercise 2 - 3 min"],
   "main_workout": [
-    {{"exercise": "Push-ups", "sets": 3, "reps": "12", "rest_seconds": 60}},
-    {{"exercise": "Squats", "sets": 4, "reps": "15", "rest_seconds": 45}}
+    { "exercise": "Push-ups", "sets": 3, "reps": "12", "rest_seconds": 60} ,
+    { "exercise": "Squats", "sets": 4, "reps": "15", "rest_seconds": 45} 
   ],
   "cool_down": ["Stretch 1 - 3 min", "Stretch 2 - 2 min"],
   "estimated_calories": 250,
   "trainer_tip": "A short motivating tip"
-}}
+} 
 """
     
     payload = {
@@ -99,7 +99,7 @@ Respond with ONLY a raw JSON object matching this exact structure:
         response = requests.post(OLLAMA_CHAT_URL, json=payload, timeout=120)
         if response.status_code == 200:
             raw_response = response.json().get("response", "").strip()
-            # Clean up potential markdown formatting that Phi-3 might still include
+            
             raw_response = re.sub(r'```json\s*', '', raw_response)
             raw_response = re.sub(r'```\s*', '', raw_response)
             return json.loads(raw_response)
@@ -230,11 +230,11 @@ User Stats:
 - Fitness Goal: {goal}
 
 Generate EXACTLY this JSON (no markdown, no extra text):
-{{
+{ 
   "quote": "A short, hype-inducing motivational quote (1-2 sentences max)",
   "fact": "A random, highly specific fitness fact relevant to their goal ({goal}) and body metrics",
   "target": "A specific, actionable daily target (e.g. 'Burn 400 active calories today' or 'Complete 3 sets of 15 squats')"
-}}
+} 
 """
 
     payload = {
@@ -253,7 +253,7 @@ Generate EXACTLY this JSON (no markdown, no extra text):
             raw = re.sub(r'```json\s*', '', raw)
             raw = re.sub(r'```\s*', '', raw)
             result = json.loads(raw)
-            # Validate required keys exist
+            
             for key in ("quote", "fact", "target"):
                 if key not in result:
                     result[key] = _get_fallback_insights(goal).get(key)
@@ -309,7 +309,7 @@ Rules:
 1. Calculate reasonable extra_protein_g (integer, 5-60 range) and extra_carbs_g (integer, 5-80 range) based on the calories burned and exercise category.
 2. Write a short, robotic, cyberpunk-themed directive (1-2 sentences). Example style: "SYSTEM OVERRIDE: 400 Kcal depleted. Consume 30g extra protein for tissue synthesis."
 3. Respond with ONLY valid JSON matching this exact structure:
-{{"extra_protein_g": <int>, "extra_carbs_g": <int>, "directive": "<string>"}}
+{ "extra_protein_g": <int>, "extra_carbs_g": <int>, "directive": "<string>"} 
 """
 
     payload = {
@@ -328,7 +328,7 @@ Rules:
             raw = re.sub(r'```json\s*', '', raw)
             raw = re.sub(r'```\s*', '', raw)
             result = json.loads(raw)
-            # Validate and clamp values
+            
             result["extra_protein_g"] = int(result.get("extra_protein_g", 15))
             result["extra_carbs_g"] = int(result.get("extra_carbs_g", 20))
             if "directive" not in result or not result["directive"]:
@@ -341,7 +341,7 @@ Rules:
     except requests.exceptions.RequestException as e:
         logger.error(f"Ollama macro connection failed: {e}")
 
-    # Fallback when Ollama is offline
+    
     if exercise_category == "Strength":
         return {
             "extra_protein_g": max(10, int(estimated_calories * 0.08)),
