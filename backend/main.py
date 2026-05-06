@@ -399,9 +399,10 @@ async def analyze_session(req: schemas.SessionAnalysisRequest):
     grade = _grade_session(req.avg_precision, req.total_reps, req.form_flags)
     recommendations = _build_recommendations(req.exercise_type, req.form_flags)
 
-    
     duration_min = round(req.duration_seconds / 60, 1)
     flag_str = ", ".join(req.form_flags) if req.form_flags else "none detected"
+    hr_str   = f"{req.avg_heart_rate} BPM" if req.avg_heart_rate else "not recorded"
+    cal_str  = f"{req.watch_calories} kcal (watch)" if req.watch_calories else f"~{round(duration_min * 6)} kcal (est.)"
 
     prompt = (
         f"You are a concise fitness coach. Summarize this workout session in 2-3 sentences.\n"
@@ -409,6 +410,8 @@ async def analyze_session(req: schemas.SessionAnalysisRequest):
         f"Reps completed: {req.total_reps}\n"
         f"Average form precision: {req.avg_precision}%\n"
         f"Duration: {duration_min} minutes\n"
+        f"Average heart rate: {hr_str}\n"
+        f"Calories burned: {cal_str}\n"
         f"Form issues detected: {flag_str}\n"
         f"Grade: {grade}\n"
         f"Give encouraging but honest feedback. Be specific about what to improve."
@@ -620,42 +623,98 @@ CALORIE_MULTIPLIERS = {
     "Combat": 8,
 }
 
+
+def _recovery_directive(avg_hr: Optional[int], duration_min: float) -> dict:
+    """
+    Heart-rate-based macro recovery directive.
+
+    High-intensity (avg HR > 150): prioritise fast-digesting Carbohydrates
+    to replenish glycogen depleted during anaerobic effort.
+
+    Moderate / low intensity (avg HR ≤ 150): prioritise Protein for
+    muscle-fibre repair and hypertrophy signalling.
+    """
+    if avg_hr is None:
+        return {
+            "focus": "BALANCED",
+            "rationale": "No heart rate data available. Consume a balanced post-workout meal.",
+            "priority_macro": "Protein + Carbs",
+        }
+
+    if avg_hr > 150:
+        carb_g = round(duration_min * 1.2, 0)  # ~1.2 g carbs / min at high intensity
+        return {
+            "focus": "CARBOHYDRATE_REPLENISHMENT",
+            "rationale": (
+                f"High-intensity session (avg {avg_hr} BPM). Glycogen depleted. "
+                f"Target ~{int(carb_g)} g fast carbs (banana, rice) within 30 min."
+            ),
+            "priority_macro": "Carbohydrates",
+            "suggested_carbs_g": int(carb_g),
+        }
+    else:
+        protein_g = round(duration_min * 0.4, 0)  # ~0.4 g protein / min at moderate intensity
+        return {
+            "focus": "MUSCLE_REPAIR",
+            "rationale": (
+                f"Moderate-intensity session (avg {avg_hr} BPM). Muscle fibres stressed. "
+                f"Target ~{int(protein_g)} g quality protein (whey, eggs) within 45 min."
+            ),
+            "priority_macro": "Protein",
+            "suggested_protein_g": int(protein_g),
+        }
+
+
 @app.post("/api/workout/log")
 async def log_workout(workout: schemas.WorkoutLogCreate, db: Session = Depends(get_db)):
-    """Logs a completed workout session with dynamic macro engine integration."""
-    
+    """Logs a completed workout session with Fusion Data + dynamic macro engine."""
+
     category = workout.exercise_category or "Strength"
     multiplier = CALORIE_MULTIPLIERS.get(category, 4)
+
+    # Prefer actual watch calories; fall back to formula estimate
     estimated_calories = int(workout.duration_minutes * multiplier)
+    final_calories = workout.watch_calories or estimated_calories
 
-    
     workout_data = workout.model_dump()
-    workout_data["dynamic_calories"] = estimated_calories
+    workout_data["dynamic_calories"] = final_calories
 
-    new_log = models.WorkoutLog(**workout_data)
+    new_log = models.WorkoutLog(**{
+        k: v for k, v in workout_data.items()
+        if hasattr(models.WorkoutLog, k)
+    })
     db.add(new_log)
     db.commit()
     db.refresh(new_log)
 
-    
     macro_adjustments = await generate_post_workout_macros(
         exercise_category=category,
         duration_minutes=workout.duration_minutes,
-        estimated_calories=estimated_calories
+        estimated_calories=final_calories
     )
+
+    recovery = _recovery_directive(workout.avg_heart_rate, workout.duration_minutes)
 
     return JSONResponse(content={
         "status": "success",
         "estimated_calories": estimated_calories,
+        "actual_calories": final_calories,
+        "recovery_directive": recovery,
         "macro_adjustments": macro_adjustments,
+        "fusion_summary": {
+            "total_reps":    workout.total_reps,
+            "avg_precision": workout.avg_precision,
+            "avg_heart_rate": workout.avg_heart_rate,
+            "watch_calories": workout.watch_calories,
+        },
         "workout_log": {
-            "id": new_log.id,
-            "user_id": new_log.user_id,
-            "exercise_type": new_log.exercise_type,
+            "id":               new_log.id,
+            "user_id":          new_log.user_id,
+            "exercise_type":    new_log.exercise_type,
             "exercise_category": new_log.exercise_category,
-            "exercise_name": new_log.exercise_name,
+            "exercise_name":    new_log.exercise_name,
             "duration_minutes": new_log.duration_minutes,
-            "logged_at": new_log.logged_at.isoformat(),
+            "logged_at":        new_log.logged_at.isoformat(),
         }
     })
 

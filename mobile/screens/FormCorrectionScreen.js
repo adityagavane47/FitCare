@@ -17,9 +17,11 @@ import * as tf from '@tensorflow/tfjs';
 import { cameraWithTensors } from '@tensorflow/tfjs-react-native';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import { fitcareAPI } from '../services/api';
+import { startLiveHeartRate, stopLiveHeartRate, sendWorkoutToBackend, fetchActiveCalories } from '../services/wearable';
 
 const BACKEND_BASE = 'http://10.20.1.7:8000'; // ← Update to your server IP
 const STABILIZATION_DURATION = 1500; // ms the user must hold plank before counting starts
+const HR_DANGER_THRESHOLD = 170;    // BPM above this triggers voice warning
 
 const TensorCamera = cameraWithTensors(CameraView);
 
@@ -279,6 +281,13 @@ export default function FormCorrectionScreen({ route, navigation }) {
     const [repCount, setRepCount] = useState(0);
     const [latency, setLatency] = useState(0);
     const [loadingProgress, setLoadingProgress] = useState('');
+
+    // ---- BLE Heart Rate State ----
+    const [liveBpm, setLiveBpm] = useState(null);
+    const [bpmPulse] = useState(new Animated.Value(1));
+    const liveBpmRef = useRef(null);
+    const hrSamplesRef = useRef([]); // all BPM readings for avg calculation
+    const sessionStartTimeRef = useRef(null); // ISO string for Health Connect fetch
     const [exercisePhase, setExercisePhase] = useState('IDLE'); // IDLE | UP | DOWN
 
     // ---- Position Calibration State ----
@@ -408,6 +417,39 @@ export default function FormCorrectionScreen({ route, navigation }) {
             }
         };
     }, []);
+
+    // ================================================================
+    //  BLE HEART RATE — start/stop with analysis
+    // ================================================================
+
+    useEffect(() => {
+        if (isAnalyzing) {
+            // Pulse animation for BPM card
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(bpmPulse, { toValue: 1.25, duration: 400, useNativeDriver: true }),
+                    Animated.timing(bpmPulse, { toValue: 1.0,  duration: 400, useNativeDriver: true }),
+                ])
+            ).start();
+
+            startLiveHeartRate(
+                (bpm) => {
+                    setLiveBpm(bpm);
+                    liveBpmRef.current = bpm;
+                    hrSamplesRef.current.push(bpm);
+                },
+                (err) => console.log('[HR] BLE error:', err)
+            );
+        } else {
+            bpmPulse.stopAnimation();
+            bpmPulse.setValue(1);
+            stopLiveHeartRate();
+        }
+
+        return () => {
+            stopLiveHeartRate();
+        };
+    }, [isAnalyzing]);
 
     // ================================================================
     //  ALERT PULSE ANIMATION
@@ -565,17 +607,17 @@ export default function FormCorrectionScreen({ route, navigation }) {
     //  VOICE COACHING ENGINE — 5-second cooldown
     // ================================================================
 
-    const triggerVoiceAlert = useCallback((alertMessage) => {
+    const triggerVoiceAlert = useCallback((alertMessage, force = false) => {
         const now = Date.now();
         const cleanText = alertMessage
             .replace(/::/g, '. ')
             .replace(/—/g, ', ')
             .replace(/_/g, ' ');
 
-        // Only speak if: different warning OR 5+ seconds since last speech
-        if (cleanText !== lastSpokenWarningRef.current || (now - lastSpokenRef.current > 5000)) {
+        // Smart gate: only speak if different warning OR 5+ seconds elapsed
+        if (force || cleanText !== lastSpokenWarningRef.current || (now - lastSpokenRef.current > 5000)) {
             Speech.speak(cleanText, {
-                rate: 0.95,
+                rate: 0.85,   // Cybernetic / robotic cadence
                 pitch: 0.85,
                 language: 'en-US',
             });
@@ -583,6 +625,16 @@ export default function FormCorrectionScreen({ route, navigation }) {
             lastSpokenWarningRef.current = cleanText;
         }
     }, []);
+
+    // HR threshold watcher — fires voice alert when BPM exceeds safety limit
+    useEffect(() => {
+        if (!isAnalyzing || liveBpm === null) return;
+        if (liveBpm > HR_DANGER_THRESHOLD) {
+            triggerVoiceAlert(
+                `Warning. Heart rate critical at ${liveBpm} beats per minute. Consider slowing down.`
+            );
+        }
+    }, [liveBpm, isAnalyzing, triggerVoiceAlert]);
 
     // ================================================================
     //  CAMERA STREAM HANDLER — On-Device Pose Detection Loop
@@ -711,8 +763,10 @@ export default function FormCorrectionScreen({ route, navigation }) {
 
         // Session tracking
         sessionStartRef.current = Date.now();
+        sessionStartTimeRef.current = new Date().toISOString(); // for Health Connect query
         formFlagsRef.current = new Set();
         precisionSamplesRef.current = [];
+        hrSamplesRef.current = [];
     }, [stabilizationAnim]);
 
     const stopAnalysis = useCallback(async () => {
@@ -735,29 +789,61 @@ export default function FormCorrectionScreen({ route, navigation }) {
         positionLockedRef.current = false;
         lockTimerStartRef.current = null;
 
-        // Send post-workout summary to backend if we had a real session
+        // Send fusion data to backend if we had a real session
         if (wasAnalyzing && sessionStartRef.current && repCountRef.current > 0) {
-            const durationSeconds = Math.round((Date.now() - sessionStartRef.current) / 1000);
-            const samples = precisionSamplesRef.current;
-            const avgPrecision = samples.length > 0
+            const sessionEndTime   = new Date().toISOString();
+            const sessionStartISO  = sessionStartTimeRef.current;
+            const durationSeconds  = Math.round((Date.now() - sessionStartRef.current) / 1000);
+            const durationMinutes  = durationSeconds / 60;
+            const samples          = precisionSamplesRef.current;
+            const avgPrecision     = samples.length > 0
                 ? Math.round(samples.reduce((a, b) => a + b, 0) / samples.length)
                 : 100;
 
+            // BLE-derived heart rate stats
+            const hrSamples = hrSamplesRef.current;
+            const avgHR = hrSamples.length > 0
+                ? Math.round(hrSamples.reduce((a, b) => a + b, 0) / hrSamples.length)
+                : 0;
+            const maxHR = hrSamples.length > 0 ? Math.max(...hrSamples) : 0;
+
             try {
+                // Fetch actual watch calories from Health Connect (best effort)
+                let watchCalories = null;
+                if (sessionStartISO) {
+                    watchCalories = await fetchActiveCalories(sessionStartISO, sessionEndTime);
+                }
+
+                // Send Fusion Data to /api/workout/log
+                await sendWorkoutToBackend({
+                    userId:           userId || 1,
+                    type:             exerciseType,
+                    duration:         durationMinutes,
+                    exerciseCategory: exerciseType === 'pushup' ? 'Strength' : 'Strength',
+                    exerciseName:     exerciseType,
+                    avgHR,
+                    maxHR,
+                    totalReps:        repCountRef.current,
+                    avgPrecision,
+                    watchCalories,
+                });
+
+                // AI session coaching summary
                 const sessionData = {
-                    user_id: userId || 1,
-                    exercise_type: exerciseType,
-                    total_reps: repCountRef.current,
-                    avg_precision: avgPrecision,
-                    form_flags: Array.from(formFlagsRef.current),
+                    user_id:          userId || 1,
+                    exercise_type:    exerciseType,
+                    total_reps:       repCountRef.current,
+                    avg_precision:    avgPrecision,
+                    form_flags:       Array.from(formFlagsRef.current),
                     duration_seconds: durationSeconds,
+                    avg_heart_rate:   avgHR,
+                    watch_calories:   watchCalories,
                 };
 
                 const result = await fitcareAPI.analyzeSession(sessionData);
                 if (result?.summary) {
                     setStatusMessage('SESSION_COMPLETE :: ' + result.grade);
-                    // Speak the summary
-                    Speech.speak(result.summary, { rate: 0.9, pitch: 0.85 });
+                    Speech.speak(result.summary, { rate: 0.85, pitch: 0.85 });
                 }
             } catch (err) {
                 console.warn('[Session] Failed to send summary:', err.message);
@@ -1086,6 +1172,33 @@ export default function FormCorrectionScreen({ route, navigation }) {
                         </Text>
                         <Text style={styles.latencyUnit}>ms</Text>
                     </View>
+
+                    {/* Live Heart Rate (BLE) */}
+                    <Animated.View style={[
+                        styles.hrCard,
+                        liveBpm !== null && { borderColor: liveBpm > HR_DANGER_THRESHOLD ? COLORS.danger : COLORS.cyan },
+                        { transform: [{ scale: isAnalyzing && liveBpm !== null ? bpmPulse : 1 }] },
+                    ]}>
+                        <Text style={styles.hrLabel}>❤ BPM</Text>
+                        <Text style={[
+                            styles.hrValue,
+                            { color: liveBpm !== null
+                                ? (liveBpm > HR_DANGER_THRESHOLD ? COLORS.danger : COLORS.cyan)
+                                : COLORS.textDim },
+                        ]}>
+                            {liveBpm !== null ? liveBpm : '--'}
+                        </Text>
+                        <Text style={[styles.hrStatus, {
+                            color: liveBpm !== null
+                                ? (liveBpm > HR_DANGER_THRESHOLD ? COLORS.danger : COLORS.cyan)
+                                : COLORS.textDim
+                        }]}>
+                            {liveBpm === null ? 'NO_SIGNAL'
+                                : liveBpm > HR_DANGER_THRESHOLD ? 'CRITICAL'
+                                : liveBpm > 140 ? 'HIGH'
+                                : 'NOMINAL'}
+                        </Text>
+                    </Animated.View>
                 </View>
 
                 {/* ===== REP COUNTER (Left Side) ===== */}
@@ -1475,6 +1588,38 @@ const styles = StyleSheet.create({
         fontSize: 9,
         fontWeight: '700',
         marginTop: -2,
+    },
+
+    // ---- Heart Rate Card (BLE Live Feed) ----
+    hrCard: {
+        width: 100,
+        alignItems: 'center',
+        backgroundColor: COLORS.surfaceGlass,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: COLORS.cyanDim,
+        paddingVertical: 10,
+        paddingHorizontal: 8,
+    },
+    hrLabel: {
+        color: COLORS.textMuted,
+        fontFamily: FONTS.mono,
+        fontSize: 7,
+        fontWeight: '800',
+        letterSpacing: 1,
+        marginBottom: 4,
+    },
+    hrValue: {
+        fontFamily: FONTS.mono,
+        fontSize: 26,
+        fontWeight: '900',
+    },
+    hrStatus: {
+        fontFamily: FONTS.mono,
+        fontSize: 7,
+        fontWeight: '800',
+        letterSpacing: 1,
+        marginTop: 2,
     },
 
     // ---- Rep Counter Card (Left Side) ----

@@ -86,6 +86,10 @@ class WorkoutLogCreate(BaseModel):
     avg_heart_rate: Optional[int] = None
     calories_burned: Optional[float] = None
     dynamic_calories: Optional[float] = None
+    # Fusion data from the Vision Engine + Watch
+    total_reps: Optional[int] = None
+    avg_precision: Optional[float] = None
+    watch_calories: Optional[float] = None
 
 
 class WorkoutLogResponse(BaseModel):
@@ -205,6 +209,9 @@ class SessionAnalysisRequest(BaseModel):
     form_flags: list[str] = Field(default_factory=list, description="Unique form issues detected during session")
     duration_seconds: int = Field(..., description="Total session duration in seconds")
     landmark_summary: Optional[list[list[float]]] = Field(None, description="Optional batch of landmark frames for deep analysis")
+    # Biometric fusion fields
+    avg_heart_rate: Optional[int] = Field(None, description="Average BPM from BLE watch stream")
+    watch_calories: Optional[float] = Field(None, description="Actual kcal from Health Connect")
 
 
 class SessionAnalysisResponse(BaseModel):
