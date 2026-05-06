@@ -131,9 +131,9 @@ This project is private and intended for educational/research purposes.
 
 ## Group 11
 
-- Priyam Gandhi
-- Gaurav Jain
-- Mayuresh Gavali
-- Manashree Ghan
 - Aditya Gavane
+- Priyam Gandhi
+- Manashri Ghan
+- Mayuresh Gavali
+- Gaurav Jain
 
