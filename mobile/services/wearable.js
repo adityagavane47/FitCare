@@ -214,6 +214,34 @@ export const fetchActiveCalories = async (startTime, endTime) => {
     }
 };
 
+/**
+ * Fetches total step count from Health Connect within the given time window.
+ *
+ * @param {string} startTime  ISO 8601 timestamp
+ * @param {string} endTime    ISO 8601 timestamp
+ * @returns {Promise<number|null>} Total steps, or null on failure.
+ */
+export const fetchStepsData = async (startTime, endTime) => {
+    try {
+        const { HealthConnect } = require('react-native-health-connect');
+        const records = await HealthConnect.readRecords('Steps', {
+            timeRangeFilter: {
+                operator: 'between',
+                startTime,
+                endTime,
+            },
+        });
+
+        if (!records || records.length === 0) return null;
+
+        const total = records.reduce((acc, r) => acc + (r.count ?? 0), 0);
+        return total;
+    } catch (error) {
+        console.log('[HealthConnect] Steps Read Error:', error.message);
+        return null;
+    }
+};
+
 // ================================================================
 //  UNIFIED WORKOUT LOGGING
 //  Accepts "Fusion Data": Reps + Form Quality + Watch Calories
@@ -229,9 +257,9 @@ export const fetchActiveCalories = async (startTime, endTime) => {
  * @param {string}  [workoutData.exerciseCategory] e.g. 'Strength'
  * @param {string}  [workoutData.exerciseName]
  * @param {number}  [workoutData.avgHR]          average BPM from BLE stream
- * @param {number}  [workoutData.maxHR]          peak BPM
+ * @param {number}  [workoutData.maxHR]          peak BPM from BLE stream
  * @param {number}  [workoutData.totalReps]      reps counted by the Vision Engine
- * @param {number}  [workoutData.avgPrecision]   form quality 0-100
+ * @param {number}  [workoutData.avgPrecision]   form accuracy 0-100
  * @param {number}  [workoutData.watchCalories]  actual kcal from Health Connect
  */
 export const sendWorkoutToBackend = async (workoutData) => {
@@ -240,16 +268,26 @@ export const sendWorkoutToBackend = async (workoutData) => {
         return;
     }
 
-    return await fitcareAPI.logWorkout({
-        user_id:           workoutData.userId,
-        exercise_type:     workoutData.type,
-        duration_minutes:  workoutData.duration,
-        exercise_category: workoutData.exerciseCategory,
-        exercise_name:     workoutData.exerciseName,
-        avg_heart_rate:    workoutData.avgHR       ?? 0,
-        heart_rate_max:    workoutData.maxHR       ?? 0,
-        total_reps:        workoutData.totalReps   ?? 0,
-        avg_precision:     workoutData.avgPrecision ?? 0,
-        watch_calories:    workoutData.watchCalories ?? null,
-    });
+    const payload = {
+        user_id:            workoutData.userId,
+        exercise_type:      workoutData.type,
+        duration_minutes:   workoutData.duration,
+        exercise_category:  workoutData.exerciseCategory,
+        exercise_name:      workoutData.exerciseName,
+
+        // ── Sensor Fusion Fields ──────────────────────────────────────
+        reps:               workoutData.totalReps      ?? 0,
+        form_accuracy:      workoutData.avgPrecision   ?? 0,
+        average_heart_rate: workoutData.avgHR          ?? 0,
+        peak_heart_rate:    workoutData.maxHR          ?? 0,
+        watch_calories:     workoutData.watchCalories  ?? null,
+        // Legacy aliases kept for backwards compatibility with older backend routes
+        avg_heart_rate:     workoutData.avgHR          ?? 0,
+        heart_rate_max:     workoutData.maxHR          ?? 0,
+        total_reps:         workoutData.totalReps      ?? 0,
+        avg_precision:      workoutData.avgPrecision   ?? 0,
+    };
+
+    console.log('[Sync] Sending fusion packet:', JSON.stringify(payload, null, 2));
+    return await fitcareAPI.logWorkout(payload);
 };

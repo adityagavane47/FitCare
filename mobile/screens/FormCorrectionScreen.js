@@ -631,7 +631,8 @@ export default function FormCorrectionScreen({ route, navigation }) {
         if (!isAnalyzing || liveBpm === null) return;
         if (liveBpm > HR_DANGER_THRESHOLD) {
             triggerVoiceAlert(
-                `Warning. Heart rate critical at ${liveBpm} beats per minute. Consider slowing down.`
+                'Critical Heart Rate Detected. Please Terminate Set.',
+                true // force — always speak regardless of cooldown for safety
             );
         }
     }, [liveBpm, isAnalyzing, triggerVoiceAlert]);

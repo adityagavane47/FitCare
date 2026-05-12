@@ -11,11 +11,27 @@
         "backgroundColor": "#000000"
       },
       "package": "com.fitcare.mobile",
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.health.READ_HEART_RATE",
+        "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
+        "android.permission.health.READ_STEPS"
+      ]
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.fitcare.mobile"
+      "bundleIdentifier": "com.fitcare.mobile",
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "FitCare uses Bluetooth to stream live heart rate data from your Fireboltt smartwatch during workouts.",
+        "NSBluetoothPeripheralUsageDescription": "FitCare uses Bluetooth to connect to your smartwatch.",
+        "NSLocationWhenInUseUsageDescription": "Location access is required for Bluetooth Low Energy scanning on iOS."
+      }
     },
     "plugins": [
       [
@@ -23,11 +39,19 @@
         {
           "permissions": [
             "HeartRate",
-            "ActiveCaloriesBurned"
+            "ActiveCaloriesBurned",
+            "Steps"
           ]
         }
       ],
-      "react-native-ble-plx",
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": ["peripheral", "central"],
+          "bluetoothAlwaysPermission": "FitCare uses Bluetooth to stream heart rate from your smartwatch."
+        }
+      ],
       "expo-font",
       [
         "expo-build-properties",
