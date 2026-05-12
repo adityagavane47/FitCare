@@ -1,660 +1,418 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-    View, Text, ScrollView, StyleSheet, ActivityIndicator,
-    Animated, Pressable,
+    View, Text, StyleSheet, ActivityIndicator,
+    Pressable, Dimensions, Platform,
 } from 'react-native';
+import Animated, {
+    useSharedValue, useAnimatedStyle, useAnimatedScrollHandler,
+    interpolate, Extrapolation, withTiming,
+} from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MotiView } from 'moti';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../constants/Colors';
 import { fitcareAPI } from '../services/api';
-import CustomHeader from '../components/CustomHeader';
 import { useFocusEffect } from '@react-navigation/native';
 import { initializeWearable, fetchWorkoutHeartRateData } from '../services/wearable';
+import GlassCard, { FloatInCard } from '../components/GlassCard';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
+
+const { width: W } = Dimensions.get('window');
+const HEADER_H = Platform.OS === 'ios' ? 100 : 86;
+const MONO = Platform.OS === 'ios' ? 'Menlo' : 'monospace';
+const NEON = '#39FF14';
+const BLUE = '#3B82F6';
 
 const GOAL_LABELS = { lose: '🔥 Lose Weight', gain: '💪 Gain Muscle', maintain: '⚖️ Maintain' };
-const ACTIVITY_LABELS = { beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced' };
 
+// ─── Frosted progress bar ─────────────────────────────────────────────────────
+const GlassBar = ({ pct = 0, color = NEON, label, value }) => (
+    <View style={bar.wrap}>
+        <View style={bar.labelRow}>
+            <Text style={[bar.label, { fontFamily: 'Orbitron', color }]}>{label}</Text>
+            <Text style={[bar.value, { color }]}>{value}</Text>
+        </View>
+        <View style={bar.track}>
+            <MotiView
+                from={{ width: '0%' }}
+                animate={{ width: `${Math.min(pct, 100)}%` }}
+                transition={{ type: 'timing', duration: 900, delay: 200 }}
+                style={[bar.fill, {
+                    backgroundColor: color,
+                    shadowColor: color,
+                    shadowOpacity: 0.7,
+                    shadowRadius: 6,
+                    shadowOffset: { width: 0, height: 0 },
+                }]}
+            />
+        </View>
+    </View>
+);
+
+const bar = StyleSheet.create({
+    wrap:     { marginBottom: 14 },
+    labelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+    label:    { fontSize: 10, letterSpacing: 2, color: NEON },
+    value:    { fontSize: 12, fontWeight: '700', color: NEON },
+    track:    { height: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' },
+    fill:     { height: '100%', borderRadius: 3, elevation: 4 },
+});
+
+// ─── Stat Pill ────────────────────────────────────────────────────────────────
+const Stat = ({ value, unit, label, color = NEON }) => (
+    <View style={stat.wrap}>
+        <Text style={[stat.value, { color, fontFamily: 'Orbitron-Bold' }]}>{value}</Text>
+        <Text style={[stat.unit, { color }]}>{unit}</Text>
+        <Text style={stat.label}>{label}</Text>
+    </View>
+);
+const stat = StyleSheet.create({
+    wrap:  { alignItems: 'center', flex: 1 },
+    value: { fontSize: 26, fontWeight: '900' },
+    unit:  { fontSize: 11, fontWeight: '600', marginTop: -2, opacity: 0.75 },
+    label: { color: 'rgba(255,255,255,0.45)', fontSize: 10, marginTop: 4, fontFamily: MONO, letterSpacing: 1 },
+});
+
+// ─── Animated Blurred Header ──────────────────────────────────────────────────
+const BlurHeader = ({ scrollY, navigation }) => {
+    const animStyle = useAnimatedStyle(() => ({
+        opacity: interpolate(scrollY.value, [0, 60], [0, 1], Extrapolation.CLAMP),
+    }));
+
+    return (
+        <View style={header.root} pointerEvents="box-none">
+            {/* Blur layer fades in as user scrolls */}
+            <Animated.View style={[StyleSheet.absoluteFill, animStyle]} pointerEvents="none">
+                <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
+                <LinearGradient
+                    colors={['rgba(0,0,0,0.6)', 'rgba(0,0,0,0.2)']}
+                    style={StyleSheet.absoluteFill}
+                />
+            </Animated.View>
+            {/* Always-visible content */}
+            <View style={header.content}>
+                <Pressable onPress={() => navigation.dispatch(DrawerActions.openDrawer())} style={header.menuBtn}>
+                    <View style={[header.line, { marginBottom: 4 }]} />
+                    <View style={header.line} />
+                    <View style={[header.line, { marginTop: 4, width: 14 }]} />
+                </Pressable>
+                <Text style={[header.title, { fontFamily: 'Orbitron-Bold' }]}>FITCARE HUB</Text>
+                <View style={{ width: 40 }} />
+            </View>
+            {/* Bottom neon line */}
+            <Animated.View style={[header.glow, animStyle]} pointerEvents="none" />
+        </View>
+    );
+};
+const header = StyleSheet.create({
+    root:    { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100, height: HEADER_H },
+    content: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: Platform.OS === 'ios' ? 52 : 42, paddingBottom: 12 },
+    title:   { color: NEON, fontSize: 16, letterSpacing: 3, textShadowColor: NEON, textShadowRadius: 8, textShadowOffset: { width: 0, height: 0 } },
+    menuBtn: { width: 40, justifyContent: 'center' },
+    line:    { height: 2, backgroundColor: NEON, borderRadius: 1, width: 22 },
+    glow:    { height: 1, backgroundColor: NEON, shadowColor: NEON, shadowOpacity: 0.9, shadowRadius: 8, shadowOffset: { width: 0, height: 0 }, marginHorizontal: 20, borderRadius: 1 },
+});
+
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 const HomeScreen = ({ route, navigation }) => {
     const { userId } = route.params;
-    const [user, setUser] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [user, setUser]         = useState(null);
+    const [loading, setLoading]   = useState(true);
+    const [quote, setQuote]       = useState('');
+    const [fact, setFact]         = useState('');
+    const [insightsLoading, setInsightsLoading] = useState(true);
+    const [wearableOk, setWearableOk]           = useState(false);
+    const [heartRate, setHeartRate]             = useState(null);
+    const [syncing, setSyncing]                 = useState(false);
+    const [nutrition, setNutrition]             = useState(null);
 
-    // AI Insights state
-    const [quote, setQuote] = useState('');
-    const [fact, setFact] = useState('');
-    const [target, setTarget] = useState('');
-    const [isLoadingInsights, setIsLoadingInsights] = useState(true);
+    const scrollY = useSharedValue(0);
+    const syncScale = useSharedValue(1);
 
-    // Wearable / Health Connect state
-    const [wearableConnected, setWearableConnected] = useState(false);
-    const [todayHeartRate, setTodayHeartRate] = useState(null);
-    const [isSyncing, setIsSyncing] = useState(false);
+    const scrollHandler = useAnimatedScrollHandler(e => { scrollY.value = e.contentOffset.y; });
 
-    // ── Animation refs ──
-    /** Terminal boot: entire dashboard fades in from 0 → 1 */
-    const fadeAnim = useRef(new Animated.Value(0)).current;
-    /** Heartbeat: pulseDot scales 1 → 1.5 → 1 on loop */
-    const pulseAnim = useRef(new Animated.Value(1)).current;
-    /** Cyber button: SYNC NOW scales down on press, bounces back */
-    const syncScaleAnim = useRef(new Animated.Value(1)).current;
-
-    // Nutrition / Energy Intake state
-    const [nutritionData, setNutritionData] = useState(null);
-    /** Animated width percentage for calorie progress bar (useNativeDriver: false) */
-    const calorieBarAnim = useRef(new Animated.Value(0)).current;
-    const proteinBarAnim = useRef(new Animated.Value(0)).current;
-    /** Cyber button for LOG FOOD */
-    const logFoodScaleAnim = useRef(new Animated.Value(1)).current;
-
+    // Load user
     useEffect(() => {
         fitcareAPI.getUser(userId)
             .then(setUser)
-            .catch(() => { })
+            .catch(() => {})
             .finally(() => setLoading(false));
     }, [userId]);
 
-    // Animation 1 — Terminal Boot: fade in dashboard on mount
+    // AI insights
     useEffect(() => {
-        Animated.timing(fadeAnim, {
-            toValue: 1,
-            duration: 800,
-            useNativeDriver: true,
-        }).start();
-    }, []);
-
-    // Animation 2 — Heartbeat Pulse: loop when wearable is connected
-    useEffect(() => {
-        if (!wearableConnected) return;
-        const heartbeat = Animated.loop(
-            Animated.sequence([
-                Animated.timing(pulseAnim, {
-                    toValue: 1.5,
-                    duration: 600,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(pulseAnim, {
-                    toValue: 1,
-                    duration: 600,
-                    useNativeDriver: true,
-                }),
-            ])
-        );
-        heartbeat.start();
-        return () => heartbeat.stop(); // cleanup on unmount / disconnect
-    }, [wearableConnected]);
-
-    // Initialize Health Connect once on mount; auto-fetch if granted
-    useEffect(() => {
-        (async () => {
-            const granted = await initializeWearable();
-            setWearableConnected(granted);
-            if (granted) {
-                await fetchTodayVitals();
-            }
-        })();
-    }, []);
-
-    /** Fetches today's average heart rate from Health Connect. */
-    const fetchTodayVitals = async () => {
-        setIsSyncing(true);
-        try {
-            const startOfDay = new Date();
-            startOfDay.setHours(0, 0, 0, 0);
-            const now = new Date();
-            const avgHR = await fetchWorkoutHeartRateData(
-                startOfDay.toISOString(),
-                now.toISOString()
-            );
-            setTodayHeartRate(avgHR);
-        } catch (_) {
-            setTodayHeartRate(null);
-        } finally {
-            setIsSyncing(false);
-        }
-    };
-
-    // Fetch AI daily insights
-    useEffect(() => {
-        setIsLoadingInsights(true);
+        setInsightsLoading(true);
         fitcareAPI.getDailyInsights(userId)
-            .then(async (data) => {
-                setQuote(data.quote || '');
-                setFact(data.fact || '');
-                setTarget(data.target || '');
-                // Persist target for ProgressDashboard
-                if (data.target) {
-                    try {
-                        await AsyncStorage.setItem('@fitcare_daily_target', data.target);
-                    } catch (_) { }
-                }
-            })
+            .then(d => { setQuote(d.quote || ''); setFact(d.fact || ''); })
             .catch(() => {
                 setQuote('Discipline is choosing between what you want now and what you want most.');
                 setFact('Consistent training improves your resting metabolic rate by up to 7%.');
-                setTarget('Stay active — complete a 20-minute bodyweight circuit today.');
             })
-            .finally(() => setIsLoadingInsights(false));
+            .finally(() => setInsightsLoading(false));
     }, [userId]);
 
-    // Fetch nutrition data every time HomeScreen gains focus
-    useFocusEffect(
-        useCallback(() => {
-            (async () => {
-                try {
-                    const data = await fitcareAPI.fetchTodayNutrition();
-                    setNutritionData(data);
-                    const calPct = Math.min((data.total_calories / data.calorie_goal) * 100, 100);
-                    const proPct = Math.min((data.total_protein / data.protein_goal) * 100, 100);
-                    Animated.parallel([
-                        Animated.timing(calorieBarAnim, {
-                            toValue: calPct,
-                            duration: 700,
-                            useNativeDriver: false,
-                        }),
-                        Animated.timing(proteinBarAnim, {
-                            toValue: proPct,
-                            duration: 700,
-                            useNativeDriver: false,
-                        }),
-                    ]).start();
-                } catch (_) {
-                    // Silently fail — card just shows 0
-                }
-            })();
-        }, [])
-    );
+    // Wearable init
+    useEffect(() => {
+        (async () => {
+            const ok = await initializeWearable();
+            setWearableOk(ok);
+            if (ok) syncVitals();
+        })();
+    }, []);
 
-    const bmi = user && user.height_cm && user.weight_kg
-        ? (user.weight_kg / Math.pow(user.height_cm / 100, 2)).toFixed(1)
-        : null;
-
-    const getBmiCategory = (b) => {
-        if (!b) return '';
-        if (b < 18.5) return 'Underweight';
-        if (b < 25) return 'Normal';
-        if (b < 30) return 'Overweight';
-        return 'Obese';
+    const syncVitals = async () => {
+        setSyncing(true);
+        try {
+            const start = new Date(); start.setHours(0, 0, 0, 0);
+            const hr = await fetchWorkoutHeartRateData(start.toISOString(), new Date().toISOString());
+            setHeartRate(hr);
+        } catch (_) { setHeartRate(null); }
+        finally { setSyncing(false); }
     };
 
-    if (loading) {
-        return <View style={styles.centered}><ActivityIndicator color={Colors.primary} size="large" /></View>;
-    }
+    // Nutrition on focus
+    useFocusEffect(useCallback(() => {
+        fitcareAPI.fetchTodayNutrition()
+            .then(setNutrition)
+            .catch(() => {});
+    }, []));
+
+    const bmi = user?.height_cm && user?.weight_kg
+        ? (user.weight_kg / Math.pow(user.height_cm / 100, 2)).toFixed(1)
+        : null;
+    const bmiCat = b => b < 18.5 ? 'Underweight' : b < 25 ? 'Normal' : b < 30 ? 'Overweight' : 'Obese';
+
+    const calPct  = nutrition ? Math.min((nutrition.total_calories / nutrition.calorie_goal) * 100, 100) : 0;
+    const proPct  = nutrition ? Math.min((nutrition.total_protein  / nutrition.protein_goal)  * 100, 100) : 0;
+
+    const syncBtnStyle = useAnimatedStyle(() => ({ transform: [{ scale: syncScale.value }] }));
+
+    if (loading) return (
+        <View style={s.root}>
+            <ActivityIndicator color={NEON} size="large" style={{ flex: 1 }} />
+        </View>
+    );
 
     return (
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-            <CustomHeader title="FitCare Hub" />
-            {/* Animation 1 — Terminal Boot fade-in wrapper */}
-            <Animated.View style={{ opacity: fadeAnim }}>
+        <View style={s.root}>
+            {/* Scrollable content */}
+            <Animated.ScrollView
+                onScroll={scrollHandler}
+                scrollEventThrottle={16}
+                contentContainerStyle={s.scroll}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* ── Quote banner ── */}
+                <FloatInCard delay={0}>
+                    <GlassCard glowColor="green" intensity={30} style={s.quoteCard}>
+                        {insightsLoading
+                            ? <ActivityIndicator color={NEON} />
+                            : <Text style={s.quoteText}>"{quote}"</Text>}
+                    </GlassCard>
+                </FloatInCard>
 
-            {/* AI Motivational Quote */}
-            <View style={styles.quoteCard}>
-                {isLoadingInsights ? (
-                    <ActivityIndicator color={Colors.primary} size="small" />
-                ) : (
-                    <Text style={styles.aiQuoteText}>"{quote}"</Text>
-                )}
-            </View>
-
-            {/* Header Summary */}
-            <View style={styles.headerSummary}>
-                <View>
-                    <Text style={styles.greeting}>Good day,</Text>
-                    <Text style={styles.name}>
-                        {user?.name || 'Athlete'} <Text style={styles.nameAccent}>⚡</Text>
-                    </Text>
-                </View>
-                <View style={styles.goalBadge}>
-                    <Text style={styles.goalBadgeText}>{GOAL_LABELS[user?.fitness_goal] || '—'}</Text>
-                </View>
-            </View>
-
-            {/* BMI Card */}
-            {bmi && (
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>📊 Your BMI</Text>
-                    <View style={styles.bmiRow}>
-                        <Text style={styles.bmiValue}>{bmi}</Text>
-                        <View>
-                            <Text style={styles.bmiCategory}>{getBmiCategory(parseFloat(bmi))}</Text>
-                            <Text style={styles.bmiSub}>Body Mass Index</Text>
-                        </View>
+                {/* ── Greeting ── */}
+                <MotiView
+                    from={{ opacity: 0, translateX: -20 }}
+                    animate={{ opacity: 1, translateX: 0 }}
+                    transition={{ type: 'spring', damping: 16, stiffness: 130, delay: 120 }}
+                    style={s.greetRow}
+                >
+                    <View>
+                        <Text style={s.greetSub}>GOOD DAY,</Text>
+                        <Text style={[s.greetName, { fontFamily: 'Orbitron-Bold' }]}>
+                            {user?.name?.toUpperCase() || 'ATHLETE'}
+                        </Text>
                     </View>
-                    <View style={styles.bmiScale}>
+                    <View style={[s.goalChip, { borderColor: NEON }]}>
+                        <Text style={[s.goalChipText, { fontFamily: 'Orbitron' }]}>
+                            {GOAL_LABELS[user?.fitness_goal] || '—'}
+                        </Text>
+                    </View>
+                </MotiView>
+
+                {/* ── BMI / Stats Card ── */}
+                <FloatInCard delay={80}>
+                    <GlassCard glowColor="green" float floatDelay={0}>
+                        <Text style={[s.cardLabel, { fontFamily: 'Orbitron' }]}>BIOMETRICS</Text>
+                        <View style={s.statsRow}>
+                            <Stat value={bmi ?? '--'} unit="" label="BMI" />
+                            <View style={s.divider} />
+                            <Stat value={user?.height_cm ?? '--'} unit="cm" label="HEIGHT" />
+                            <View style={s.divider} />
+                            <Stat value={user?.weight_kg ?? '--'} unit="kg" label="MASS" />
+                            <View style={s.divider} />
+                            <Stat value={user?.age ?? '--'} unit="yr" label="AGE" />
+                        </View>
+                        {bmi && (
+                            <Text style={s.bmiCatText}>
+                                STATUS: <Text style={{ color: NEON }}>{bmiCat(parseFloat(bmi)).toUpperCase()}</Text>
+                            </Text>
+                        )}
+                    </GlassCard>
+                </FloatInCard>
+
+                {/* ── Wearable Card ── */}
+                <FloatInCard delay={160}>
+                    <GlassCard glowColor={wearableOk ? 'blue' : 'none'} float floatDelay={400} intensity={40}>
+                        <View style={s.cardHeader}>
+                            <View style={s.cardHeaderLeft}>
+                                {wearableOk && (
+                                    <MotiView
+                                        from={{ opacity: 1, scale: 1 }}
+                                        animate={{ opacity: [1, 0.3, 1], scale: [1, 1.4, 1] }}
+                                        transition={{ type: 'timing', duration: 1000, loop: true }}
+                                        style={[s.pulseDot, { backgroundColor: BLUE }]}
+                                    />
+                                )}
+                                <Text style={[s.cardLabel, { fontFamily: 'Orbitron', color: wearableOk ? BLUE : 'rgba(255,255,255,0.4)' }]}>
+                                    WEARABLE_LINK
+                                </Text>
+                            </View>
+                            <Animated.View style={syncBtnStyle}>
+                                <Pressable
+                                    style={[s.syncBtn, { borderColor: wearableOk ? BLUE : 'rgba(255,255,255,0.2)' }]}
+                                    disabled={syncing}
+                                    onPress={syncVitals}
+                                    onPressIn={() => { syncScale.value = withTiming(0.94, { duration: 80 }); }}
+                                    onPressOut={() => { syncScale.value = withTiming(1,    { duration: 150 }); }}
+                                >
+                                    {syncing
+                                        ? <ActivityIndicator color={BLUE} size={12} />
+                                        : <Text style={[s.syncTxt, { color: wearableOk ? BLUE : 'rgba(255,255,255,0.3)', fontFamily: MONO }]}>SYNC</Text>}
+                                </Pressable>
+                            </Animated.View>
+                        </View>
+
+                        {wearableOk ? (
+                            <View style={s.hrWrap}>
+                                <Text style={[s.hrValue, { fontFamily: 'Orbitron-Bold', color: BLUE }]}>
+                                    {heartRate ?? '--'}
+                                </Text>
+                                <Text style={[s.hrUnit, { color: BLUE }]}> BPM</Text>
+                            </View>
+                        ) : (
+                            <Text style={s.lockedTxt}>Health Connect vault locked or unavailable.</Text>
+                        )}
+                    </GlassCard>
+                </FloatInCard>
+
+                {/* ── Energy Intake Card ── */}
+                <FloatInCard delay={240}>
+                    <GlassCard glowColor="blue" float floatDelay={800} intensity={30}>
+                        <View style={s.cardHeader}>
+                            <Text style={[s.cardLabel, { fontFamily: 'Orbitron', color: BLUE }]}>ENERGY INTAKE</Text>
+                            <Pressable
+                                style={[s.syncBtn, { borderColor: BLUE }]}
+                                onPress={() => navigation.navigate('LogFood')}
+                            >
+                                <Text style={[s.syncTxt, { color: BLUE, fontFamily: MONO }]}>+ LOG</Text>
+                            </Pressable>
+                        </View>
+                        <GlassBar
+                            pct={calPct}
+                            color={BLUE}
+                            label="CALORIES"
+                            value={`${nutrition?.total_calories ?? 0} / ${nutrition?.calorie_goal ?? 2500} kcal`}
+                        />
+                        <GlassBar
+                            pct={proPct}
+                            color={NEON}
+                            label="PROTEIN"
+                            value={`${nutrition?.total_protein ?? 0} / ${nutrition?.protein_goal ?? 150} g`}
+                        />
+                        {nutrition && (
+                            <Text style={s.itemsLogged}>
+                                {nutrition.items_logged} item{nutrition.items_logged !== 1 ? 's' : ''} logged today
+                            </Text>
+                        )}
+                    </GlassCard>
+                </FloatInCard>
+
+                {/* ── AI Knowledge Card ── */}
+                <FloatInCard delay={320}>
+                    <GlassCard glowColor="green" intensity={25}>
+                        <Text style={[s.cardLabel, { fontFamily: 'Orbitron' }]}>AI DAILY KNOWLEDGE</Text>
+                        {insightsLoading
+                            ? <ActivityIndicator color={NEON} style={{ marginTop: 8 }} />
+                            : <Text style={s.factText}>{fact}</Text>}
+                    </GlassCard>
+                </FloatInCard>
+
+                {/* ── Programme Summary Card ── */}
+                <FloatInCard delay={400}>
+                    <GlassCard glowColor="none" intensity={20}>
+                        <Text style={[s.cardLabel, { fontFamily: 'Orbitron' }]}>CURRENT PROGRAMME</Text>
                         {[
-                            { label: '< 18.5', tag: 'Underweight', color: '#3B82F6' },
-                            { label: '18.5–24.9', tag: 'Normal', color: Colors.primary },
-                            { label: '25–29.9', tag: 'Overweight', color: Colors.warning },
-                            { label: '≥ 30', tag: 'Obese', color: Colors.danger },
-                        ].map((r) => (
-                            <View key={r.tag} style={styles.bmiRow2}>
-                                <View style={[styles.bmiDot, { backgroundColor: r.color }]} />
-                                <Text style={styles.bmiScaleText}>{r.label} — {r.tag}</Text>
+                            ['GOAL',     GOAL_LABELS[user?.fitness_goal]  || '—'],
+                            ['ACTIVITY', user?.activity_level?.toUpperCase() || '—'],
+                            ['GENDER',   user?.gender?.toUpperCase()       || '—'],
+                        ].map(([label, val]) => (
+                            <View key={label} style={s.progRow}>
+                                <Text style={[s.progLabel, { fontFamily: MONO }]}>{label}</Text>
+                                <Text style={s.progValue}>{val}</Text>
                             </View>
                         ))}
-                    </View>
-                </View>
-            )}
+                    </GlassCard>
+                </FloatInCard>
 
-            {/* Stats Row */}
-            <View style={styles.statsRow}>
-                <View style={styles.statCard}>
-                    <Text style={styles.statValue}>{user?.height_cm ?? '—'}</Text>
-                    <Text style={styles.statLabel}>Height (cm)</Text>
-                </View>
-                <View style={styles.statCard}>
-                    <Text style={styles.statValue}>{user?.weight_kg ?? '—'}</Text>
-                    <Text style={styles.statLabel}>Weight (kg)</Text>
-                </View>
-                <View style={styles.statCard}>
-                    <Text style={styles.statValue}>{user?.age ?? '—'}</Text>
-                    <Text style={styles.statLabel}>Age</Text>
-                </View>
-            </View>
+                <View style={{ height: 40 }} />
+            </Animated.ScrollView>
 
-            {/* AI Daily Knowledge Card */}
-            <View style={styles.aiCard}>
-                <Text style={styles.aiCardHeader}> AI DAILY KNOWLEDGE</Text>
-                {isLoadingInsights ? (
-                    <View style={styles.aiLoadingContainer}>
-                        <ActivityIndicator color={Colors.primary} size="small" />
-                        <Text style={styles.aiLoadingText}>AI is thinking...</Text>
-                    </View>
-                ) : (
-                    <Text style={styles.aiFactText}>{fact}</Text>
-                )}
-            </View>
-
-            {/* ── Wearable Link Card ── */}
-            <View style={styles.wearableCard}>
-                {/* Card Header */}
-                <View style={styles.wearableHeader}>
-                    <View style={styles.wearableTitleRow}>
-                        {/* Animation 2 — Animated pulse dot */}
-                        {wearableConnected && (
-                            <Animated.View
-                                style={[
-                                    styles.pulseDot,
-                                    { transform: [{ scale: pulseAnim }] },
-                                ]}
-                            />
-                        )}
-                        <Text style={styles.wearableTitle}> WEARABLE LINK</Text>
-                    </View>
-                    {/* Animation 3 — Cyber Pressable SYNC NOW button */}
-                    <Animated.View style={{ transform: [{ scale: syncScaleAnim }] }}>
-                        <Pressable
-                            style={[
-                                styles.syncButton,
-                                isSyncing && styles.syncButtonDisabled,
-                            ]}
-                            onPress={fetchTodayVitals}
-                            disabled={isSyncing}
-                            accessibilityLabel="Sync wearable data now"
-                            onPressIn={() =>
-                                Animated.spring(syncScaleAnim, {
-                                    toValue: 0.95,
-                                    useNativeDriver: true,
-                                    speed: 50,
-                                    bounciness: 4,
-                                }).start()
-                            }
-                            onPressOut={() =>
-                                Animated.spring(syncScaleAnim, {
-                                    toValue: 1,
-                                    useNativeDriver: true,
-                                    speed: 20,
-                                    bounciness: 10,
-                                }).start()
-                            }
-                        >
-                            {isSyncing ? (
-                                <ActivityIndicator color={Colors.primary} size={12} />
-                            ) : (
-                                <Text style={styles.syncButtonText}>SYNC NOW</Text>
-                            )}
-                        </Pressable>
-                    </Animated.View>
-                </View>
-
-                {/* Card Body */}
-                {wearableConnected ? (
-                    <View style={styles.wearableBody}>
-                        <View style={styles.hrValueRow}>
-                            <Text style={styles.hrValue}>
-                                {todayHeartRate !== null ? todayHeartRate : '--'}
-                            </Text>
-                            <Text style={styles.hrUnit}>bpm</Text>
-                        </View>
-                        <Text style={styles.hrLabel}>Today's Avg Heart Rate</Text>
-                    </View>
-                ) : (
-                    <Text style={styles.wearableLockedText}>
-                        Health Connect vault locked or unavailable.
-                    </Text>
-                )}
-            </View>
-
-            {/* ── Energy Intake Card ── */}
-            <View style={styles.energyCard}>
-                <View style={styles.energyHeader}>
-                    <Text style={styles.energyTitle}>⚡ ENERGY INTAKE</Text>
-                    <Animated.View style={{ transform: [{ scale: logFoodScaleAnim }] }}>
-                        <Pressable
-                            style={styles.logFoodButton}
-                            onPress={() => navigation.navigate('LogFood')}
-                            onPressIn={() =>
-                                Animated.spring(logFoodScaleAnim, {
-                                    toValue: 0.95,
-                                    useNativeDriver: true,
-                                    speed: 50,
-                                    bounciness: 4,
-                                }).start()
-                            }
-                            onPressOut={() =>
-                                Animated.spring(logFoodScaleAnim, {
-                                    toValue: 1,
-                                    useNativeDriver: true,
-                                    speed: 20,
-                                    bounciness: 10,
-                                }).start()
-                            }
-                        >
-                            <Text style={styles.logFoodButtonText}>+ LOG FOOD</Text>
-                        </Pressable>
-                    </Animated.View>
-                </View>
-
-                {/* Calorie bar */}
-                <Text style={styles.barLabel}>
-                    Calories: {nutritionData?.total_calories ?? 0} / {nutritionData?.calorie_goal ?? 2500} kcal
-                </Text>
-                <View style={styles.barTrack}>
-                    <Animated.View
-                        style={[
-                            styles.barFill,
-                            {
-                                width: calorieBarAnim.interpolate({
-                                    inputRange: [0, 100],
-                                    outputRange: ['0%', '100%'],
-                                }),
-                            },
-                        ]}
-                    />
-                </View>
-
-                {/* Protein bar */}
-                <Text style={[styles.barLabel, { marginTop: 14 }]}>
-                    Protein: {nutritionData?.total_protein ?? 0} / {nutritionData?.protein_goal ?? 150} g
-                </Text>
-                <View style={styles.barTrack}>
-                    <Animated.View
-                        style={[
-                            styles.barFillProtein,
-                            {
-                                width: proteinBarAnim.interpolate({
-                                    inputRange: [0, 100],
-                                    outputRange: ['0%', '100%'],
-                                }),
-                            },
-                        ]}
-                    />
-                </View>
-
-                {nutritionData && (
-                    <Text style={styles.itemsLogged}>
-                        {nutritionData.items_logged} item{nutritionData.items_logged !== 1 ? 's' : ''} logged today
-                    </Text>
-                )}
-            </View>
-
-            {/* Profile Summary */}
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>⚙️ Current Programme</Text>
-                <View style={styles.programRow}>
-                    <Text style={styles.programLabel}>Goal</Text>
-                    <Text style={styles.programValue}>{GOAL_LABELS[user?.fitness_goal] || '—'}</Text>
-                </View>
-                <View style={styles.programRow}>
-                    <Text style={styles.programLabel}>Activity</Text>
-                    <Text style={styles.programValue}>{ACTIVITY_LABELS[user?.activity_level] || '—'}</Text>
-                </View>
-                <View style={styles.programRow}>
-                    <Text style={styles.programLabel}>Gender</Text>
-                    <Text style={styles.programValue}>{user?.gender ?? '—'}</Text>
-                </View>
-            </View>
-
-            <View style={{ height: 20 }} />
-            </Animated.View>{/* end fade-in wrapper */}
-        </ScrollView>
+            {/* ── Blurred Header (stays on top) ── */}
+            <BlurHeader scrollY={scrollY} navigation={navigation} />
+        </View>
     );
 };
 
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: Colors.background },
-    centered: { flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center' },
-    headerSummary: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: 16, marginTop: 20, marginBottom: 20 },
-    greeting: { color: Colors.textMuted, fontSize: 14 },
-    name: { color: Colors.text, fontSize: 26, fontWeight: '800', marginTop: 2 },
-    nameAccent: { color: Colors.primary },
-    goalBadge: { backgroundColor: Colors.primaryDim, borderWidth: 1, borderColor: Colors.border, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
-    goalBadgeText: { color: Colors.primary, fontSize: 12, fontWeight: '700' },
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+    root: { flex: 1, backgroundColor: '#000' },
+    scroll: { paddingTop: HEADER_H + 16, paddingHorizontal: 16, paddingBottom: 24 },
 
-    // AI Motivational Quote
-    quoteCard: {
-        backgroundColor: Colors.card, borderRadius: 16, padding: 20,
-        marginHorizontal: 16, marginTop: 16,
-        borderWidth: 1, borderColor: Colors.border,
-        alignItems: 'center', minHeight: 60, justifyContent: 'center',
-    },
-    aiQuoteText: {
-        color: '#FFFFFF', fontStyle: 'italic', fontSize: 15, lineHeight: 22,
-        textAlign: 'center', textShadowColor: 'rgba(255,255,255,0.3)', textShadowRadius: 8,
-    },
+    // Quote
+    quoteCard: { marginBottom: 0 },
+    quoteText: { color: '#fff', fontStyle: 'italic', fontSize: 14, lineHeight: 22, textAlign: 'center', opacity: 0.9 },
 
-    // AI Daily Knowledge Card
-    aiCard: {
-        backgroundColor: Colors.card, borderRadius: 16, padding: 16,
-        marginBottom: 12, borderWidth: 1.5, borderColor: Colors.primary,
-    },
-    aiCardHeader: {
-        color: Colors.primary, fontWeight: '900', fontSize: 13,
-        letterSpacing: 1.5, marginBottom: 12,
-    },
-    aiFactText: { color: Colors.text, fontSize: 14, lineHeight: 21 },
-    aiLoadingContainer: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-    aiLoadingText: { color: Colors.textMuted, fontSize: 13 },
+    // Greeting
+    greetRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 4, paddingHorizontal: 4 },
+    greetSub:  { color: 'rgba(255,255,255,0.4)', fontSize: 10, letterSpacing: 3, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+    greetName: { color: '#fff', fontSize: 22, letterSpacing: 2, marginTop: 2, textShadowColor: NEON, textShadowRadius: 6, textShadowOffset: { width: 0, height: 0 } },
+    goalChip:  { borderWidth: 1, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(57,255,20,0.08)' },
+    goalChipText: { color: NEON, fontSize: 10, letterSpacing: 1 },
 
-    card: { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 16, padding: 16, marginBottom: 12 },
-    cardTitle: { color: Colors.primary, fontWeight: '700', fontSize: 14, marginBottom: 12 },
+    // Card internals
+    cardLabel:  { color: NEON, fontSize: 10, letterSpacing: 3, marginBottom: 14, opacity: 0.9 },
+    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+    cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 
-    // ── Wearable Link Card ──
-    wearableCard: {
-        backgroundColor: '#050F05',
-        borderWidth: 1.5,
-        borderColor: '#10B981',
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 12,
-        shadowColor: '#10B981',
-        shadowOpacity: 0.25,
-        shadowRadius: 12,
-        elevation: 6,
-    },
-    wearableHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 14,
-    },
-    wearableTitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    pulseDot: {
-        width: 9,
-        height: 9,
-        borderRadius: 5,
-        backgroundColor: '#10B981',
-        shadowColor: '#10B981',
-        shadowOpacity: 1,
-        shadowRadius: 6,
-        elevation: 4,
-    },
-    wearableTitle: {
-        color: '#10B981',
-        fontWeight: '900',
-        fontSize: 13,
-        letterSpacing: 1.8,
-    },
-    syncButton: {
-        borderWidth: 1,
-        borderColor: '#10B981',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 5,
-        backgroundColor: 'rgba(16, 185, 129, 0.08)',
-        minWidth: 80,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    syncButtonDisabled: {
-        borderColor: 'rgba(16, 185, 129, 0.3)',
-        backgroundColor: 'rgba(16, 185, 129, 0.03)',
-    },
-    syncButtonText: {
-        color: '#10B981',
-        fontSize: 11,
-        fontWeight: '800',
-        letterSpacing: 1.2,
-    },
-    wearableBody: {
-        alignItems: 'flex-start',
-    },
-    hrValueRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        gap: 6,
-    },
-    hrValue: {
-        fontSize: 52,
-        fontWeight: '900',
-        color: '#10B981',
-        textShadowColor: 'rgba(16, 185, 129, 0.5)',
-        textShadowRadius: 12,
-        lineHeight: 60,
-    },
-    hrUnit: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#10B981',
-        marginBottom: 8,
-        opacity: 0.85,
-    },
-    hrLabel: {
-        color: '#6B7280',
-        fontSize: 12,
-        letterSpacing: 0.8,
-        marginTop: 2,
-    },
-    wearableLockedText: {
-        color: '#4B5563',
-        fontStyle: 'italic',
-        fontSize: 13,
-        lineHeight: 20,
-        paddingVertical: 4,
-    },
-    bmiRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 16 },
-    bmiValue: { fontSize: 48, fontWeight: '900', color: Colors.primary, textShadowColor: Colors.primaryGlow, textShadowRadius: 10 },
-    bmiCategory: { color: Colors.primary, fontWeight: '700', fontSize: 16 },
-    bmiSub: { color: Colors.textMuted, fontSize: 12 },
-    bmiScale: { gap: 6 },
-    bmiRow2: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    bmiDot: { width: 8, height: 8, borderRadius: 4 },
-    bmiScaleText: { color: Colors.textMuted, fontSize: 12 },
-    statsRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-    statCard: { flex: 1, backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border, borderRadius: 14, padding: 14, alignItems: 'center' },
-    statValue: { color: Colors.primary, fontSize: 22, fontWeight: '800' },
-    statLabel: { color: Colors.textMuted, fontSize: 11, marginTop: 4 },
-    programRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
-    programLabel: { color: Colors.textMuted, fontSize: 14 },
-    programValue: { color: Colors.text, fontSize: 14, fontWeight: '600' },
+    // Stats row
+    statsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+    divider:  { width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.1)' },
+    bmiCatText: { color: 'rgba(255,255,255,0.45)', fontSize: 10, letterSpacing: 2, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', marginTop: 4 },
 
-    // ── Energy Intake Card ──
-    energyCard: {
-        backgroundColor: '#050A14',
-        borderWidth: 1.5,
-        borderColor: '#3B82F6',
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 12,
-        shadowColor: '#3B82F6',
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        elevation: 6,
-    },
-    energyHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 14,
-    },
-    energyTitle: {
-        color: '#3B82F6',
-        fontWeight: '900',
-        fontSize: 13,
-        letterSpacing: 1.8,
-    },
-    logFoodButton: {
-        borderWidth: 1,
-        borderColor: '#3B82F6',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 5,
-        backgroundColor: 'rgba(59, 130, 246, 0.08)',
-    },
-    logFoodButtonText: {
-        color: '#3B82F6',
-        fontSize: 11,
-        fontWeight: '800',
-        letterSpacing: 1.2,
-    },
-    barLabel: {
-        color: '#6B7280',
-        fontSize: 12,
-        fontWeight: '600',
-        marginBottom: 6,
-    },
-    barTrack: {
-        height: 10,
-        backgroundColor: '#1E1E1E',
-        borderRadius: 5,
-        overflow: 'hidden',
-    },
-    barFill: {
-        height: '100%',
-        backgroundColor: '#3B82F6',
-        borderRadius: 5,
-        shadowColor: '#3B82F6',
-        shadowOpacity: 0.6,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    barFillProtein: {
-        height: '100%',
-        backgroundColor: '#10B981',
-        borderRadius: 5,
-        shadowColor: '#10B981',
-        shadowOpacity: 0.6,
-        shadowRadius: 8,
-        elevation: 4,
-    },
-    itemsLogged: {
-        color: '#4B5563',
-        fontSize: 11,
-        marginTop: 10,
-        fontStyle: 'italic',
-    },
+    // Wearable
+    pulseDot: { width: 8, height: 8, borderRadius: 4, shadowColor: BLUE, shadowOpacity: 1, shadowRadius: 6, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
+    hrWrap:   { flexDirection: 'row', alignItems: 'flex-end' },
+    hrValue:  { fontSize: 52, letterSpacing: 2, lineHeight: 58 },
+    hrUnit:   { fontSize: 18, fontWeight: '700', marginBottom: 8, opacity: 0.8 },
+    lockedTxt:{ color: 'rgba(255,255,255,0.3)', fontSize: 12, fontStyle: 'italic', lineHeight: 18 },
+
+    // Sync button
+    syncBtn: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 5, backgroundColor: 'rgba(255,255,255,0.05)', minWidth: 64, alignItems: 'center' },
+    syncTxt: { fontSize: 10, fontWeight: '800', letterSpacing: 1.5 },
+
+    // AI fact
+    factText: { color: 'rgba(255,255,255,0.8)', fontSize: 13, lineHeight: 20 },
+
+    // Programme
+    progRow:   { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' },
+    progLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 11, letterSpacing: 2 },
+    progValue: { color: '#fff', fontSize: 13, fontWeight: '600' },
+
+    // Nutrition
+    itemsLogged: { color: 'rgba(255,255,255,0.3)', fontSize: 11, fontStyle: 'italic', marginTop: 4 },
 });
 
 export default HomeScreen;
