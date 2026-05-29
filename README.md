@@ -131,9 +131,9 @@ This project is private and intended for educational/research purposes.
 
 ## Group 11
 
-- Aditya Gavane - Posture Correction @ Watch integration
+- Aditya Gavane - Posture Correction & Watch integration
 - Priyam Gandhi - UI/UX
 - Manashri Ghan - Workout Companion & Backend Linkage
 - Mayuresh Gavali - AI assistant 
-- Gaurav Jain - Mobile setup @ MealPlan generation
+- Gaurav Jain - Mobile setup & MealPlan generation
 
