@@ -131,9 +131,9 @@ This project is private and intended for educational/research purposes.
 
 ## Group 11
 
-- Manashri Ghan - Workout Companion & Backend Linkage
+- Aditya Gavane - System Design & backend lead
 - Priyam Gandhi - UI/UX
 - Gaurav Jain - Mobile setup & MealPlan generation
 - Mayuresh Gavali - AI assistant 
-- Aditya Gavane - Posture Correction & Watch integration
+- Manashri Ghan - Workout Companion & Backend Linkage
 
